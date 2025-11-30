@@ -101,6 +101,77 @@ export type Database = {
         }
         Relationships: []
       }
+      mains_questions: {
+        Row: {
+          category: string
+          created_at: string
+          date: string
+          id: string
+          question_text: string
+          word_limit: number
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          date?: string
+          id?: string
+          question_text: string
+          word_limit?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          date?: string
+          id?: string
+          question_text?: string
+          word_limit?: number
+        }
+        Relationships: []
+      }
+      mains_submissions: {
+        Row: {
+          answer_image_url: string | null
+          answer_text: string | null
+          evaluation: string | null
+          id: string
+          marks: number | null
+          question_id: string | null
+          submitted_at: string
+          user_id: string
+          word_count: number | null
+        }
+        Insert: {
+          answer_image_url?: string | null
+          answer_text?: string | null
+          evaluation?: string | null
+          id?: string
+          marks?: number | null
+          question_id?: string | null
+          submitted_at?: string
+          user_id: string
+          word_count?: number | null
+        }
+        Update: {
+          answer_image_url?: string | null
+          answer_text?: string | null
+          evaluation?: string | null
+          id?: string
+          marks?: number | null
+          question_id?: string | null
+          submitted_at?: string
+          user_id?: string
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mains_submissions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "mains_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prelims_attempts: {
         Row: {
           attempted_at: string | null
