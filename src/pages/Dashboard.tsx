@@ -171,16 +171,22 @@ const Dashboard = () => {
               <p className="text-sm text-muted-foreground">Daily schedule</p>
             </Card>
 
-            <Card className="p-6 bg-gradient-card border-0 opacity-50">
-              <Award className="w-10 h-10 mb-3 text-muted-foreground" />
+            <Card
+              onClick={() => navigate("/mains")}
+              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
+            >
+              <Award className="w-10 h-10 mb-3 text-primary" />
               <h3 className="font-semibold mb-1">Mains Practice</h3>
-              <p className="text-sm text-muted-foreground">Coming soon</p>
+              <p className="text-sm text-muted-foreground">Practice essay writing</p>
             </Card>
 
-            <Card className="p-6 bg-gradient-card border-0 opacity-50">
-              <BookOpen className="w-10 h-10 mb-3 text-muted-foreground" />
+            <Card
+              onClick={() => navigate("/notes")}
+              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
+            >
+              <BookOpen className="w-10 h-10 mb-3 text-primary" />
               <h3 className="font-semibold mb-1">Notes Library</h3>
-              <p className="text-sm text-muted-foreground">Coming soon</p>
+              <p className="text-sm text-muted-foreground">Your study notes</p>
             </Card>
           </div>
         </div>
