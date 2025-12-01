@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { 
   BookOpen, Brain, FileText, TrendingUp, Award, 
-  Calendar, LogOut, MessageSquare, Zap, Target 
+  Calendar, LogOut, MessageSquare, Zap, Target, Map, Video
 } from "lucide-react";
 
 const Dashboard = () => {
@@ -187,6 +187,24 @@ const Dashboard = () => {
               <BookOpen className="w-10 h-10 mb-3 text-primary" />
               <h3 className="font-semibold mb-1">Notes Library</h3>
               <p className="text-sm text-muted-foreground">Your study notes</p>
+            </Card>
+
+            <Card
+              onClick={() => navigate("/map-practice")}
+              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
+            >
+              <Map className="w-10 h-10 mb-3 text-primary" />
+              <h3 className="font-semibold mb-1">Map Practice</h3>
+              <p className="text-sm text-muted-foreground">India & World Geography</p>
+            </Card>
+
+            <Card
+              onClick={() => navigate("/mock-interview")}
+              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
+            >
+              <Video className="w-10 h-10 mb-3 text-primary" />
+              <h3 className="font-semibold mb-1">Mock Interview</h3>
+              <p className="text-sm text-muted-foreground">AI Interview Room</p>
             </Card>
           </div>
         </div>

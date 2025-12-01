@@ -14,6 +14,8 @@ import CurrentAffairs from "./pages/CurrentAffairs";
 import StudyPlan from "./pages/StudyPlan";
 import Mains from "./pages/Mains";
 import NotesLibrary from "./pages/NotesLibrary";
+import MapPractice from "./pages/MapPractice";
+import MockInterview from "./pages/MockInterview";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +38,8 @@ const App = () => (
           <Route path="/study-plan" element={<StudyPlan />} />
           <Route path="/mains" element={<Mains />} />
           <Route path="/notes" element={<NotesLibrary />} />
+          <Route path="/map-practice" element={<MapPractice />} />
+          <Route path="/mock-interview" element={<MockInterview />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
