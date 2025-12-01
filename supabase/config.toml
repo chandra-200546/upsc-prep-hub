@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.mains-question]
 verify_jwt = false
+
+[functions.map-questions]
+verify_jwt = false
