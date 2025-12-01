@@ -31,25 +31,19 @@ const MapPractice = () => {
   const generateQuestions = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: {
-          messages: [
-            {
-              role: "user",
-              content: `Generate 5 ${mapType === "india" ? "Indian geography" : "world geography"} questions about states/countries, capitals, rivers, mountains, etc. Format as JSON array with: question, options (4 choices), correctAnswer (index 0-3), explanation.`
-            }
-          ],
-          chatType: "assistant",
-        },
+      const { data, error } = await supabase.functions.invoke('map-questions', {
+        body: { mapType }
       });
 
       if (error) throw error;
 
-      // Parse the response
-      const questionsData = JSON.parse(data.generatedText || "[]");
-      setQuestions(questionsData);
-      setCurrentQuestion(0);
-      setScore(0);
+      if (data?.questions) {
+        setQuestions(data.questions);
+        setCurrentQuestion(0);
+        setScore(0);
+      } else {
+        throw new Error('No questions received');
+      }
     } catch (error) {
       console.error("Error generating questions:", error);
       toast({
@@ -65,7 +59,7 @@ const MapPractice = () => {
   const handleAnswer = (selectedIndex: number) => {
     if (!questions[currentQuestion]) return;
     
-    const isCorrect = selectedIndex === questions[currentQuestion].correctAnswer;
+    const isCorrect = selectedIndex === questions[currentQuestion].correct;
     
     if (isCorrect) {
       setScore(score + 1);

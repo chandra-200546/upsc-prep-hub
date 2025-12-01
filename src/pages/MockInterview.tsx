@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Video, VideoOff, Mic, MicOff, Play, Square } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
 
 const MockInterview = () => {
   const navigate = useNavigate();
@@ -18,12 +17,14 @@ const MockInterview = () => {
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const [questionIndex, setQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
-  const [currentAnswer, setCurrentAnswer] = useState("");
+  const [currentTranscript, setCurrentTranscript] = useState("");
   const [interviewComplete, setInterviewComplete] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [loadingFeedback, setLoadingFeedback] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const interviewQuestions = [
     "Tell us about yourself and your background.",
@@ -43,6 +44,17 @@ const MockInterview = () => {
     }
   }, [stream]);
 
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, [stream]);
+
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
@@ -58,6 +70,44 @@ const MockInterview = () => {
       });
       setStream(mediaStream);
       setHasPermission(true);
+
+      // Initialize speech recognition
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = true;
+        recognitionRef.current.interimResults = true;
+        recognitionRef.current.lang = 'en-US';
+
+        recognitionRef.current.onresult = (event: any) => {
+          let transcript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+          }
+          setCurrentTranscript(transcript);
+        };
+
+        recognitionRef.current.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          toast({
+            title: "Speech Recognition Error",
+            description: "There was an issue with voice recognition. Please try again.",
+            variant: "destructive",
+          });
+          setIsListening(false);
+        };
+
+        recognitionRef.current.onend = () => {
+          setIsListening(false);
+        };
+      } else {
+        toast({
+          title: "Voice Recognition Not Supported",
+          description: "Your browser doesn't support voice recognition. Please use Chrome or Edge.",
+          variant: "destructive",
+        });
+      }
+
       toast({
         title: "Camera Access Granted",
         description: "You can now start the mock interview.",
@@ -87,29 +137,65 @@ const MockInterview = () => {
     setAnswers([]);
     setInterviewComplete(false);
     setFeedback("");
+    setCurrentTranscript("");
+    
+    toast({
+      title: "Interview Started",
+      description: "Click 'Start Speaking' when ready to answer.",
+    });
+  };
+
+  const startListening = () => {
+    if (recognitionRef.current && !isListening) {
+      try {
+        setCurrentTranscript("");
+        recognitionRef.current.start();
+        setIsListening(true);
+        toast({
+          title: "Listening",
+          description: "Speak your answer clearly.",
+        });
+      } catch (error) {
+        console.error('Error starting recognition:', error);
+      }
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
   };
 
   const nextQuestion = () => {
-    if (currentAnswer.trim()) {
-      setAnswers([...answers, currentAnswer]);
-      setCurrentAnswer("");
+    if (currentTranscript.trim()) {
+      stopListening();
+      const updatedAnswers = [...answers, currentTranscript];
+      setAnswers(updatedAnswers);
+      setCurrentTranscript("");
       
       if (questionIndex < interviewQuestions.length - 1) {
         setQuestionIndex(questionIndex + 1);
         setCurrentQuestion(interviewQuestions[questionIndex + 1]);
+        toast({
+          title: "Next Question",
+          description: "Click 'Start Speaking' for your next answer.",
+        });
       } else {
-        finishInterview([...answers, currentAnswer]);
+        finishInterview(updatedAnswers);
       }
     } else {
       toast({
         title: "Answer Required",
-        description: "Please provide an answer before moving to the next question.",
+        description: "Please speak your answer before moving forward.",
         variant: "destructive",
       });
     }
   };
 
   const finishInterview = async (finalAnswers: string[]) => {
+    stopListening();
     setIsRecording(false);
     setInterviewComplete(true);
     setLoadingFeedback(true);
@@ -119,20 +205,54 @@ const MockInterview = () => {
         .map((q, i) => `Q${i + 1}: ${q}\nA${i + 1}: ${finalAnswers[i] || "No answer provided"}`)
         .join("\n\n");
 
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: {
-          messages: [
-            {
-              role: "user",
-              content: `You are an expert UPSC interview panel member. Analyze this mock interview and provide comprehensive feedback:\n\n${interviewTranscript}\n\nProvide feedback on:\n1. Communication skills\n2. Content depth and knowledge\n3. Confidence and body language\n4. Areas of improvement\n5. Overall rating (out of 10)\n\nBe constructive and specific.`
-            }
-          ],
-          chatType: "assistant",
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `You are an expert UPSC interview panel member. Analyze this mock interview and provide comprehensive feedback:\n\n${interviewTranscript}\n\nProvide feedback on:\n1. Communication skills\n2. Content depth and knowledge\n3. Confidence and clarity\n4. Areas of improvement\n5. Overall rating (out of 10)\n\nBe constructive and specific.`
+          }],
+          chatType: 'assistant'
+        }),
       });
 
-      if (error) throw error;
-      setFeedback(data.generatedText || "Feedback generation failed.");
+      if (!response.ok) throw new Error('Failed to get feedback');
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      let fullFeedback = '';
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                fullFeedback += content;
+                setFeedback(fullFeedback);
+              }
+            } catch (e) {
+              // Skip invalid JSON
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error("Error generating feedback:", error);
       toast({
@@ -173,14 +293,6 @@ const MockInterview = () => {
     }
   };
 
-  useEffect(() => {
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [stream]);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/20">
       {/* Header */}
@@ -196,7 +308,7 @@ const MockInterview = () => {
               </div>
               <div>
                 <h1 className="font-bold text-lg">AI Mock Interview</h1>
-                <p className="text-xs text-muted-foreground">Practice with AI Feedback</p>
+                <p className="text-xs text-muted-foreground">Voice-Based Interview Practice</p>
               </div>
             </div>
           </div>
@@ -255,7 +367,7 @@ const MockInterview = () => {
             <Video className="w-16 h-16 mx-auto mb-4 text-primary" />
             <h3 className="text-xl font-bold mb-2">Enable Camera Access</h3>
             <p className="text-muted-foreground mb-6">
-              Camera and microphone access is required for the mock interview
+              Camera and microphone access is required for the voice-based mock interview
             </p>
             <Button onClick={requestPermissions} size="lg">
               Enable Camera & Microphone
@@ -268,7 +380,7 @@ const MockInterview = () => {
             <Play className="w-16 h-16 mx-auto mb-4 text-success" />
             <h3 className="text-xl font-bold mb-2">Ready to Start?</h3>
             <p className="text-muted-foreground mb-6">
-              You will be asked {interviewQuestions.length} questions. Answer thoughtfully and professionally.
+              You will be asked {interviewQuestions.length} questions. Answer by speaking your responses aloud.
             </p>
             <Button onClick={startInterview} size="lg">
               Start Interview
@@ -293,16 +405,29 @@ const MockInterview = () => {
               </div>
 
               <div className="space-y-4">
-                <label className="text-sm font-medium">Your Answer:</label>
-                <Textarea
-                  value={currentAnswer}
-                  onChange={(e) => setCurrentAnswer(e.target.value)}
-                  placeholder="Type your answer here... (simulating voice transcription)"
-                  className="min-h-[150px]"
-                />
+                <div className="min-h-[150px] p-4 border-2 rounded-lg bg-muted/30">
+                  <div className="flex items-center gap-2 mb-3">
+                    {isListening && <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />}
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {isListening ? "Listening... Speak your answer" : "Click 'Start Speaking' to begin"}
+                    </p>
+                  </div>
+                  <p className="text-lg leading-relaxed">
+                    {currentTranscript || "Your spoken answer will appear here..."}
+                  </p>
+                </div>
+                
+                <Button 
+                  onClick={isListening ? stopListening : startListening}
+                  variant={isListening ? "destructive" : "default"}
+                  size="lg"
+                  className="w-full"
+                >
+                  {isListening ? <><MicOff className="mr-2 h-5 w-5" /> Stop Speaking</> : <><Mic className="mr-2 h-5 w-5" /> Start Speaking</>}
+                </Button>
               </div>
 
-              <div className="flex justify-end gap-3">
+              <div className="flex justify-end gap-3 pt-4 border-t">
                 {questionIndex === interviewQuestions.length - 1 ? (
                   <Button onClick={nextQuestion} size="lg" className="gap-2">
                     <Square className="w-4 h-4" />
@@ -330,7 +455,7 @@ const MockInterview = () => {
             ) : (
               <div className="space-y-6">
                 <div className="prose prose-sm max-w-none">
-                  <div className="whitespace-pre-wrap text-foreground">{feedback}</div>
+                  <div className="whitespace-pre-wrap text-foreground leading-relaxed">{feedback}</div>
                 </div>
                 
                 <div className="flex gap-3 pt-6 border-t">
@@ -338,7 +463,7 @@ const MockInterview = () => {
                     setInterviewComplete(false);
                     setAnswers([]);
                     setQuestionIndex(0);
-                    setCurrentAnswer("");
+                    setCurrentTranscript("");
                   }}>
                     Try Again
                   </Button>
