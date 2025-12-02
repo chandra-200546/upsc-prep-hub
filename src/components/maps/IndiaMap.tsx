@@ -1,7 +1,8 @@
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
 import { useState } from "react";
 
-const INDIA_TOPO_JSON = "https://raw.githubusercontent.com/geohacker/india/master/state/india_telangana.geojson";
+// Using a reliable TopoJSON source for India
+const INDIA_TOPO_JSON = "https://cdn.jsdelivr.net/npm/india-topojson@1.0.0/india.json";
 
 interface IndiaMapProps {
   onStateClick?: (stateName: string) => void;
@@ -16,8 +17,8 @@ const IndiaMap = ({ onStateClick, highlightedState }: IndiaMapProps) => {
       <ComposableMap
         projection="geoMercator"
         projectionConfig={{
-          scale: 1000,
-          center: [82, 22],
+          scale: 1100,
+          center: [83, 23],
         }}
         style={{ width: "100%", height: "100%" }}
       >
@@ -25,7 +26,7 @@ const IndiaMap = ({ onStateClick, highlightedState }: IndiaMapProps) => {
           <Geographies geography={INDIA_TOPO_JSON}>
             {({ geographies }) =>
               geographies.map((geo) => {
-                const stateName = geo.properties.NAME_1 || geo.properties.name || geo.properties.ST_NM;
+                const stateName = geo.properties.st_nm || geo.properties.NAME_1 || geo.properties.name;
                 const isHighlighted = highlightedState === stateName;
                 const isHovered = hoveredState === stateName;
 
