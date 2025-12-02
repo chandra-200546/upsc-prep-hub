@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Map, Globe, Trophy, Target } from "lucide-react";
+import { ArrowLeft, Map, Globe, Trophy, Target, ZoomIn, ZoomOut } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import IndiaMap from "@/components/maps/IndiaMap";
+import WorldMap from "@/components/maps/WorldMap";
 
 const MapPractice = () => {
   const navigate = useNavigate();
@@ -15,6 +17,7 @@ const MapPractice = () => {
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [mapType, setMapType] = useState<"india" | "world">("india");
+  const [showMap, setShowMap] = useState(true);
 
   useEffect(() => {
     checkAuth();
@@ -85,11 +88,71 @@ const MapPractice = () => {
     }
   };
 
+  const QuizContent = () => {
+    if (loading) {
+      return (
+        <Card className="p-6">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Generating questions...</p>
+          </div>
+        </Card>
+      );
+    }
+
+    if (questions.length > 0 && currentQuestion < questions.length) {
+      return (
+        <Card className="p-6 bg-gradient-card border-0">
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm text-muted-foreground">
+                Question {currentQuestion + 1} of {questions.length}
+              </span>
+              <Target className="w-4 h-4 text-primary" />
+            </div>
+            <h2 className="text-lg font-bold">{questions[currentQuestion].question}</h2>
+          </div>
+          
+          <div className="grid gap-2">
+            {questions[currentQuestion].options.map((option: string, index: number) => (
+              <Button
+                key={index}
+                variant="outline"
+                className="h-auto p-3 text-left justify-start hover:bg-primary/10 hover:border-primary transition-all text-sm"
+                onClick={() => handleAnswer(index)}
+              >
+                <span className="font-semibold mr-2">{String.fromCharCode(65 + index)}.</span>
+                {option}
+              </Button>
+            ))}
+          </div>
+        </Card>
+      );
+    }
+
+    return (
+      <Card className="p-6 text-center">
+        {mapType === "india" ? (
+          <Map className="w-12 h-12 mx-auto mb-3 text-primary" />
+        ) : (
+          <Globe className="w-12 h-12 mx-auto mb-3 text-primary" />
+        )}
+        <h3 className="text-lg font-bold mb-2">Ready to Practice?</h3>
+        <p className="text-muted-foreground text-sm mb-4">
+          Test your knowledge of {mapType === "india" ? "Indian" : "world"} geography
+        </p>
+        <Button onClick={generateQuestions} disabled={loading}>
+          Start Quiz
+        </Button>
+      </Card>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/20">
       {/* Header */}
       <header className="bg-card/80 backdrop-blur-sm border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="rounded-full">
               <ArrowLeft className="w-5 h-5" />
@@ -104,17 +167,28 @@ const MapPractice = () => {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-warning" />
-            <span className="font-bold">{score}</span>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowMap(!showMap)}
+              className="hidden md:flex items-center gap-2"
+            >
+              {showMap ? <ZoomOut className="w-4 h-4" /> : <ZoomIn className="w-4 h-4" />}
+              {showMap ? "Hide Map" : "Show Map"}
+            </Button>
+            <div className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-warning" />
+              <span className="font-bold">{score}</span>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 py-6">
         <Tabs defaultValue="india" onValueChange={(v) => setMapType(v as "india" | "world")}>
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
+          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-6">
             <TabsTrigger value="india" className="flex items-center gap-2">
               <Map className="w-4 h-4" />
               India
@@ -125,105 +199,68 @@ const MapPractice = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="india" className="space-y-6">
-            {loading ? (
-              <Card className="p-8">
-                <div className="text-center">
-                  <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Generating questions...</p>
-                </div>
-              </Card>
-            ) : questions.length > 0 && currentQuestion < questions.length ? (
-              <Card className="p-8 bg-gradient-card border-0">
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm text-muted-foreground">Question {currentQuestion + 1} of {questions.length}</span>
-                    <Target className="w-5 h-5 text-primary" />
+          <TabsContent value="india">
+            <div className={`grid gap-6 ${showMap ? "lg:grid-cols-2" : ""}`}>
+              {/* Map Section */}
+              {showMap && (
+                <Card className="p-4 relative overflow-hidden h-[500px]">
+                  <div className="absolute top-4 left-4 z-10 bg-card/90 backdrop-blur-sm px-3 py-1.5 rounded-lg border">
+                    <p className="text-xs font-medium text-muted-foreground">India Map</p>
+                    <p className="text-[10px] text-muted-foreground/70">Scroll to zoom • Drag to pan</p>
                   </div>
-                  <h2 className="text-2xl font-bold mb-6">{questions[currentQuestion].question}</h2>
-                </div>
-                
-                <div className="grid gap-3">
-                  {questions[currentQuestion].options.map((option: string, index: number) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      className="h-auto p-4 text-left justify-start hover:bg-primary/10 hover:border-primary transition-all"
-                      onClick={() => handleAnswer(index)}
-                    >
-                      <span className="font-semibold mr-3">{String.fromCharCode(65 + index)}.</span>
-                      {option}
+                  <IndiaMap />
+                </Card>
+              )}
+
+              {/* Quiz Section */}
+              <div className="space-y-4">
+                <QuizContent />
+
+                {questions.length > 0 && currentQuestion >= questions.length && (
+                  <Card className="p-6 text-center bg-gradient-success">
+                    <Trophy className="w-16 h-16 mx-auto mb-3 text-white" />
+                    <h3 className="text-xl font-bold text-white mb-2">Quiz Complete!</h3>
+                    <p className="text-white/90 mb-4">Final Score: {score}/{questions.length}</p>
+                    <Button variant="secondary" onClick={generateQuestions}>
+                      Try Again
                     </Button>
-                  ))}
-                </div>
-              </Card>
-            ) : (
-              <Card className="p-8 text-center">
-                <Target className="w-16 h-16 mx-auto mb-4 text-primary" />
-                <h3 className="text-xl font-bold mb-2">Ready to Practice?</h3>
-                <p className="text-muted-foreground mb-6">Test your knowledge of Indian geography</p>
-                <Button onClick={generateQuestions} disabled={loading}>
-                  Start Quiz
-                </Button>
-              </Card>
-            )}
+                  </Card>
+                )}
+              </div>
+            </div>
           </TabsContent>
 
-          <TabsContent value="world" className="space-y-6">
-            {loading ? (
-              <Card className="p-8">
-                <div className="text-center">
-                  <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Generating questions...</p>
-                </div>
-              </Card>
-            ) : questions.length > 0 && currentQuestion < questions.length ? (
-              <Card className="p-8 bg-gradient-card border-0">
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm text-muted-foreground">Question {currentQuestion + 1} of {questions.length}</span>
-                    <Target className="w-5 h-5 text-primary" />
+          <TabsContent value="world">
+            <div className={`grid gap-6 ${showMap ? "lg:grid-cols-2" : ""}`}>
+              {/* Map Section */}
+              {showMap && (
+                <Card className="p-4 relative overflow-hidden h-[500px]">
+                  <div className="absolute top-4 left-4 z-10 bg-card/90 backdrop-blur-sm px-3 py-1.5 rounded-lg border">
+                    <p className="text-xs font-medium text-muted-foreground">World Map</p>
+                    <p className="text-[10px] text-muted-foreground/70">Scroll to zoom • Drag to pan</p>
                   </div>
-                  <h2 className="text-2xl font-bold mb-6">{questions[currentQuestion].question}</h2>
-                </div>
-                
-                <div className="grid gap-3">
-                  {questions[currentQuestion].options.map((option: string, index: number) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      className="h-auto p-4 text-left justify-start hover:bg-primary/10 hover:border-primary transition-all"
-                      onClick={() => handleAnswer(index)}
-                    >
-                      <span className="font-semibold mr-3">{String.fromCharCode(65 + index)}.</span>
-                      {option}
+                  <WorldMap />
+                </Card>
+              )}
+
+              {/* Quiz Section */}
+              <div className="space-y-4">
+                <QuizContent />
+
+                {questions.length > 0 && currentQuestion >= questions.length && (
+                  <Card className="p-6 text-center bg-gradient-success">
+                    <Trophy className="w-16 h-16 mx-auto mb-3 text-white" />
+                    <h3 className="text-xl font-bold text-white mb-2">Quiz Complete!</h3>
+                    <p className="text-white/90 mb-4">Final Score: {score}/{questions.length}</p>
+                    <Button variant="secondary" onClick={generateQuestions}>
+                      Try Again
                     </Button>
-                  ))}
-                </div>
-              </Card>
-            ) : (
-              <Card className="p-8 text-center">
-                <Globe className="w-16 h-16 mx-auto mb-4 text-primary" />
-                <h3 className="text-xl font-bold mb-2">Ready to Practice?</h3>
-                <p className="text-muted-foreground mb-6">Test your knowledge of world geography</p>
-                <Button onClick={generateQuestions} disabled={loading}>
-                  Start Quiz
-                </Button>
-              </Card>
-            )}
+                  </Card>
+                )}
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
-
-        {questions.length > 0 && currentQuestion >= questions.length && (
-          <Card className="p-8 text-center bg-gradient-success">
-            <Trophy className="w-20 h-20 mx-auto mb-4 text-white" />
-            <h3 className="text-2xl font-bold text-white mb-2">Quiz Complete!</h3>
-            <p className="text-white/90 text-lg mb-6">Final Score: {score}/{questions.length}</p>
-            <Button variant="secondary" onClick={generateQuestions}>
-              Try Again
-            </Button>
-          </Card>
-        )}
       </main>
     </div>
   );
