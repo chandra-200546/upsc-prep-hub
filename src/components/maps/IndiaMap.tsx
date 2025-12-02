@@ -1,8 +1,8 @@
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
 import { useState } from "react";
 
-// Using a reliable TopoJSON source for India
-const INDIA_TOPO_JSON = "https://cdn.jsdelivr.net/npm/india-topojson@1.0.0/india.json";
+// Using DataMeet's verified India States GeoJSON
+const INDIA_GEO_JSON = "https://raw.githubusercontent.com/Subhash9325/GeospatialData/master/India/India_States.geojson";
 
 interface IndiaMapProps {
   onStateClick?: (stateName: string) => void;
@@ -13,22 +13,21 @@ const IndiaMap = ({ onStateClick, highlightedState }: IndiaMapProps) => {
   const [hoveredState, setHoveredState] = useState<string | null>(null);
 
   return (
-    <div className="w-full h-full min-h-[400px] bg-gradient-to-br from-primary/5 to-accent/5 rounded-xl overflow-hidden border border-border/50">
+    <div className="w-full h-full min-h-[400px] bg-gradient-to-br from-primary/5 to-accent/5 rounded-xl overflow-hidden border border-border/50 relative">
       <ComposableMap
         projection="geoMercator"
         projectionConfig={{
-          scale: 1100,
-          center: [83, 23],
+          scale: 1000,
+          center: [82, 22],
         }}
         style={{ width: "100%", height: "100%" }}
       >
         <ZoomableGroup zoom={1} minZoom={0.8} maxZoom={4}>
-          <Geographies geography={INDIA_TOPO_JSON}>
+          <Geographies geography={INDIA_GEO_JSON}>
             {({ geographies }) =>
               geographies.map((geo) => {
-                const stateName = geo.properties.st_nm || geo.properties.NAME_1 || geo.properties.name;
+                const stateName = geo.properties.Name || geo.properties.ST_NM || geo.properties.state || geo.properties.NAME_1 || geo.properties.name || "Unknown";
                 const isHighlighted = highlightedState === stateName;
-                const isHovered = hoveredState === stateName;
 
                 return (
                   <Geography
@@ -70,7 +69,7 @@ const IndiaMap = ({ onStateClick, highlightedState }: IndiaMapProps) => {
       </ComposableMap>
 
       {hoveredState && (
-        <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur-sm px-4 py-2 rounded-lg border shadow-lg">
+        <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur-sm px-4 py-2 rounded-lg border shadow-lg z-10">
           <p className="font-medium text-sm">{hoveredState}</p>
         </div>
       )}
