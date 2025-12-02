@@ -13,33 +13,50 @@ serve(async (req) => {
 
   try {
     const { mapType } = await req.json();
-    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
-    if (!GOOGLE_API_KEY) {
-      throw new Error("GOOGLE_GEMINI_API_KEY is not configured");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     const prompt = mapType === "india" 
       ? "Generate 5 multiple-choice geography questions about India. Include questions about states, capitals, rivers, mountains, and important cities. Return ONLY a valid JSON array without any markdown formatting or extra text. Format: [{\"question\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correct\": 0, \"explanation\": \"...\"}]"
       : "Generate 5 multiple-choice geography questions about World geography. Include questions about countries, capitals, continents, oceans, and major landmarks. Return ONLY a valid JSON array without any markdown formatting or extra text. Format: [{\"question\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correct\": 0, \"explanation\": \"...\"}]";
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_API_KEY}`, {
+    console.log("Calling Lovable AI gateway for map questions...");
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: "You are a geography quiz generator. Always return valid JSON arrays only, no markdown formatting." },
+          { role: "user", content: prompt }
+        ],
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Gemini API error:", response.status, errorText);
+      console.error("Lovable AI error:", response.status, errorText);
+      
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Payment required. Please add credits." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
       return new Response(JSON.stringify({ error: "Failed to generate questions" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -47,7 +64,9 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const generatedText = data.choices?.[0]?.message?.content || "";
+    
+    console.log("Generated text:", generatedText);
     
     // Clean up the response - remove markdown code blocks if present
     let cleanedText = generatedText.trim();
