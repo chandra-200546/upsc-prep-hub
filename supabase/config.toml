@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.map-questions]
 verify_jwt = false
+
+[functions.pyq-analysis]
+verify_jwt = false

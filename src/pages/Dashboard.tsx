@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { 
   BookOpen, Brain, FileText, TrendingUp, Award, 
-  Calendar, LogOut, MessageSquare, Zap, Target, Map, Video
+  Calendar, LogOut, MessageSquare, Zap, Target, Map, Video, BarChart3
 } from "lucide-react";
 
 const Dashboard = () => {
@@ -205,6 +205,15 @@ const Dashboard = () => {
               <Video className="w-10 h-10 mb-3 text-primary" />
               <h3 className="font-semibold mb-1">Mock Interview</h3>
               <p className="text-sm text-muted-foreground">AI Interview Room</p>
+            </Card>
+
+            <Card
+              onClick={() => navigate("/pyq-engine")}
+              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
+            >
+              <BarChart3 className="w-10 h-10 mb-3 text-primary" />
+              <h3 className="font-semibold mb-1">PYQ Engine</h3>
+              <p className="text-sm text-muted-foreground">40-Year Analysis & Predictions</p>
             </Card>
           </div>
         </div>
