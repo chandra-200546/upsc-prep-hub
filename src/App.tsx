@@ -16,6 +16,7 @@ import Mains from "./pages/Mains";
 import NotesLibrary from "./pages/NotesLibrary";
 import MapPractice from "./pages/MapPractice";
 import MockInterview from "./pages/MockInterview";
+import PYQEngine from "./pages/PYQEngine";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
           <Route path="/notes" element={<NotesLibrary />} />
           <Route path="/map-practice" element={<MapPractice />} />
           <Route path="/mock-interview" element={<MockInterview />} />
+          <Route path="/pyq-engine" element={<PYQEngine />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
