@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.mind-map-generator]
 verify_jwt = false
+
+[functions.daily-intel-report]
+verify_jwt = false
