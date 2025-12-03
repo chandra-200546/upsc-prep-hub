@@ -17,6 +17,7 @@ import NotesLibrary from "./pages/NotesLibrary";
 import MapPractice from "./pages/MapPractice";
 import MockInterview from "./pages/MockInterview";
 import PYQEngine from "./pages/PYQEngine";
+import MindMap from "./pages/MindMap";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
           <Route path="/map-practice" element={<MapPractice />} />
           <Route path="/mock-interview" element={<MockInterview />} />
           <Route path="/pyq-engine" element={<PYQEngine />} />
+          <Route path="/mind-map" element={<MindMap />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

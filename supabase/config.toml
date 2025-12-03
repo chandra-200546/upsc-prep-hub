@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.pyq-analysis]
 verify_jwt = false
+
+[functions.mind-map-generator]
+verify_jwt = false

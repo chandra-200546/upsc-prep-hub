@@ -172,6 +172,30 @@ export type Database = {
           },
         ]
       }
+      mind_maps: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          topic: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data: Json
+          id?: string
+          topic: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          topic?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       prelims_attempts: {
         Row: {
           attempted_at: string | null
