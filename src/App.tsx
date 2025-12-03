@@ -18,6 +18,7 @@ import MapPractice from "./pages/MapPractice";
 import MockInterview from "./pages/MockInterview";
 import PYQEngine from "./pages/PYQEngine";
 import MindMap from "./pages/MindMap";
+import DailyIntelReport from "./pages/DailyIntelReport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/mock-interview" element={<MockInterview />} />
           <Route path="/pyq-engine" element={<PYQEngine />} />
           <Route path="/mind-map" element={<MindMap />} />
+          <Route path="/daily-intel" element={<DailyIntelReport />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
