@@ -47,16 +47,16 @@ const MindMap = () => {
 
   const loadSavedMaps = async (uid: string) => {
     const { data, error } = await supabase
-      .from("mind_maps")
+      .from("mind_maps" as any)
       .select("*")
       .eq("user_id", uid)
       .order("created_at", { ascending: false });
 
     if (!error && data) {
-      setSavedMaps(data.map(m => ({
+      setSavedMaps((data as any[]).map(m => ({
         id: m.id,
         topic: m.topic,
-        data: m.data as unknown as MindMapNode,
+        data: m.data as MindMapNode,
         created_at: m.created_at || ""
       })));
     }
@@ -93,10 +93,10 @@ const MindMap = () => {
     if (!mindMapData || !userId) return;
 
     try {
-      const { error } = await supabase.from("mind_maps").insert({
+      const { error } = await supabase.from("mind_maps" as any).insert({
         user_id: userId,
         topic: currentTopic,
-        data: mindMapData as unknown as Record<string, unknown>
+        data: mindMapData as any
       });
 
       if (error) throw error;
@@ -111,7 +111,7 @@ const MindMap = () => {
 
   const deleteMindMap = async (id: string) => {
     try {
-      const { error } = await supabase.from("mind_maps").delete().eq("id", id);
+      const { error } = await supabase.from("mind_maps" as any).delete().eq("id", id);
       if (error) throw error;
       
       setSavedMaps(prev => prev.filter(m => m.id !== id));
