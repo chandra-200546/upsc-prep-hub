@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.daily-intel-report]
 verify_jwt = false
+
+[functions.optional-professor]
+verify_jwt = false

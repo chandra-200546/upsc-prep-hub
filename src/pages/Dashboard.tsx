@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { 
   BookOpen, Brain, FileText, TrendingUp, Award, 
-  Calendar, LogOut, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper
+  Calendar, LogOut, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap
 } from "lucide-react";
 
 const Dashboard = () => {
@@ -232,6 +232,15 @@ const Dashboard = () => {
               <Newspaper className="w-10 h-10 mb-3 text-primary" />
               <h3 className="font-semibold mb-1">Daily Intel Report</h3>
               <p className="text-sm text-muted-foreground">Officer-grade UPSC brief</p>
+            </Card>
+
+            <Card
+              onClick={() => navigate("/optional-professor")}
+              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
+            >
+              <GraduationCap className="w-10 h-10 mb-3 text-primary" />
+              <h3 className="font-semibold mb-1">Optional Professor</h3>
+              <p className="text-sm text-muted-foreground">AI expert for your optional</p>
             </Card>
           </div>
         </div>
