@@ -1,73 +1,230 @@
-# Welcome to your Lovable project
+---
 
-## Project info
+🌟 UPSC Mentor – Complete Features List (With Explanation)
 
-**URL**: https://lovable.dev/projects/67aad38e-82d3-4040-a104-02f9b75c5e0e
+Developed by: Chandrashekhar Kumbar
 
-## How can I edit this code?
 
-There are several ways of editing your application.
+---
 
-**Use Lovable**
+1️⃣ AI Mentor Chat (Your Personal Mentor)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/67aad38e-82d3-4040-a104-02f9b75c5e0e) and start prompting.
+A 24/7 UPSC mentor powered by Artificial Intelligence.
 
-Changes made via Lovable will be committed automatically to this repo.
+Clears doubts instantly
 
-**Use your preferred IDE**
+Explains any topic from Polity to Ethics
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Gives examples, diagrams, and UPSC-oriented notes
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Works like your personal teacher available anytime
 
-Follow these steps:
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+---
 
-# Step 3: Install the necessary dependencies.
-npm i
+2️⃣ Prelims Quiz Practice (AI-Generated MCQs)
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+Daily updated MCQs generated and curated by AI.
 
-**Edit a file directly in GitHub**
+Covers all GS subjects
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Includes difficulty levels like UPSC
 
-**Use GitHub Codespaces**
+Real-time scoring with explanations
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+AI ensures quality matching the exam standard
 
-## What technologies are used for this project?
 
-This project is built with:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+---
 
-## How can I deploy this project?
+3️⃣ AI-Powered Current Affairs (Today’s Updates)
 
-Simply open [Lovable](https://lovable.dev/projects/67aad38e-82d3-4040-a104-02f9b75c5e0e) and click on Share -> Publish.
+Daily, weekly, and monthly current affairs prepared by AI.
 
-## Can I connect a custom domain to my Lovable project?
+Reads multiple sources
 
-Yes, you can!
+Generates crisp UPSC-ready notes
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Provides Prelims MCQs + Mains answer points
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Saves hours of newspaper reading
+
+
+
+---
+
+4️⃣ AI-Generated Study Plan (Day / Week / Month)
+
+Personalized schedule for each aspirant.
+
+Day-by-day timetable
+
+Week-level and month-level roadmap
+
+Integrates revision cycles
+
+Adjusts automatically based on user performance
+
+
+
+---
+
+5️⃣ Mains Practice – Daily Answer Writing
+
+The app asks one high-quality Mains question every day.
+
+User can write the answer inside the app
+
+Or upload handwritten photos
+
+AI evaluates:
+
+Structure
+
+Content
+
+Examples
+
+GS relevancy
+
+Strength & Weakness
+
+
+Gives detailed feedback + improvement suggestions
+
+
+
+---
+
+6️⃣ Notes Library with Text-to-Speech
+
+A complete digital notebook.
+
+Create unlimited notes
+
+Organize by subjects/topics
+
+Tired of screens? Listen to your notes
+
+Perfect for revision on the go
+
+
+
+---
+
+7️⃣ Maps Practice (India + World Map Visual Learning)
+
+A visual treat for UPSC aspirants.
+
+Interactive India and World maps
+
+AI asks location-based questions
+
+Helps in Geography, IR, Environment, Mapping
+
+Enhances visual memory for Prelims
+
+
+
+---
+
+8️⃣ AI Mock Interview (Webcam Required)
+
+Simulates a real UPSC Personality Test.
+
+AI asks interview questions
+
+User answers in front of webcam
+
+AI analyzes:
+
+Body language
+
+Communication
+
+Confidence
+
+Content quality
+
+
+Generates a full feedback report
+
+
+
+---
+
+9️⃣ Previous Year Question Engine (40-Year Trend Analysis)
+
+AI analyzes last 40 years of UPSC papers.
+
+User selects Prelims / Mains / Essay / Optional
+
+AI shows:
+
+Topic-wise frequency
+
+Important areas
+
+Trend predictions
+
+Must-study chapters
+
+
+Helps aspirants avoid random studying
+
+
+
+---
+
+🔟 Mind Map Generator (Visual Topic Visualizer)
+
+Fast revision tool.
+
+User enters any topic
+
+AI generates a complete mind map
+
+Perfect for last-minute revision
+
+Helps understand complex topics quickly
+
+Saves 80% time compared to reading books
+
+
+
+---
+
+1️⃣1️⃣ Optional Subject AI Professor
+
+A specialized AI mentor for each optional subject.
+
+Covers all major optionals
+
+Explains topics with diagrams & case laws
+
+Predicts high-probability areas
+
+Gives daily optional practice
+
+Checks answers & provides improvement strategy
+Better than coaching-level guidance.
+
+
+
+---
+
+1️⃣2️⃣ Daily Intelligence Report (Officer-Grade Brief)
+
+A 5-minute crisp briefing like an IAS officer’s daily file.
+
+Gives major events of the day
+
+Classified by GS Paper
+
+Shows importance for Mains
+
+Provides Prelims MCQs based on news
+
+Helps maintain consistency
