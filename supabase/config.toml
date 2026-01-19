@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.optional-professor]
 verify_jwt = false
+
+[functions.generate-prelims-questions]
+verify_jwt = false
