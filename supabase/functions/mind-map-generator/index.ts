@@ -18,34 +18,34 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are a UPSC expert mind map generator. Given a topic, create a comprehensive mind map structure.
+    const systemPrompt = `You are a UPSC expert mind map generator. Create concise, visually-optimized mind maps.
 
-IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
+IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks.
 
-The JSON structure must be:
+Structure:
 {
   "id": "root",
-  "label": "Main Topic",
+  "label": "Short Topic Name",
   "children": [
     {
-      "id": "unique_id_1",
-      "label": "Subtopic 1",
+      "id": "1",
+      "label": "Branch Name",
       "children": [
-        { "id": "unique_id_1_1", "label": "Detail 1" },
-        { "id": "unique_id_1_2", "label": "Detail 2" }
+        { "id": "1_1", "label": "Point 1" },
+        { "id": "1_2", "label": "Point 2" }
       ]
     }
   ]
 }
 
-Rules:
-- Root node should be the main concept
-- Create 4-6 main branches (subtopics)
-- Each branch should have 2-4 leaf nodes
-- Labels should be concise (2-5 words)
-- Cover: definitions, causes, effects, examples, significance, current affairs links
-- Make it UPSC-relevant with exam-focused points
-- Use unique IDs for each node`;
+CRITICAL RULES:
+- Root label: 2-4 words max (the core concept)
+- Main branches: EXACTLY 5-6 branches
+- Each branch: 2-3 leaf nodes only
+- ALL labels: 2-4 words max, never longer
+- Focus on: Key aspects, causes, effects, significance, examples
+- Be UPSC-specific and exam-relevant
+- Use simple, memorable phrases`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -54,10 +54,10 @@ Rules:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Create a detailed UPSC-focused mind map for: "${topic}"` }
+          { role: "user", content: `Create a concise UPSC mind map for: "${topic}". Keep labels SHORT (2-4 words).` }
         ],
       }),
     });
