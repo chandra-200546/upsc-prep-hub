@@ -51,7 +51,7 @@ Saves hours of newspaper reading
 
 
 
----
+--
 
 4️⃣ AI-Generated Study Plan (Day / Week / Month)
 
