@@ -268,7 +268,7 @@ const Dashboard = () => {
                     chandrashekharkumbarias8055@gmail.com
                   </a>
                   <a 
-                    href="https://wa.me/917975256005" 
+                    href="https://api.whatsapp.com/send?phone=917975256005"
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-sm text-success hover:underline"
