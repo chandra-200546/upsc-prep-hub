@@ -267,15 +267,26 @@ const Dashboard = () => {
                     <Mail className="w-4 h-4" />
                     chandrashekharkumbarias8055@gmail.com
                   </a>
-                  <a 
-                    href="https://api.whatsapp.com/send?phone=917975256005"
-                    target="_blank" 
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const phone = "917975256005";
+                      // In embedded previews, opening WhatsApp web can be blocked by iframe restrictions.
+                      // Prefer deep-link first; user can still copy the number.
+                      try {
+                        window.location.href = `whatsapp://send?phone=${phone}`;
+                      } catch {
+                        // ignore
+                      }
+                      setTimeout(() => {
+                        window.open(`https://wa.me/${phone}`, "_blank", "noopener,noreferrer");
+                      }, 200);
+                    }}
                     className="flex items-center gap-2 text-sm text-success hover:underline"
                   >
                     <Phone className="w-4 h-4" />
                     +91 7975256005 (WhatsApp)
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>

@@ -1,5 +1,5 @@
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 
 const WORLD_GEO_URL = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
 
@@ -10,17 +10,31 @@ interface WorldMapProps {
 
 const WorldMap = ({ onCountryClick, highlightedCountry }: WorldMapProps) => {
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
+  const [geo, setGeo] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const hasLoadedRef = useRef(false);
 
-  const handleGeographiesLoaded = (geographies: any[]) => {
-    if (geographies.length > 0 && !hasLoadedRef.current) {
-      hasLoadedRef.current = true;
-      // Use setTimeout to avoid setState during render
-      setTimeout(() => setIsLoading(false), 0);
-    }
-  };
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        setIsLoading(true);
+        setHasError(false);
+        const res = await fetch(WORLD_GEO_URL);
+        if (!res.ok) throw new Error(`Failed to fetch world map: ${res.status}`);
+        const json = await res.json();
+        if (!cancelled) setGeo(json);
+      } catch (e) {
+        if (!cancelled) setHasError(true);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="relative w-full h-full min-h-[400px] bg-gradient-to-br from-accent/5 to-primary/5 rounded-xl overflow-hidden border border-border/50">
@@ -45,16 +59,10 @@ const WorldMap = ({ onCountryClick, highlightedCountry }: WorldMapProps) => {
         style={{ width: "100%", height: "100%" }}
       >
         <ZoomableGroup zoom={1} minZoom={0.5} maxZoom={6}>
-          <Geographies 
-            geography={WORLD_GEO_URL}
-            onError={() => {
-              setHasError(true);
-              setIsLoading(false);
-            }}
-          >
-            {({ geographies }) => {
-              handleGeographiesLoaded(geographies);
-              return geographies.map((geo) => {
+          {geo && (
+            <Geographies geography={geo}>
+              {({ geographies }) =>
+                geographies.map((geo) => {
                 const countryName = geo.properties.name;
                 const isHighlighted = highlightedCountry === countryName;
 
@@ -91,9 +99,10 @@ const WorldMap = ({ onCountryClick, highlightedCountry }: WorldMapProps) => {
                     }}
                   />
                 );
-              });
-            }}
-          </Geographies>
+                })
+              }
+            </Geographies>
+          )}
         </ZoomableGroup>
       </ComposableMap>
 
