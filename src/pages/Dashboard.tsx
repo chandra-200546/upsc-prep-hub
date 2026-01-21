@@ -6,8 +6,9 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { 
   BookOpen, Brain, FileText, TrendingUp, Award, 
-  Calendar, LogOut, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap
+  Calendar, LogOut, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap, Mail, Phone
 } from "lucide-react";
+import upscMentorLogo from "@/assets/upsc-mentor-logo.jpeg";
 
 const Dashboard = () => {
   const [profile, setProfile] = useState<any>(null);
@@ -64,9 +65,11 @@ const Dashboard = () => {
       <header className="bg-card/80 backdrop-blur-sm border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-white" />
-            </div>
+            <img 
+              src={upscMentorLogo} 
+              alt="UPSC Mentor Logo" 
+              className="w-12 h-12 rounded-xl object-cover"
+            />
             <div>
               <h1 className="font-bold text-lg">UPSC Mentor</h1>
               <p className="text-xs text-muted-foreground">Welcome, {profile?.name}!</p>
@@ -243,6 +246,40 @@ const Dashboard = () => {
               <p className="text-sm text-muted-foreground">AI expert for your optional</p>
             </Card>
           </div>
+        </div>
+
+        {/* Contact Developer Section */}
+        <div className="mt-12 border-t pt-8">
+          <h2 className="text-xl font-bold mb-4">Contact Developer</h2>
+          <Card className="p-6 bg-gradient-card border-0">
+            <div className="flex flex-col md:flex-row items-center gap-6">
+              <div className="w-20 h-20 rounded-full bg-gradient-primary flex items-center justify-center text-3xl font-bold text-white">
+                C
+              </div>
+              <div className="flex-1 text-center md:text-left">
+                <h3 className="text-xl font-bold mb-2">Chandrashekhar</h3>
+                <p className="text-muted-foreground mb-4">Full Stack Developer</p>
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <a 
+                    href="mailto:chandrashekharkumbarias8055@gmail.com" 
+                    className="flex items-center gap-2 text-sm text-primary hover:underline"
+                  >
+                    <Mail className="w-4 h-4" />
+                    chandrashekharkumbarias8055@gmail.com
+                  </a>
+                  <a 
+                    href="https://wa.me/917975256005" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-success hover:underline"
+                  >
+                    <Phone className="w-4 h-4" />
+                    +91 7975256005 (WhatsApp)
+                  </a>
+                </div>
+              </div>
+            </div>
+          </Card>
         </div>
       </main>
     </div>

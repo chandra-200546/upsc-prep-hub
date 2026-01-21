@@ -1,7 +1,7 @@
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
 import { useState } from "react";
 
-const WORLD_TOPO_JSON = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+const WORLD_GEO_URL = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
 
 interface WorldMapProps {
   onCountryClick?: (countryName: string) => void;
@@ -10,9 +10,23 @@ interface WorldMapProps {
 
 const WorldMap = ({ onCountryClick, highlightedCountry }: WorldMapProps) => {
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   return (
-    <div className="w-full h-full min-h-[400px] bg-gradient-to-br from-accent/5 to-primary/5 rounded-xl overflow-hidden border border-border/50">
+    <div className="relative w-full h-full min-h-[400px] bg-gradient-to-br from-accent/5 to-primary/5 rounded-xl overflow-hidden border border-border/50">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center z-20 bg-background/50">
+          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
+      
+      {hasError && (
+        <div className="absolute inset-0 flex items-center justify-center z-20">
+          <p className="text-muted-foreground">Failed to load map. Please refresh.</p>
+        </div>
+      )}
+
       <ComposableMap
         projection="geoMercator"
         projectionConfig={{
@@ -22,12 +36,20 @@ const WorldMap = ({ onCountryClick, highlightedCountry }: WorldMapProps) => {
         style={{ width: "100%", height: "100%" }}
       >
         <ZoomableGroup zoom={1} minZoom={0.5} maxZoom={6}>
-          <Geographies geography={WORLD_TOPO_JSON}>
-            {({ geographies }) =>
-              geographies.map((geo) => {
+          <Geographies 
+            geography={WORLD_GEO_URL}
+            onError={() => {
+              setHasError(true);
+              setIsLoading(false);
+            }}
+          >
+            {({ geographies }) => {
+              if (geographies.length > 0 && isLoading) {
+                setIsLoading(false);
+              }
+              return geographies.map((geo) => {
                 const countryName = geo.properties.name;
                 const isHighlighted = highlightedCountry === countryName;
-                const isHovered = hoveredCountry === countryName;
 
                 return (
                   <Geography
@@ -62,14 +84,14 @@ const WorldMap = ({ onCountryClick, highlightedCountry }: WorldMapProps) => {
                     }}
                   />
                 );
-              })
-            }
+              });
+            }}
           </Geographies>
         </ZoomableGroup>
       </ComposableMap>
 
       {hoveredCountry && (
-        <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur-sm px-4 py-2 rounded-lg border shadow-lg">
+        <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur-sm px-4 py-2 rounded-lg border shadow-lg z-10">
           <p className="font-medium text-sm">{hoveredCountry}</p>
         </div>
       )}
