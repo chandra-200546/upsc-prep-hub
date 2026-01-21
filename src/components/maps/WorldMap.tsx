@@ -1,5 +1,5 @@
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const WORLD_GEO_URL = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
 
@@ -12,6 +12,15 @@ const WorldMap = ({ onCountryClick, highlightedCountry }: WorldMapProps) => {
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const hasLoadedRef = useRef(false);
+
+  const handleGeographiesLoaded = (geographies: any[]) => {
+    if (geographies.length > 0 && !hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      // Use setTimeout to avoid setState during render
+      setTimeout(() => setIsLoading(false), 0);
+    }
+  };
 
   return (
     <div className="relative w-full h-full min-h-[400px] bg-gradient-to-br from-accent/5 to-primary/5 rounded-xl overflow-hidden border border-border/50">
@@ -44,9 +53,7 @@ const WorldMap = ({ onCountryClick, highlightedCountry }: WorldMapProps) => {
             }}
           >
             {({ geographies }) => {
-              if (geographies.length > 0 && isLoading) {
-                setIsLoading(false);
-              }
+              handleGeographiesLoaded(geographies);
               return geographies.map((geo) => {
                 const countryName = geo.properties.name;
                 const isHighlighted = highlightedCountry === countryName;
