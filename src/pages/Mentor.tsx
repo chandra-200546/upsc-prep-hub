@@ -188,22 +188,29 @@ const Mentor = () => {
           </Card>
         )}
 
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <Card
-              className={`max-w-[80%] p-4 ${
-                msg.role === "user"
-                  ? "bg-gradient-primary text-white border-0"
-                  : "bg-card"
-              }`}
+        {messages.map((msg, idx) => {
+          // Strip markdown formatting (**, *, _, etc.) from AI responses
+          const cleanContent = msg.role === "assistant" 
+            ? msg.content.replace(/\*\*/g, '').replace(/\*/g, '').replace(/__/g, '').replace(/_/g, '')
+            : msg.content;
+          
+          return (
+            <div
+              key={idx}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
-              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-            </Card>
-          </div>
-        ))}
+              <Card
+                className={`max-w-[80%] p-4 ${
+                  msg.role === "user"
+                    ? "bg-gradient-primary text-white border-0"
+                    : "bg-card"
+                }`}
+              >
+                <p className="text-sm whitespace-pre-wrap">{cleanContent}</p>
+              </Card>
+            </div>
+          );
+        })}
 
         {loading && (
           <div className="flex justify-start">
