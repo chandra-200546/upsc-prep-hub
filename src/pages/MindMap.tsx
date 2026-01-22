@@ -49,7 +49,6 @@ const MindMap = () => {
   const [showSaved, setShowSaved] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
-  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
@@ -449,7 +448,6 @@ const MindMap = () => {
 
                 {/* Connection lines */}
                 {positions.filter(p => p.parentPos).map((pos) => {
-                  const isHovered = hoveredNode === pos.node.id;
                   const color = COLORS[pos.colorIndex % COLORS.length];
                   
                   // Curved path
@@ -465,10 +463,10 @@ const MindMap = () => {
                       key={`line-${pos.node.id}`}
                       d={`M ${pos.parentPos!.x} ${pos.parentPos!.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${pos.x} ${pos.y}`}
                       stroke={color.bg}
-                      strokeWidth={isHovered ? 4 : pos.level === 1 ? 3 : 2}
+                      strokeWidth={pos.level === 1 ? 3 : 2}
                       fill="none"
                       strokeLinecap="round"
-                      opacity={isHovered ? 1 : 0.6}
+                      opacity={0.7}
                     />
                   );
                 })}
@@ -476,7 +474,6 @@ const MindMap = () => {
                 {/* Nodes */}
                 {positions.map((pos) => {
                   const isRoot = pos.level === 0;
-                  const isHovered = hoveredNode === pos.node.id;
                   const color = COLORS[Math.max(0, pos.colorIndex) % COLORS.length];
 
                   // Node dimensions based on level with more spacing
@@ -489,24 +486,7 @@ const MindMap = () => {
                     <g
                       key={pos.node.id}
                       transform={`translate(${pos.x}, ${pos.y})`}
-                      onMouseEnter={() => setHoveredNode(pos.node.id)}
-                      onMouseLeave={() => setHoveredNode(null)}
-                      style={{ cursor: "pointer" }}
                     >
-                      {/* Glow effect on hover */}
-                      {isHovered && (
-                        <rect
-                          x={-nodeWidth / 2 - 4}
-                          y={-nodeHeight / 2 - 4}
-                          width={nodeWidth + 8}
-                          height={nodeHeight + 8}
-                          rx={rx + 4}
-                          fill={isRoot ? "hsl(var(--primary))" : color.glow}
-                          opacity="0.3"
-                          filter="url(#glow)"
-                        />
-                      )}
-                      
                       {/* Node background */}
                       <rect
                         x={-nodeWidth / 2}
@@ -516,10 +496,6 @@ const MindMap = () => {
                         rx={rx}
                         fill={isRoot ? "hsl(var(--primary))" : `url(#grad${pos.colorIndex % COLORS.length})`}
                         filter="url(#shadow)"
-                        style={{
-                          transform: isHovered ? "scale(1.05)" : "scale(1)",
-                          transformOrigin: "center"
-                        }}
                       />
                       
                       {/* Node text */}
@@ -529,7 +505,6 @@ const MindMap = () => {
                         fill="white"
                         fontSize={fontSize}
                         fontWeight={isRoot ? "700" : "600"}
-                        style={{ pointerEvents: "none" }}
                       >
                         {pos.node.label.length > 16 
                           ? pos.node.label.substring(0, 14) + "..." 
