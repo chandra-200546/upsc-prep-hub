@@ -26,6 +26,7 @@ interface NodePosition {
   level: number;
   angle: number;
   parentPos?: { x: number; y: number };
+  colorIndex: number;
 }
 
 const COLORS = [
@@ -148,35 +149,37 @@ const MindMap = () => {
     setZoom(1);
   };
 
-  // Calculate positions for radial mind map
+  // Calculate positions for radial mind map with stable spacing
   const calculatePositions = useCallback((root: MindMapNode): NodePosition[] => {
     const positions: NodePosition[] = [];
     const centerX = 400;
     const centerY = 300;
     
-    // Root node
-    positions.push({ x: centerX, y: centerY, node: root, level: 0, angle: 0 });
+    // Root node - colorIndex 0 means root
+    positions.push({ x: centerX, y: centerY, node: root, level: 0, angle: 0, colorIndex: -1 } as NodePosition & { colorIndex: number });
     
     if (!root.children) return positions;
     
     const childCount = root.children.length;
     const angleStep = (2 * Math.PI) / childCount;
-    const level1Radius = 150;
+    const level1Radius = 180; // Increased from 150 for more spacing
     
     root.children.forEach((child, i) => {
       const angle = angleStep * i - Math.PI / 2;
       const x = centerX + Math.cos(angle) * level1Radius;
       const y = centerY + Math.sin(angle) * level1Radius;
       
+      // Store colorIndex directly to prevent recalculation
       positions.push({ 
         x, y, node: child, level: 1, angle, 
-        parentPos: { x: centerX, y: centerY } 
-      });
+        parentPos: { x: centerX, y: centerY },
+        colorIndex: i
+      } as NodePosition & { colorIndex: number });
       
       // Level 2 children
       if (child.children) {
-        const level2Radius = 90;
-        const childAngleSpread = Math.PI / 3;
+        const level2Radius = 110; // Increased from 90 for more spacing
+        const childAngleSpread = Math.PI / 2.5; // Wider spread for better separation
         const startAngle = angle - childAngleSpread / 2;
         const childAngleStep = child.children.length > 1 
           ? childAngleSpread / (child.children.length - 1) 
@@ -189,10 +192,12 @@ const MindMap = () => {
           const gx = x + Math.cos(gAngle) * level2Radius;
           const gy = y + Math.sin(gAngle) * level2Radius;
           
+          // Same colorIndex as parent for visual grouping
           positions.push({ 
             x: gx, y: gy, node: grandchild, level: 2, angle: gAngle,
-            parentPos: { x, y }
-          });
+            parentPos: { x, y },
+            colorIndex: i
+          } as NodePosition & { colorIndex: number });
         });
       }
     });
@@ -443,12 +448,9 @@ const MindMap = () => {
                 <circle cx="400" cy="300" r="180" fill="url(#centerGlow)" />
 
                 {/* Connection lines */}
-                {positions.filter(p => p.parentPos).map((pos, i) => {
+                {positions.filter(p => p.parentPos).map((pos) => {
                   const isHovered = hoveredNode === pos.node.id;
-                  const colorIdx = positions.findIndex(p => p.level === 1 && 
-                    (pos.level === 1 ? p.node.id === pos.node.id : 
-                    p.node.children?.some(c => c.id === pos.node.id || c.children?.some(gc => gc.id === pos.node.id))));
-                  const color = COLORS[(colorIdx >= 0 ? colorIdx : i) % COLORS.length];
+                  const color = COLORS[pos.colorIndex % COLORS.length];
                   
                   // Curved path
                   const dx = pos.x - pos.parentPos!.x;
@@ -467,26 +469,21 @@ const MindMap = () => {
                       fill="none"
                       strokeLinecap="round"
                       opacity={isHovered ? 1 : 0.6}
-                      style={{ transition: "all 0.3s" }}
                     />
                   );
                 })}
 
                 {/* Nodes */}
-                {positions.map((pos, i) => {
+                {positions.map((pos) => {
                   const isRoot = pos.level === 0;
                   const isHovered = hoveredNode === pos.node.id;
-                  const colorIdx = isRoot ? -1 : 
-                    positions.filter(p => p.level === 1).findIndex(p => 
-                      p.node.id === pos.node.id || 
-                      p.node.children?.some(c => c.id === pos.node.id));
-                  const color = COLORS[(colorIdx >= 0 ? colorIdx : i) % COLORS.length];
+                  const color = COLORS[Math.max(0, pos.colorIndex) % COLORS.length];
 
-                  // Node dimensions based on level
-                  const nodeWidth = isRoot ? 140 : pos.level === 1 ? 120 : 100;
-                  const nodeHeight = isRoot ? 50 : pos.level === 1 ? 40 : 32;
+                  // Node dimensions based on level with more spacing
+                  const nodeWidth = isRoot ? 140 : pos.level === 1 ? 130 : 110;
+                  const nodeHeight = isRoot ? 50 : pos.level === 1 ? 44 : 36;
                   const fontSize = isRoot ? 13 : pos.level === 1 ? 11 : 10;
-                  const rx = isRoot ? 25 : 16;
+                  const rx = isRoot ? 25 : 18;
 
                   return (
                     <g
@@ -517,12 +514,11 @@ const MindMap = () => {
                         width={nodeWidth}
                         height={nodeHeight}
                         rx={rx}
-                        fill={isRoot ? "hsl(var(--primary))" : `url(#grad${(colorIdx >= 0 ? colorIdx : i) % COLORS.length})`}
+                        fill={isRoot ? "hsl(var(--primary))" : `url(#grad${pos.colorIndex % COLORS.length})`}
                         filter="url(#shadow)"
                         style={{
                           transform: isHovered ? "scale(1.05)" : "scale(1)",
-                          transformOrigin: "center",
-                          transition: "transform 0.2s"
+                          transformOrigin: "center"
                         }}
                       />
                       
@@ -535,8 +531,8 @@ const MindMap = () => {
                         fontWeight={isRoot ? "700" : "600"}
                         style={{ pointerEvents: "none" }}
                       >
-                        {pos.node.label.length > 18 
-                          ? pos.node.label.substring(0, 16) + "..." 
+                        {pos.node.label.length > 16 
+                          ? pos.node.label.substring(0, 14) + "..." 
                           : pos.node.label}
                       </text>
                     </g>
