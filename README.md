@@ -4,7 +4,7 @@
 Developed by: Chandrashekhar Kumbar
 
 
----
+--
 1️⃣ AI Mentor Chat (Your Personal Mentor)
 
 A 24/7 UPSC mentor powered by Artificial Intelligence.
