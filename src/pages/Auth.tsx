@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { BookOpen, Mail, Lock, User } from "lucide-react";
+import { Mail, Lock, User } from "lucide-react";
+import upscMentorLogo from "@/assets/upsc-mentor-logo.jpeg";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -82,8 +83,13 @@ const Auth = () => {
       <Card className="w-full max-w-md p-8 space-y-6 shadow-xl">
         <div className="text-center space-y-2">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center">
-              <BookOpen className="w-8 h-8 text-white" />
+            <div className="w-20 h-20 rounded-2xl bg-background/40 border border-border/60 flex items-center justify-center overflow-hidden">
+              <img
+                src={upscMentorLogo}
+                alt="UPSC Mentor"
+                className="w-full h-full object-cover"
+                loading="eager"
+              />
             </div>
           </div>
           <h1 className="text-3xl font-bold text-foreground">
