@@ -148,59 +148,67 @@ const MindMap = () => {
     setZoom(1);
   };
 
-  // Calculate positions for radial mind map with stable spacing
+  // Calculate positions for radial mind map with dynamic spacing (prevents overlaps)
   const calculatePositions = useCallback((root: MindMapNode): NodePosition[] => {
     const positions: NodePosition[] = [];
-    const centerX = 400;
-    const centerY = 300;
-    
-    // Root node - colorIndex 0 means root
-    positions.push({ x: centerX, y: centerY, node: root, level: 0, angle: 0, colorIndex: -1 } as NodePosition & { colorIndex: number });
-    
-    if (!root.children) return positions;
-    
+
+    // Larger canvas coordinates (matches viewBox below)
+    const centerX = 500;
+    const centerY = 400;
+
+    positions.push({ x: centerX, y: centerY, node: root, level: 0, angle: 0, colorIndex: -1 });
+    if (!root.children?.length) return positions;
+
     const childCount = root.children.length;
-    const angleStep = (2 * Math.PI) / childCount;
-    const level1Radius = 180; // Increased from 150 for more spacing
-    
+    const angleStep = (2 * Math.PI) / Math.max(1, childCount);
+
+    // Dynamic radii based on number of nodes (more nodes => more spacing)
+    const level1Radius = Math.min(300, 190 + childCount * 18);
+
     root.children.forEach((child, i) => {
       const angle = angleStep * i - Math.PI / 2;
       const x = centerX + Math.cos(angle) * level1Radius;
       const y = centerY + Math.sin(angle) * level1Radius;
-      
-      // Store colorIndex directly to prevent recalculation
-      positions.push({ 
-        x, y, node: child, level: 1, angle, 
+
+      positions.push({
+        x,
+        y,
+        node: child,
+        level: 1,
+        angle,
         parentPos: { x: centerX, y: centerY },
-        colorIndex: i
-      } as NodePosition & { colorIndex: number });
-      
-      // Level 2 children
-      if (child.children) {
-        const level2Radius = 110; // Increased from 90 for more spacing
-        const childAngleSpread = Math.PI / 2.5; // Wider spread for better separation
-        const startAngle = angle - childAngleSpread / 2;
-        const childAngleStep = child.children.length > 1 
-          ? childAngleSpread / (child.children.length - 1) 
-          : 0;
-        
-        child.children.forEach((grandchild, j) => {
-          const gAngle = child.children!.length === 1 
-            ? angle 
-            : startAngle + childAngleStep * j;
-          const gx = x + Math.cos(gAngle) * level2Radius;
-          const gy = y + Math.sin(gAngle) * level2Radius;
-          
-          // Same colorIndex as parent for visual grouping
-          positions.push({ 
-            x: gx, y: gy, node: grandchild, level: 2, angle: gAngle,
-            parentPos: { x, y },
-            colorIndex: i
-          } as NodePosition & { colorIndex: number });
+        colorIndex: i,
+      });
+
+      const gcCount = child.children?.length ?? 0;
+      if (gcCount === 0) return;
+
+      // Sub-topic ring spacing also dynamic
+      const level2Radius = Math.min(190, 115 + gcCount * 14);
+      const childAngleSpread = Math.min(Math.PI * 0.9, Math.PI / 2.2 + gcCount * 0.08);
+      const startAngle = angle - childAngleSpread / 2;
+      const childAngleStep = gcCount > 1 ? childAngleSpread / (gcCount - 1) : 0;
+
+      child.children!.forEach((grandchild, j) => {
+        // Small deterministic offset prevents same-angle stacking across branches
+        const branchOffset = (i % 2 === 0 ? 1 : -1) * 0.03;
+        const gAngle = gcCount === 1 ? angle + branchOffset : startAngle + childAngleStep * j;
+
+        const gx = x + Math.cos(gAngle) * level2Radius;
+        const gy = y + Math.sin(gAngle) * level2Radius;
+
+        positions.push({
+          x: gx,
+          y: gy,
+          node: grandchild,
+          level: 2,
+          angle: gAngle,
+          parentPos: { x, y },
+          colorIndex: i,
         });
-      }
+      });
     });
-    
+
     return positions;
   }, []);
 
@@ -409,8 +417,8 @@ const MindMap = () => {
             <div className="overflow-auto bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800" style={{ minHeight: "500px" }}>
               <svg
                 ref={svgRef}
-                viewBox="0 0 800 600"
-                className="w-full h-auto min-h-[500px]"
+                viewBox="0 0 1000 800"
+                className="w-full h-auto min-h-[560px]"
                 style={{ transform: `scale(${zoom})`, transformOrigin: "center", transition: "transform 0.2s" }}
               >
                 <defs>
@@ -444,7 +452,7 @@ const MindMap = () => {
                 <rect width="100%" height="100%" fill="url(#grid)" />
 
                 {/* Center glow */}
-                <circle cx="400" cy="300" r="180" fill="url(#centerGlow)" />
+                <circle cx="500" cy="400" r="220" fill="url(#centerGlow)" />
 
                 {/* Connection lines */}
                 {positions.filter(p => p.parentPos).map((pos) => {
