@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,14 +12,35 @@ serve(async (req) => {
   }
 
   try {
-    const { type = 'daily', topic = null } = await req.json();
+    const { type = 'daily', topic = null, forceRefresh = false } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
     const today = new Date().toISOString().split('T')[0];
+    
+    // For daily type, check cache first (unless force refresh)
+    if (type === 'daily' && !forceRefresh && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      
+      const { data: cached } = await supabase
+        .from('daily_current_affairs_cache')
+        .select('affairs')
+        .eq('date', today)
+        .maybeSingle();
+      
+      if (cached) {
+        console.log('Returning cached current affairs for', today);
+        return new Response(JSON.stringify({ affairs: cached.affairs, cached: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
     
     let systemPrompt = `You are an expert UPSC current affairs analyst. Generate current affairs news items that are highly relevant for UPSC Civil Services Examination preparation.
 
@@ -185,6 +207,25 @@ Include both recent developments and important background context for this topic
     }));
 
     console.log(`Successfully generated ${processedAffairs.length} current affairs items`);
+
+    // Cache daily affairs in database
+    if (type === 'daily' && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      
+      const { error: upsertError } = await supabase
+        .from('daily_current_affairs_cache')
+        .upsert({
+          date: today,
+          affairs: processedAffairs,
+          generated_at: new Date().toISOString()
+        }, { onConflict: 'date' });
+      
+      if (upsertError) {
+        console.error('Failed to cache current affairs:', upsertError);
+      } else {
+        console.log('Cached current affairs for', today);
+      }
+    }
 
     return new Response(JSON.stringify({ affairs: processedAffairs }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

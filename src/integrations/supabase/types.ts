@@ -77,6 +77,48 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_current_affairs_cache: {
+        Row: {
+          affairs: Json
+          date: string
+          generated_at: string
+          id: string
+        }
+        Insert: {
+          affairs: Json
+          date: string
+          generated_at?: string
+          id?: string
+        }
+        Update: {
+          affairs?: Json
+          date?: string
+          generated_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      daily_intel_report_cache: {
+        Row: {
+          date: string
+          generated_at: string
+          id: string
+          report: Json
+        }
+        Insert: {
+          date: string
+          generated_at?: string
+          id?: string
+          report: Json
+        }
+        Update: {
+          date?: string
+          generated_at?: string
+          id?: string
+          report?: Json
+        }
+        Relationships: []
+      }
       gamification_badges: {
         Row: {
           badge_description: string | null

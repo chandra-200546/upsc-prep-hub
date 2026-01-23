@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,13 +12,36 @@ serve(async (req) => {
   }
 
   try {
+    const body = await req.json().catch(() => ({}));
+    const forceRefresh = body.forceRefresh || false;
+    
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     const today = new Date().toISOString().split("T")[0];
+
+    // Check cache first (unless force refresh)
+    if (!forceRefresh && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      
+      const { data: cached } = await supabase
+        .from('daily_intel_report_cache')
+        .select('report')
+        .eq('date', today)
+        .maybeSingle();
+      
+      if (cached) {
+        console.log('Returning cached intel report for', today);
+        return new Response(JSON.stringify({ report: cached.report, cached: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     const systemPrompt = `You are an intelligence analyst creating a UPSC Daily Intelligence Report. Generate a comprehensive, officer-style brief covering today's most important developments relevant to UPSC preparation.
 
@@ -69,6 +93,8 @@ Rules:
 - Include 6-8 one-line notes covering all important developments
 - Focus on recent/current developments that are UPSC relevant
 - Be specific with data, names, and dates where applicable`;
+
+    console.log('Generating daily intel report for', today);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -158,6 +184,27 @@ Rules:
           "Focus on connecting current events to syllabus topics"
         ]
       };
+    }
+
+    console.log('Successfully generated intel report');
+
+    // Cache report in database
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      
+      const { error: upsertError } = await supabase
+        .from('daily_intel_report_cache')
+        .upsert({
+          date: today,
+          report: report,
+          generated_at: new Date().toISOString()
+        }, { onConflict: 'date' });
+      
+      if (upsertError) {
+        console.error('Failed to cache intel report:', upsertError);
+      } else {
+        console.log('Cached intel report for', today);
+      }
     }
 
     return new Response(JSON.stringify({ report }), {
