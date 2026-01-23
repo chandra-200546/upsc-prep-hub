@@ -9,6 +9,8 @@ import {
   Calendar, LogOut, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap, Mail, Phone
 } from "lucide-react";
 import upscMentorLogo from "@/assets/upsc-mentor-logo.jpeg";
+import FeedbackForm from "@/components/FeedbackForm";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const Dashboard = () => {
   const [profile, setProfile] = useState<any>(null);
@@ -75,9 +77,12 @@ const Dashboard = () => {
               <p className="text-xs text-muted-foreground">Welcome, {profile?.name}!</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full">
-            <LogOut className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full">
+              <LogOut className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -288,9 +293,12 @@ const Dashboard = () => {
                     +91 7975256005 (WhatsApp)
                   </button>
                 </div>
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+
+            {/* Feedback Form */}
+            <FeedbackForm />
         </div>
       </main>
     </div>

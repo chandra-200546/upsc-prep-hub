@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "@/hooks/use-theme";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
@@ -26,33 +27,35 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/mentor" element={<Mentor />} />
-          <Route path="/prelims" element={<Prelims />} />
-          <Route path="/assistant" element={<Assistant />} />
-          <Route path="/current-affairs" element={<CurrentAffairs />} />
-          <Route path="/study-plan" element={<StudyPlan />} />
-          <Route path="/mains" element={<Mains />} />
-          <Route path="/notes" element={<NotesLibrary />} />
-          <Route path="/map-practice" element={<MapPractice />} />
-          <Route path="/mock-interview" element={<MockInterview />} />
-          <Route path="/pyq-engine" element={<PYQEngine />} />
-          <Route path="/mind-map" element={<MindMap />} />
-          <Route path="/daily-intel" element={<DailyIntelReport />} />
-          <Route path="/optional-professor" element={<OptionalProfessor />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/mentor" element={<Mentor />} />
+            <Route path="/prelims" element={<Prelims />} />
+            <Route path="/assistant" element={<Assistant />} />
+            <Route path="/current-affairs" element={<CurrentAffairs />} />
+            <Route path="/study-plan" element={<StudyPlan />} />
+            <Route path="/mains" element={<Mains />} />
+            <Route path="/notes" element={<NotesLibrary />} />
+            <Route path="/map-practice" element={<MapPractice />} />
+            <Route path="/mock-interview" element={<MockInterview />} />
+            <Route path="/pyq-engine" element={<PYQEngine />} />
+            <Route path="/mind-map" element={<MindMap />} />
+            <Route path="/daily-intel" element={<DailyIntelReport />} />
+            <Route path="/optional-professor" element={<OptionalProfessor />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
