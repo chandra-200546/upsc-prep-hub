@@ -21,6 +21,7 @@ import PYQEngine from "./pages/PYQEngine";
 import MindMap from "./pages/MindMap";
 import DailyIntelReport from "./pages/DailyIntelReport";
 import OptionalProfessor from "./pages/OptionalProfessor";
+import VoiceAI from "./pages/VoiceAI";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/mind-map" element={<MindMap />} />
             <Route path="/daily-intel" element={<DailyIntelReport />} />
             <Route path="/optional-professor" element={<OptionalProfessor />} />
+            <Route path="/voice-ai" element={<VoiceAI />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
