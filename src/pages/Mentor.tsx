@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send, Loader2 } from "lucide-react";
+import { ArrowLeft, Send, Loader2, Mic } from "lucide-react";
+import { useVoiceSynthesis } from "@/hooks/use-voice-synthesis";
+import { VoiceControls, AutoPlayToggle } from "@/components/VoiceControls";
 
 type Message = {
   role: "user" | "assistant";
@@ -17,9 +19,11 @@ const Mentor = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
+  const [speakingMessageIdx, setSpeakingMessageIdx] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const voice = useVoiceSynthesis();
 
   useEffect(() => {
     loadProfile();
@@ -155,6 +159,12 @@ const Mentor = () => {
         role: "assistant",
         content: assistantMessage,
       });
+
+      // Auto-play voice if enabled
+      if (voice.autoPlay && assistantMessage) {
+        const cleanText = assistantMessage.replace(/\*\*/g, '').replace(/\*/g, '').replace(/__/g, '').replace(/_/g, '');
+        voice.speak(cleanText, profile?.mentor_personality || "friendly");
+      }
     } catch (error: any) {
       toast({
         title: "Error",
@@ -166,16 +176,40 @@ const Mentor = () => {
     }
   };
 
+  const handleSpeakMessage = (idx: number, content: string) => {
+    if (speakingMessageIdx === idx && voice.isSpeaking) {
+      voice.stop();
+      setSpeakingMessageIdx(null);
+    } else {
+      const cleanText = content.replace(/\*\*/g, '').replace(/\*/g, '').replace(/__/g, '').replace(/_/g, '');
+      voice.speak(cleanText, profile?.mentor_personality || "friendly");
+      setSpeakingMessageIdx(idx);
+    }
+  };
+
+  // Reset speaking index when speech ends
+  useEffect(() => {
+    if (!voice.isSpeaking) {
+      setSpeakingMessageIdx(null);
+    }
+  }, [voice.isSpeaking]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/20 flex flex-col">
-      <header className="bg-card/80 backdrop-blur-sm border-b px-4 py-3 flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="rounded-full">
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div>
-          <h1 className="font-bold">AI Mentor</h1>
-          <p className="text-xs text-muted-foreground capitalize">{profile?.mentor_personality || "Friendly"} personality</p>
+      <header className="bg-card/80 backdrop-blur-sm border-b px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="rounded-full">
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="font-bold flex items-center gap-2">
+              AI Mentor
+              <Mic className="w-4 h-4 text-primary" />
+            </h1>
+            <p className="text-xs text-muted-foreground capitalize">{profile?.mentor_personality || "Friendly"} voice</p>
+          </div>
         </div>
+        <AutoPlayToggle autoPlay={voice.autoPlay} onToggle={voice.toggleAutoPlay} />
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -194,6 +228,8 @@ const Mentor = () => {
             ? msg.content.replace(/\*\*/g, '').replace(/\*/g, '').replace(/__/g, '').replace(/_/g, '')
             : msg.content;
           
+          const isCurrentlySpeaking = speakingMessageIdx === idx && voice.isSpeaking;
+          
           return (
             <div
               key={idx}
@@ -204,9 +240,23 @@ const Mentor = () => {
                   msg.role === "user"
                     ? "bg-gradient-primary text-white border-0"
                     : "bg-card"
-                }`}
+                } ${isCurrentlySpeaking ? "ring-2 ring-primary/50" : ""}`}
               >
                 <p className="text-sm whitespace-pre-wrap">{cleanContent}</p>
+                {msg.role === "assistant" && (
+                  <div className="mt-2 pt-2 border-t border-border/50">
+                    <VoiceControls
+                      isSpeaking={isCurrentlySpeaking}
+                      isPaused={isCurrentlySpeaking && voice.isPaused}
+                      autoPlay={voice.autoPlay}
+                      onSpeak={() => handleSpeakMessage(idx, msg.content)}
+                      onPause={voice.pause}
+                      onResume={voice.resume}
+                      onStop={voice.stop}
+                      onToggleAutoPlay={voice.toggleAutoPlay}
+                    />
+                  </div>
+                )}
               </Card>
             </div>
           );
