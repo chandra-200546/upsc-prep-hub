@@ -250,6 +250,15 @@ const Dashboard = () => {
               <h3 className="font-semibold mb-1">Optional Professor</h3>
               <p className="text-sm text-muted-foreground">AI expert for your optional</p>
             </Card>
+
+            <Card
+              onClick={() => navigate("/voice-ai")}
+              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-primary/30"
+            >
+              <div className="text-4xl mb-3">🎙️</div>
+              <h3 className="font-semibold mb-1">Voice AI</h3>
+              <p className="text-sm text-muted-foreground">Talk & listen to AI explanations</p>
+            </Card>
           </div>
         </div>
 
