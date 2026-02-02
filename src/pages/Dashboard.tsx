@@ -4,19 +4,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useSubscription } from "@/hooks/use-subscription";
 import { 
   BookOpen, Brain, FileText, TrendingUp, Award, 
-  Calendar, LogOut, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap, Mail, Phone
+  Calendar, LogOut, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap, Mail, Phone, Crown
 } from "lucide-react";
 import upscMentorLogo from "@/assets/upsc-mentor-logo.jpeg";
 import FeedbackForm from "@/components/FeedbackForm";
 import ThemeToggle from "@/components/ThemeToggle";
+import FeatureCard from "@/components/FeatureCard";
 
 const Dashboard = () => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { isSubscribed, loading: subLoading } = useSubscription();
 
   useEffect(() => {
     checkUser();
@@ -61,6 +64,27 @@ const Dashboard = () => {
     );
   }
 
+  // Free features (first 5)
+  const freeFeatures = [
+    { path: "/mentor", icon: <MessageSquare className="w-10 h-10" />, title: "AI Mentor", description: "Chat with your personal mentor" },
+    { path: "/prelims", icon: <Brain className="w-10 h-10" />, title: "Prelims Quiz", description: "Practice MCQs" },
+    { path: "/current-affairs", icon: <FileText className="w-10 h-10" />, title: "Current Affairs", description: "Today's updates" },
+    { path: "/study-plan", icon: <Calendar className="w-10 h-10" />, title: "Study Plan", description: "Daily schedule" },
+    { path: "/mains", icon: <Award className="w-10 h-10" />, title: "Mains Practice", description: "Practice essay writing" },
+  ];
+
+  // Premium features (locked for free users)
+  const premiumFeatures = [
+    { path: "/notes", icon: <BookOpen className="w-10 h-10" />, title: "Notes Library", description: "Your study notes" },
+    { path: "/map-practice", icon: <Map className="w-10 h-10" />, title: "Map Practice", description: "India & World Geography" },
+    { path: "/mock-interview", icon: <Video className="w-10 h-10" />, title: "Mock Interview", description: "AI Interview Room" },
+    { path: "/pyq-engine", icon: <BarChart3 className="w-10 h-10" />, title: "PYQ Engine", description: "40-Year Analysis & Predictions" },
+    { path: "/mind-map", icon: <GitBranch className="w-10 h-10" />, title: "Mind Map", description: "Visual topic visualizer" },
+    { path: "/daily-intel", icon: <Newspaper className="w-10 h-10" />, title: "Daily Intel Report", description: "Officer-grade UPSC brief" },
+    { path: "/optional-professor", icon: <GraduationCap className="w-10 h-10" />, title: "Optional Professor", description: "AI expert for your optional" },
+    { path: "/voice-ai", icon: <div className="text-4xl">🎙️</div>, title: "Voice AI", description: "Talk & listen to AI explanations" },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/20">
       {/* Header */}
@@ -77,7 +101,23 @@ const Dashboard = () => {
               <p className="text-xs text-muted-foreground">Welcome, {profile?.name}!</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            {!subLoading && !isSubscribed && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate("/subscription")}
+                className="text-primary border-primary/30 hover:bg-primary/10"
+              >
+                <Crown className="w-4 h-4 mr-1" />
+                Upgrade
+              </Button>
+            )}
+            {isSubscribed && (
+              <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded-full flex items-center gap-1">
+                <Crown className="w-3 h-3" /> Premium
+              </span>
+            )}
             <ThemeToggle />
             <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full">
               <LogOut className="w-5 h-5" />
@@ -139,126 +179,52 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Quick Actions */}
+        {/* Free Features */}
         <div>
-          <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
+          <h2 className="text-xl font-bold mb-4">Free Features</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <Card
-              onClick={() => navigate("/mentor")}
-              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
-            >
-              <MessageSquare className="w-10 h-10 mb-3 text-primary" />
-              <h3 className="font-semibold mb-1">AI Mentor</h3>
-              <p className="text-sm text-muted-foreground">Chat with your personal mentor</p>
-            </Card>
+            {freeFeatures.map((feature) => (
+              <FeatureCard
+                key={feature.path}
+                path={feature.path}
+                icon={feature.icon}
+                title={feature.title}
+                description={feature.description}
+                isLocked={false}
+              />
+            ))}
+          </div>
+        </div>
 
-            <Card
-              onClick={() => navigate("/prelims")}
-              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
-            >
-              <Brain className="w-10 h-10 mb-3 text-primary" />
-              <h3 className="font-semibold mb-1">Prelims Quiz</h3>
-              <p className="text-sm text-muted-foreground">Practice MCQs</p>
-            </Card>
-
-            <Card
-              onClick={() => navigate("/current-affairs")}
-              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
-            >
-              <FileText className="w-10 h-10 mb-3 text-primary" />
-              <h3 className="font-semibold mb-1">Current Affairs</h3>
-              <p className="text-sm text-muted-foreground">Today's updates</p>
-            </Card>
-
-            <Card
-              onClick={() => navigate("/study-plan")}
-              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
-            >
-              <Calendar className="w-10 h-10 mb-3 text-primary" />
-              <h3 className="font-semibold mb-1">Study Plan</h3>
-              <p className="text-sm text-muted-foreground">Daily schedule</p>
-            </Card>
-
-            <Card
-              onClick={() => navigate("/mains")}
-              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
-            >
-              <Award className="w-10 h-10 mb-3 text-primary" />
-              <h3 className="font-semibold mb-1">Mains Practice</h3>
-              <p className="text-sm text-muted-foreground">Practice essay writing</p>
-            </Card>
-
-            <Card
-              onClick={() => navigate("/notes")}
-              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
-            >
-              <BookOpen className="w-10 h-10 mb-3 text-primary" />
-              <h3 className="font-semibold mb-1">Notes Library</h3>
-              <p className="text-sm text-muted-foreground">Your study notes</p>
-            </Card>
-
-            <Card
-              onClick={() => navigate("/map-practice")}
-              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
-            >
-              <Map className="w-10 h-10 mb-3 text-primary" />
-              <h3 className="font-semibold mb-1">Map Practice</h3>
-              <p className="text-sm text-muted-foreground">India & World Geography</p>
-            </Card>
-
-            <Card
-              onClick={() => navigate("/mock-interview")}
-              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
-            >
-              <Video className="w-10 h-10 mb-3 text-primary" />
-              <h3 className="font-semibold mb-1">Mock Interview</h3>
-              <p className="text-sm text-muted-foreground">AI Interview Room</p>
-            </Card>
-
-            <Card
-              onClick={() => navigate("/pyq-engine")}
-              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
-            >
-              <BarChart3 className="w-10 h-10 mb-3 text-primary" />
-              <h3 className="font-semibold mb-1">PYQ Engine</h3>
-              <p className="text-sm text-muted-foreground">40-Year Analysis & Predictions</p>
-            </Card>
-
-            <Card
-              onClick={() => navigate("/mind-map")}
-              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
-            >
-              <GitBranch className="w-10 h-10 mb-3 text-primary" />
-              <h3 className="font-semibold mb-1">Mind Map</h3>
-              <p className="text-sm text-muted-foreground">Visual topic visualizer</p>
-            </Card>
-
-            <Card
-              onClick={() => navigate("/daily-intel")}
-              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
-            >
-              <Newspaper className="w-10 h-10 mb-3 text-primary" />
-              <h3 className="font-semibold mb-1">Daily Intel Report</h3>
-              <p className="text-sm text-muted-foreground">Officer-grade UPSC brief</p>
-            </Card>
-
-            <Card
-              onClick={() => navigate("/optional-professor")}
-              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-card border-0"
-            >
-              <GraduationCap className="w-10 h-10 mb-3 text-primary" />
-              <h3 className="font-semibold mb-1">Optional Professor</h3>
-              <p className="text-sm text-muted-foreground">AI expert for your optional</p>
-            </Card>
-
-            <Card
-              onClick={() => navigate("/voice-ai")}
-              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-105 bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-primary/30"
-            >
-              <div className="text-4xl mb-3">🎙️</div>
-              <h3 className="font-semibold mb-1">Voice AI</h3>
-              <p className="text-sm text-muted-foreground">Talk & listen to AI explanations</p>
-            </Card>
+        {/* Premium Features */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Crown className="w-5 h-5 text-warning" />
+              Premium Features
+            </h2>
+            {!isSubscribed && (
+              <Button 
+                variant="link" 
+                size="sm" 
+                onClick={() => navigate("/subscription")}
+                className="text-primary"
+              >
+                View Plans →
+              </Button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {premiumFeatures.map((feature) => (
+              <FeatureCard
+                key={feature.path}
+                path={feature.path}
+                icon={feature.icon}
+                title={feature.title}
+                description={feature.description}
+                isLocked={!isSubscribed}
+              />
+            ))}
           </div>
         </div>
 
@@ -285,8 +251,6 @@ const Dashboard = () => {
                     type="button"
                     onClick={() => {
                       const phone = "917975256005";
-                      // In embedded previews, opening WhatsApp web can be blocked by iframe restrictions.
-                      // Prefer deep-link first; user can still copy the number.
                       try {
                         window.location.href = `whatsapp://send?phone=${phone}`;
                       } catch {
@@ -302,12 +266,12 @@ const Dashboard = () => {
                     +91 7975256005 (WhatsApp)
                   </button>
                 </div>
-                </div>
               </div>
-            </Card>
+            </div>
+          </Card>
 
-            {/* Feedback Form */}
-            <FeedbackForm />
+          {/* Feedback Form */}
+          <FeedbackForm />
         </div>
       </main>
     </div>
