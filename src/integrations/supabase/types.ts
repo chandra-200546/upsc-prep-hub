@@ -238,6 +238,53 @@ export type Database = {
         }
         Relationships: []
       }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string | null
+          id: string
+          plan_type: string
+          razorpay_order_id: string | null
+          razorpay_payment_id: string | null
+          status: string
+          subscription_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string | null
+          id?: string
+          plan_type: string
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          status?: string
+          subscription_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string | null
+          id?: string
+          plan_type?: string
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          status?: string
+          subscription_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prelims_attempts: {
         Row: {
           attempted_at: string | null
@@ -395,6 +442,51 @@ export type Database = {
           id?: string
           tasks?: Json
           total_tasks?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          amount: number | null
+          created_at: string
+          currency: string | null
+          end_date: string | null
+          id: string
+          plan_type: string
+          razorpay_customer_id: string | null
+          razorpay_subscription_id: string | null
+          start_date: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          currency?: string | null
+          end_date?: string | null
+          id?: string
+          plan_type?: string
+          razorpay_customer_id?: string | null
+          razorpay_subscription_id?: string | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          currency?: string | null
+          end_date?: string | null
+          id?: string
+          plan_type?: string
+          razorpay_customer_id?: string | null
+          razorpay_subscription_id?: string | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
