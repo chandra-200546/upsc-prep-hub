@@ -1,5 +1,4 @@
-
-🌟 UPSC Mentor – Complete Features List (With Explanation)
+ UPSC Mentor – Complete Features List (With Explanation)
 
 Developed by: Chandrashekhar Kumbar
 
