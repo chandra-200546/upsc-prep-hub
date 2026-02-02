@@ -26,3 +26,12 @@ verify_jwt = false
 
 [functions.generate-prelims-questions]
 verify_jwt = false
+
+[functions.create-subscription]
+verify_jwt = false
+
+[functions.verify-subscription]
+verify_jwt = false
+
+[functions.check-subscription]
+verify_jwt = false

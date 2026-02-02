@@ -22,6 +22,7 @@ import MindMap from "./pages/MindMap";
 import DailyIntelReport from "./pages/DailyIntelReport";
 import OptionalProfessor from "./pages/OptionalProfessor";
 import VoiceAI from "./pages/VoiceAI";
+import Subscription from "./pages/Subscription";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/daily-intel" element={<DailyIntelReport />} />
             <Route path="/optional-professor" element={<OptionalProfessor />} />
             <Route path="/voice-ai" element={<VoiceAI />} />
+            <Route path="/subscription" element={<Subscription />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
