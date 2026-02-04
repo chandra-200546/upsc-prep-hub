@@ -23,11 +23,14 @@ interface AdminStats {
   users: UserDetail[];
 }
 
+interface AdminDashboardProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
 const ADMIN_SECRET = "admin@7975256005";
 
-const AdminDashboard = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [typedKeys, setTypedKeys] = useState("");
+const AdminDashboard = ({ isOpen, onClose }: AdminDashboardProps) => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,31 +61,12 @@ const AdminDashboard = () => {
     }
   }, []);
 
-  // Listen for secret code typing
+  // Fetch stats when modal opens
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in an input field
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
-      const newTyped = typedKeys + e.key;
-      
-      // Keep only the last N characters where N is the secret length
-      const trimmed = newTyped.slice(-ADMIN_SECRET.length);
-      setTypedKeys(trimmed);
-
-      // Check if secret was typed
-      if (trimmed === ADMIN_SECRET) {
-        setIsOpen(true);
-        setTypedKeys("");
-        fetchStats();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [typedKeys, fetchStats]);
+    if (isOpen) {
+      fetchStats();
+    }
+  }, [isOpen, fetchStats]);
 
   // Set up realtime subscription for profiles
   useEffect(() => {
@@ -132,7 +116,7 @@ const AdminDashboard = () => {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">

@@ -3,20 +3,34 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/hooks/use-subscription";
 import { 
   BookOpen, Brain, FileText, TrendingUp, Award, 
-  Calendar, LogOut, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap, Mail, Phone, Crown
+  Calendar, LogOut, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap, Mail, Phone, Crown, MoreHorizontal
 } from "lucide-react";
 import upscMentorLogo from "@/assets/upsc-mentor-logo.jpeg";
 import FeedbackForm from "@/components/FeedbackForm";
 import ThemeToggle from "@/components/ThemeToggle";
 import FeatureCard from "@/components/FeatureCard";
+import AdminDashboard from "@/components/AdminDashboard";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+const ADMIN_PASSWORD = "admin@7975256005";
 
 const Dashboard = () => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isSubscribed, loading: subLoading } = useSubscription();
@@ -51,6 +65,23 @@ const Dashboard = () => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/auth");
+  };
+
+  const handleAdminAccess = () => {
+    setShowPasswordDialog(true);
+    setAdminPassword("");
+    setPasswordError(false);
+  };
+
+  const handlePasswordSubmit = () => {
+    if (adminPassword === ADMIN_PASSWORD) {
+      setShowPasswordDialog(false);
+      setShowAdminDashboard(true);
+      setAdminPassword("");
+      setPasswordError(false);
+    } else {
+      setPasswordError(true);
+    }
   };
 
   if (loading) {
@@ -230,10 +261,20 @@ const Dashboard = () => {
 
         {/* Contact Developer Section */}
         <div className="mt-12 border-t pt-8">
-          <h2 className="text-xl font-bold mb-4">Contact Developer</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Contact Developer</h2>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleAdminAccess}
+              className="h-8 w-8 rounded-full opacity-50 hover:opacity-100"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </Button>
+          </div>
           <Card className="p-6 bg-gradient-card border-0">
             <div className="flex flex-col md:flex-row items-center gap-6">
-              <div className="w-20 h-20 rounded-full bg-gradient-primary flex items-center justify-center text-3xl font-bold text-white">
+              <div className="w-20 h-20 rounded-full bg-gradient-primary flex items-center justify-center text-3xl font-bold text-primary-foreground">
                 C
               </div>
               <div className="flex-1 text-center md:text-left">
@@ -274,6 +315,44 @@ const Dashboard = () => {
           <FeedbackForm />
         </div>
       </main>
+
+      {/* Password Dialog for Admin Access */}
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Admin Access</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              type="password"
+              placeholder="Enter admin password"
+              value={adminPassword}
+              onChange={(e) => {
+                setAdminPassword(e.target.value);
+                setPasswordError(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handlePasswordSubmit();
+                }
+              }}
+              className={passwordError ? 'border-destructive' : ''}
+            />
+            {passwordError && (
+              <p className="text-sm text-destructive">Incorrect password</p>
+            )}
+            <Button onClick={handlePasswordSubmit} className="w-full">
+              Access Dashboard
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin Dashboard Modal */}
+      <AdminDashboard 
+        isOpen={showAdminDashboard} 
+        onClose={() => setShowAdminDashboard(false)} 
+      />
     </div>
   );
 };
