@@ -24,6 +24,7 @@ import OptionalProfessor from "./pages/OptionalProfessor";
 import VoiceAI from "./pages/VoiceAI";
 import Subscription from "./pages/Subscription";
 import NotFound from "./pages/NotFound";
+import AdminDashboard from "./components/AdminDashboard";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <AdminDashboard />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
