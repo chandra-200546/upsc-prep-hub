@@ -409,6 +409,11 @@ const Subscription = () => {
             </div>
           </div>
         </Card>
+
+        {/* Coming Soon Note */}
+        <p className="text-center text-xs text-muted-foreground">
+          ✨ More features will be added soon!
+        </p>
       </main>
     </div>
   );
