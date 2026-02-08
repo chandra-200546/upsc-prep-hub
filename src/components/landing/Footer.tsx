@@ -22,7 +22,7 @@ const Footer = () => {
 
           {/* Developer credit */}
           <p className="text-xs text-muted-foreground">
-            Developed with ❤️ by <span className="font-medium text-foreground">Chandrashekhar Kumbar</span>
+            Developed by <span className="font-medium text-foreground">Chandrashekhar Kumbar</span>
           </p>
           
           {/* Copyright */}
