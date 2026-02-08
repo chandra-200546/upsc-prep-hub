@@ -125,16 +125,16 @@ const HeroSection = () => {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.6 }}
-            className="mt-16 grid grid-cols-3 gap-8 md:gap-16"
+            className="mt-16 mb-24 grid grid-cols-3 gap-8 md:gap-16"
           >
             {[
               { value: "12+", label: "AI Features" },
               { value: "24/7", label: "Availability" },
               { value: "100%", label: "Personalized" },
             ].map((stat, index) => (
-              <div key={index} className="text-center">
+              <div key={index} className="text-center pb-4">
                 <div className="text-3xl md:text-4xl font-bold text-primary">{stat.value}</div>
-                <div className="text-sm text-muted-foreground">{stat.label}</div>
+                <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
               </div>
             ))}
           </motion.div>
