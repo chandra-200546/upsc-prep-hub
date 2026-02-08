@@ -30,9 +30,11 @@ interface StudyPlan {
 const StudyPlan = () => {
   const [todayPlan, setTodayPlan] = useState<StudyPlan | null>(null);
   const [weeklyPlans, setWeeklyPlans] = useState<StudyPlan[]>([]);
+  const [monthlyPlans, setMonthlyPlans] = useState<StudyPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generatingWeekly, setGeneratingWeekly] = useState(false);
+  const [generatingMonthly, setGeneratingMonthly] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -50,7 +52,8 @@ const StudyPlan = () => {
 
     await Promise.all([
       fetchTodayPlan(session.user.id),
-      fetchWeeklyPlans(session.user.id)
+      fetchWeeklyPlans(session.user.id),
+      fetchMonthlyPlans(session.user.id)
     ]);
   };
 
@@ -94,6 +97,27 @@ const StudyPlan = () => {
       setWeeklyPlans(data || []);
     } catch (error) {
       console.error("Error fetching weekly plans:", error);
+    }
+  };
+
+  const fetchMonthlyPlans = async (userId: string) => {
+    try {
+      const today = new Date();
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+      const { data, error } = await supabase
+        .from("study_plan")
+        .select("*")
+        .eq("user_id", userId)
+        .gte("date", startOfMonth.toISOString().split('T')[0])
+        .lte("date", endOfMonth.toISOString().split('T')[0])
+        .order("date", { ascending: true });
+
+      if (error) throw error;
+      setMonthlyPlans(data || []);
+    } catch (error) {
+      console.error("Error fetching monthly plans:", error);
     }
   };
 
@@ -298,6 +322,120 @@ const StudyPlan = () => {
       });
     } finally {
       setGeneratingWeekly(false);
+    }
+  };
+
+  const generateMonthlyPlan = async () => {
+    setGeneratingMonthly(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", session.user.id)
+        .maybeSingle();
+
+      const today = new Date();
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+
+      const subjects = ["Polity", "Economy", "History", "Geography", "Environment", "Current Affairs", profile?.optional_subject || "Optional"];
+      const plansToInsert = [];
+
+      for (let i = 0; i < daysInMonth; i++) {
+        const date = new Date(startOfMonth);
+        date.setDate(startOfMonth.getDate() + i);
+        const dateStr = date.toISOString().split('T')[0];
+
+        // Check if plan already exists
+        const { data: existing } = await supabase
+          .from("study_plan")
+          .select("id")
+          .eq("user_id", session.user.id)
+          .eq("date", dateStr)
+          .maybeSingle();
+
+        if (existing) continue;
+
+        const weekOfMonth = Math.floor(i / 7);
+        const dailySubjects = [
+          subjects[(i + weekOfMonth) % subjects.length],
+          subjects[(i + weekOfMonth + 1) % subjects.length],
+          "Current Affairs"
+        ];
+
+        const tasks: Task[] = [
+          {
+            id: "1",
+            title: `${dailySubjects[0]} - Deep Study`,
+            subject: dailySubjects[0],
+            duration: "2 hours",
+            completed: false
+          },
+          {
+            id: "2",
+            title: `${dailySubjects[1]} - Revision`,
+            subject: dailySubjects[1],
+            duration: "1 hour",
+            completed: false
+          },
+          {
+            id: "3",
+            title: "Current Affairs - Daily Update",
+            subject: "Current Affairs",
+            duration: "30 mins",
+            completed: false
+          },
+          {
+            id: "4",
+            title: "Prelims Practice - 25 MCQs",
+            subject: "Mixed",
+            duration: "40 mins",
+            completed: false
+          },
+          {
+            id: "5",
+            title: "Answer Writing - 1 Question",
+            subject: "Mains",
+            duration: "30 mins",
+            completed: false
+          }
+        ];
+
+        plansToInsert.push({
+          user_id: session.user.id,
+          date: dateStr,
+          tasks: tasks as any,
+          total_tasks: tasks.length,
+          completed_tasks: 0
+        });
+      }
+
+      if (plansToInsert.length > 0) {
+        const { error } = await supabase
+          .from("study_plan")
+          .insert(plansToInsert);
+
+        if (error) throw error;
+      }
+
+      await fetchMonthlyPlans(session.user.id);
+      
+      toast({
+        title: "Monthly Plan Generated! 📆",
+        description: `Your ${daysInMonth}-day study schedule is ready`
+      });
+    } catch (error) {
+      console.error("Error generating monthly plan:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate monthly plan",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingMonthly(false);
     }
   };
 
@@ -666,117 +804,173 @@ const StudyPlan = () => {
           </TabsContent>
 
           <TabsContent value="monthly" className="space-y-4">
-            {/* Monthly Milestones */}
-            <Card className="p-6 bg-gradient-card border-0">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center">
-                  <Target className="w-6 h-6 text-white" />
+            {monthlyPlans.length === 0 ? (
+              <Card className="p-8 text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center mx-auto">
+                  <Target className="w-8 h-8 text-white" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-lg">Monthly Roadmap</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            {/* Subject-wise Goals */}
-            <div className="grid gap-4">
-              {[
-                { subject: "Polity", target: "Complete NCERT + Laxmikanth Basics", progress: 45 },
-                { subject: "Economy", target: "Indian Economy + Economic Survey", progress: 30 },
-                { subject: "History", target: "Ancient & Medieval India", progress: 60 },
-                { subject: "Geography", target: "Physical Geography + Maps", progress: 25 },
-                { subject: "Current Affairs", target: "Daily Updates + Weekly Compilation", progress: 75 },
-                { subject: "Prelims Practice", target: "1000 MCQs + 5 Mock Tests", progress: 40 }
-              ].map((goal, i) => (
-                <Card key={i} className="p-5">
-                  <div className="flex items-start justify-between mb-3">
+                <h3 className="font-bold text-xl">No Monthly Plan Yet</h3>
+                <p className="text-muted-foreground">
+                  Generate a complete month-long study schedule with subject-wise goals and milestones
+                </p>
+                <Button 
+                  onClick={generateMonthlyPlan} 
+                  disabled={generatingMonthly}
+                  size="lg"
+                  className="mt-4"
+                >
+                  {generatingMonthly ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate Monthly Plan
+                    </>
+                  )}
+                </Button>
+              </Card>
+            ) : (
+              <>
+                {/* Monthly Overview */}
+                <Card className="p-6 bg-gradient-card border-0">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center">
+                      <Target className="w-6 h-6 text-white" />
+                    </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold mb-1">{goal.subject}</h4>
-                      <p className="text-sm text-muted-foreground">{goal.target}</p>
+                      <h3 className="font-bold text-lg">Monthly Roadmap</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xl font-bold text-primary">{goal.progress}%</p>
+                      <p className="text-3xl font-bold text-primary">
+                        {monthlyPlans.reduce((acc, plan) => acc + (plan.completed_tasks || 0), 0)}/
+                        {monthlyPlans.reduce((acc, plan) => acc + (plan.total_tasks || 0), 0)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Tasks completed</p>
                     </div>
                   </div>
-                  <Progress value={goal.progress} className="h-2" />
+                  <Progress 
+                    value={
+                      monthlyPlans.reduce((acc, plan) => acc + (plan.total_tasks || 0), 0) > 0
+                        ? (monthlyPlans.reduce((acc, plan) => acc + (plan.completed_tasks || 0), 0) / 
+                           monthlyPlans.reduce((acc, plan) => acc + (plan.total_tasks || 0), 0)) * 100
+                        : 0
+                    } 
+                    className="h-3"
+                  />
                 </Card>
-              ))}
-            </div>
 
-            {/* Weekly Breakdown */}
-            <Card className="p-6">
-              <h4 className="font-semibold mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                This Month's Schedule
-              </h4>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-bold">W1</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium">Week 1: Foundation Building</p>
-                    <p className="text-sm text-muted-foreground">Focus: Polity + Current Affairs</p>
-                  </div>
-                  <CheckCircle2 className="w-5 h-5 text-success" />
-                </div>
+                {/* Weekly Breakdown */}
+                <Card className="p-6">
+                  <h4 className="font-semibold mb-4 flex items-center gap-2">
+                    <Calendar className="w-5 h-5" />
+                    This Month's Weekly Progress
+                  </h4>
+                  <div className="space-y-3">
+                    {Array.from({ length: 4 }).map((_, weekIndex) => {
+                      const today = new Date();
+                      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                      const weekStart = new Date(startOfMonth);
+                      weekStart.setDate(startOfMonth.getDate() + weekIndex * 7);
+                      const weekEnd = new Date(weekStart);
+                      weekEnd.setDate(weekStart.getDate() + 6);
 
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-bold">W2</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium">Week 2: Economic Concepts</p>
-                    <p className="text-sm text-muted-foreground">Focus: Economy + Prelims Practice</p>
-                  </div>
-                  <Clock className="w-5 h-5 text-warning" />
-                </div>
+                      const weekPlans = monthlyPlans.filter(plan => {
+                        const planDate = new Date(plan.date);
+                        return planDate >= weekStart && planDate <= weekEnd;
+                      });
 
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-bold">W3</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium">Week 3: Historical Context</p>
-                    <p className="text-sm text-muted-foreground">Focus: History + Answer Writing</p>
-                  </div>
-                  <Circle className="w-5 h-5 text-muted-foreground" />
-                </div>
+                      const weekCompleted = weekPlans.reduce((acc, p) => acc + (p.completed_tasks || 0), 0);
+                      const weekTotal = weekPlans.reduce((acc, p) => acc + (p.total_tasks || 0), 0);
+                      const isCurrentWeek = today >= weekStart && today <= weekEnd;
+                      const isPast = weekEnd < today && !isCurrentWeek;
 
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-bold">W4</span>
+                      return (
+                        <div 
+                          key={weekIndex} 
+                          className={`flex items-center gap-3 p-3 rounded-lg ${
+                            isCurrentWeek ? 'bg-primary/10 border border-primary/20' : 'bg-muted/50'
+                          }`}
+                        >
+                          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <span className="text-sm font-bold">W{weekIndex + 1}</span>
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium flex items-center gap-2">
+                              Week {weekIndex + 1}
+                              {isCurrentWeek && (
+                                <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
+                                  Current
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {weekStart.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })} - {weekEnd.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            {weekTotal > 0 ? (
+                              <>
+                                <p className="font-bold">{weekCompleted}/{weekTotal}</p>
+                                <p className="text-xs text-muted-foreground">tasks</p>
+                              </>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">-</p>
+                            )}
+                          </div>
+                          {isPast && weekTotal > 0 && weekCompleted === weekTotal ? (
+                            <CheckCircle2 className="w-5 h-5 text-success" />
+                          ) : isCurrentWeek ? (
+                            <Clock className="w-5 h-5 text-warning" />
+                          ) : (
+                            <Circle className="w-5 h-5 text-muted-foreground" />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium">Week 4: Comprehensive Revision</p>
-                    <p className="text-sm text-muted-foreground">Focus: All Subjects + Mock Test</p>
-                  </div>
-                  <Circle className="w-5 h-5 text-muted-foreground" />
-                </div>
-              </div>
-            </Card>
+                </Card>
 
-            {/* Study Hours Target */}
-            <Card className="p-6 bg-gradient-card border-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
-                    <BookOpen className="w-6 h-6 text-success" />
+                {/* Study Stats */}
+                <Card className="p-6 bg-gradient-card border-0">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
+                        <BookOpen className="w-6 h-6 text-success" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold">{monthlyPlans.length} days</p>
+                        <p className="text-sm text-muted-foreground">Plans created this month</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-semibold text-success">
+                        {monthlyPlans.reduce((acc, plan) => acc + (plan.total_tasks || 0), 0) > 0
+                          ? Math.round((monthlyPlans.reduce((acc, plan) => acc + (plan.completed_tasks || 0), 0) / 
+                             monthlyPlans.reduce((acc, plan) => acc + (plan.total_tasks || 0), 0)) * 100)
+                          : 0}%
+                      </p>
+                      <p className="text-xs text-muted-foreground">completion rate</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold">124 hours</p>
-                    <p className="text-sm text-muted-foreground">Study time this month</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-semibold text-success">83%</p>
-                  <p className="text-xs text-muted-foreground">of target (150h)</p>
-                </div>
-              </div>
-            </Card>
+                </Card>
+
+                <Button 
+                  onClick={generateMonthlyPlan} 
+                  disabled={generatingMonthly}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Regenerate Monthly Plan
+                </Button>
+              </>
+            )}
           </TabsContent>
         </Tabs>
       </main>
