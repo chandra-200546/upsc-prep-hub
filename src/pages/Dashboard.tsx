@@ -6,15 +6,18 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/hooks/use-subscription";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   BookOpen, Brain, FileText, TrendingUp, Award, 
-  Calendar, LogOut, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap, Mail, Phone, Crown, MoreHorizontal
+  Calendar, LogOut, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap, Mail, Phone, Crown, MoreHorizontal, LayoutDashboard, Trophy
 } from "lucide-react";
 import upscMentorLogo from "@/assets/upsc-mentor-logo.jpeg";
 import FeedbackForm from "@/components/FeedbackForm";
 import ThemeToggle from "@/components/ThemeToggle";
 import FeatureCard from "@/components/FeatureCard";
 import AdminDashboard from "@/components/AdminDashboard";
+import ActivityDashboard from "@/components/dashboard/ActivityDashboard";
+import Leaderboard from "@/components/dashboard/Leaderboard";
 import {
   Dialog,
   DialogContent,
@@ -210,54 +213,82 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Free Features */}
-        <div>
-          <h2 className="text-xl font-bold mb-4">Free Features</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {freeFeatures.map((feature) => (
-              <FeatureCard
-                key={feature.path}
-                path={feature.path}
-                icon={feature.icon}
-                title={feature.title}
-                description={feature.description}
-                isLocked={false}
-              />
-            ))}
-          </div>
-        </div>
+        {/* Dashboard Tabs */}
+        <Tabs defaultValue="features" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsTrigger value="features" className="flex items-center gap-1">
+              <LayoutDashboard className="w-4 h-4" />
+              Features
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-1">
+              <BarChart3 className="w-4 h-4" />
+              Analytics
+            </TabsTrigger>
+            <TabsTrigger value="leaderboard" className="flex items-center gap-1">
+              <Trophy className="w-4 h-4" />
+              Leaderboard
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Premium Features */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <Crown className="w-5 h-5 text-warning" />
-              Premium Features
-            </h2>
-            {!isSubscribed && (
-              <Button 
-                variant="link" 
-                size="sm" 
-                onClick={() => navigate("/subscription")}
-                className="text-primary"
-              >
-                View Plans →
-              </Button>
-            )}
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {premiumFeatures.map((feature) => (
-              <FeatureCard
-                key={feature.path}
-                path={feature.path}
-                icon={feature.icon}
-                title={feature.title}
-                description={feature.description}
-                isLocked={!isSubscribed}
-              />
-            ))}
-          </div>
-        </div>
+          <TabsContent value="features" className="space-y-6">
+            {/* Free Features */}
+            <div>
+              <h2 className="text-xl font-bold mb-4">Free Features</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {freeFeatures.map((feature) => (
+                  <FeatureCard
+                    key={feature.path}
+                    path={feature.path}
+                    icon={feature.icon}
+                    title={feature.title}
+                    description={feature.description}
+                    isLocked={false}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Premium Features */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Crown className="w-5 h-5 text-warning" />
+                  Premium Features
+                </h2>
+                {!isSubscribed && (
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    onClick={() => navigate("/subscription")}
+                    className="text-primary"
+                  >
+                    View Plans →
+                  </Button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {premiumFeatures.map((feature) => (
+                  <FeatureCard
+                    key={feature.path}
+                    path={feature.path}
+                    icon={feature.icon}
+                    title={feature.title}
+                    description={feature.description}
+                    isLocked={!isSubscribed}
+                  />
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <ActivityDashboard profile={profile} />
+          </TabsContent>
+
+          <TabsContent value="leaderboard">
+            <Leaderboard />
+          </TabsContent>
+        </Tabs>
 
         {/* Contact Developer Section */}
         <div className="mt-12 border-t pt-8">
