@@ -16,7 +16,6 @@ Gives examples, diagrams, and UPSC-oriented notes
 Works like your personal teacher available anytime
 
 
-
 2️⃣ Prelims Quiz Practice (AI-Generated MCQs)
 
 Daily updated MCQs generated and curated by AI.
