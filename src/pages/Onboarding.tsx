@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-local-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,37 +29,39 @@ const Onboarding = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, isLocalMode, saveProfile } = useAuth();
 
   const handleComplete = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) throw new Error("No user found");
 
-      const { error } = await supabase.from("profiles").insert({
-        id: user.id,
-        name,
-        target_year: targetYear,
-        optional_subject: optionalSubject || null,
-        study_hours_per_day: studyHours,
-        mentor_personality: mentorPersonality,
-      });
+      if (isLocalMode) {
+        // Save to localStorage
+        saveProfile({
+          name,
+          target_year: targetYear,
+          optional_subject: optionalSubject || null,
+          study_hours_per_day: studyHours,
+          mentor_personality: mentorPersonality,
+        });
+      } else {
+        // Save to Supabase
+        const { error } = await supabase.from("profiles").insert({
+          id: user.id,
+          name,
+          target_year: targetYear,
+          optional_subject: optionalSubject || null,
+          study_hours_per_day: studyHours,
+          mentor_personality: mentorPersonality,
+        });
+        if (error) throw error;
+      }
 
-      if (error) throw error;
-
-      toast({
-        title: "Profile created!",
-        description: "Let's start your UPSC journey",
-      });
-      
+      toast({ title: "Profile created!", description: "Let's start your UPSC journey" });
       navigate("/dashboard");
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -76,22 +79,13 @@ const Onboarding = () => {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Your Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your name"
-                className="rounded-xl"
-              />
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter your name" className="rounded-xl" />
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="targetYear">Target Year</Label>
                 <Select value={targetYear.toString()} onValueChange={(v) => setTargetYear(parseInt(v))}>
-                  <SelectTrigger className="rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="2025">2025</SelectItem>
                     <SelectItem value="2026">2026</SelectItem>
@@ -100,13 +94,10 @@ const Onboarding = () => {
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="studyHours">Daily Study Hours</Label>
                 <Select value={studyHours.toString()} onValueChange={(v) => setStudyHours(parseInt(v))}>
-                  <SelectTrigger className="rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {[2, 3, 4, 5, 6, 7, 8, 10, 12].map((h) => (
                       <SelectItem key={h} value={h.toString()}>{h} hours</SelectItem>
@@ -115,23 +106,11 @@ const Onboarding = () => {
                 </Select>
               </div>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="optionalSubject">Optional Subject (if decided)</Label>
-              <Input
-                id="optionalSubject"
-                value={optionalSubject}
-                onChange={(e) => setOptionalSubject(e.target.value)}
-                placeholder="e.g., History, Geography, Psychology"
-                className="rounded-xl"
-              />
+              <Input id="optionalSubject" value={optionalSubject} onChange={(e) => setOptionalSubject(e.target.value)} placeholder="e.g., History, Geography, Psychology" className="rounded-xl" />
             </div>
-
-            <Button
-              onClick={() => setStep(2)}
-              className="w-full rounded-xl h-12 bg-gradient-primary"
-              disabled={!name}
-            >
+            <Button onClick={() => setStep(2)} className="w-full rounded-xl h-12 bg-gradient-primary" disabled={!name}>
               Next: Choose Your Mentor
             </Button>
           </div>
@@ -141,7 +120,6 @@ const Onboarding = () => {
               <h2 className="text-2xl font-bold mb-2">Choose Your AI Mentor</h2>
               <p className="text-muted-foreground">Select the personality that motivates you best</p>
             </div>
-
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {(["friendly", "strict", "topper", "military", "humorous", "spiritual"] as const).map((type) => {
                 const Icon = mentorIcons[type];
@@ -161,20 +139,9 @@ const Onboarding = () => {
                 );
               })}
             </div>
-
             <div className="flex gap-3">
-              <Button
-                onClick={() => setStep(1)}
-                variant="outline"
-                className="flex-1 rounded-xl h-12"
-              >
-                Back
-              </Button>
-              <Button
-                onClick={handleComplete}
-                className="flex-1 rounded-xl h-12 bg-gradient-primary"
-                disabled={loading}
-              >
+              <Button onClick={() => setStep(1)} variant="outline" className="flex-1 rounded-xl h-12">Back</Button>
+              <Button onClick={handleComplete} className="flex-1 rounded-xl h-12 bg-gradient-primary" disabled={loading}>
                 {loading ? "Creating..." : "Complete Setup"}
               </Button>
             </div>
