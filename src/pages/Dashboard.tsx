@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-local-auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,7 +29,6 @@ import {
 const ADMIN_PASSWORD = "admin@7975256005";
 
 const Dashboard = () => {
-  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
@@ -37,36 +37,23 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isSubscribed, loading: subLoading } = useSubscription();
+  const { user, profile, isReady, isLocalMode, signOut } = useAuth();
 
   useEffect(() => {
-    checkUser();
-  }, []);
-
-  const checkUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
+    if (!isReady) return;
+    if (!user) {
       navigate("/auth");
       return;
     }
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", session.user.id)
-      .single();
-
-    if (error) {
-      console.error("Error fetching profile:", error);
+    if (!profile) {
       navigate("/onboarding");
-    } else {
-      setProfile(data);
+      return;
     }
     setLoading(false);
-  };
+  }, [isReady, user, profile, navigate]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut();
     navigate("/auth");
   };
 
