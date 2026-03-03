@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-local-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Medal, Award, Crown, RefreshCw } from "lucide-react";
@@ -19,16 +20,31 @@ const PRIZES = [
   { icon: <Award className="w-6 h-6 text-primary" />, label: "🥉 3rd Place", prize: "₹200 + Bronze Certificate" },
 ];
 
+const SAMPLE_LEADERS: LeaderboardEntry[] = [
+  { id: "1", name: "Rahul Sharma", total_xp: 1250, level: 5, profile_photo_url: null },
+  { id: "2", name: "Priya Patel", total_xp: 980, level: 4, profile_photo_url: null },
+  { id: "3", name: "Amit Kumar", total_xp: 850, level: 3, profile_photo_url: null },
+  { id: "4", name: "Sneha Reddy", total_xp: 720, level: 3, profile_photo_url: null },
+  { id: "5", name: "Vikram Singh", total_xp: 600, level: 2, profile_photo_url: null },
+];
+
 const Leaderboard = () => {
   const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [daysLeft, setDaysLeft] = useState(0);
+  const { user, isLocalMode } = useAuth();
 
   useEffect(() => {
-    fetchLeaderboard();
     calculateDaysLeft();
-  }, []);
+    if (isLocalMode) {
+      setCurrentUserId(user?.id || null);
+      setLeaders(SAMPLE_LEADERS);
+      setLoading(false);
+    } else {
+      fetchLeaderboard();
+    }
+  }, [isLocalMode, user]);
 
   const calculateDaysLeft = () => {
     const now = new Date();
@@ -41,7 +57,6 @@ const Leaderboard = () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) setCurrentUserId(session.user.id);
 
-    // Fetch all profiles ordered by XP
     const { data, error } = await supabase
       .from("profiles")
       .select("id, name, total_xp, level, profile_photo_url")
@@ -62,14 +77,14 @@ const Leaderboard = () => {
         <h2 className="text-xl font-bold flex items-center gap-2">
           <Crown className="w-5 h-5 text-warning" />
           Monthly Leaderboard
+          {isLocalMode && <span className="text-xs text-muted-foreground font-normal">(Demo)</span>}
         </h2>
-        <Button variant="ghost" size="sm" onClick={fetchLeaderboard} disabled={loading}>
+        <Button variant="ghost" size="sm" onClick={isLocalMode ? () => {} : fetchLeaderboard} disabled={loading}>
           <RefreshCw className={`w-4 h-4 mr-1 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
 
-      {/* Timer & Info */}
       <Card className="border-0 bg-gradient-primary p-4 text-primary-foreground">
         <div className="flex items-center justify-between">
           <div>
@@ -83,7 +98,6 @@ const Leaderboard = () => {
         </div>
       </Card>
 
-      {/* Prize Cards */}
       <div className="grid grid-cols-3 gap-3">
         {PRIZES.map((p, i) => (
           <Card key={i} className="p-3 border-0 shadow-sm text-center bg-gradient-card">
@@ -94,10 +108,8 @@ const Leaderboard = () => {
         ))}
       </div>
 
-      {/* Top 3 Podium */}
       {leaders.length >= 3 && (
         <div className="flex items-end justify-center gap-3 py-4">
-          {/* 2nd place */}
           <div className="flex flex-col items-center">
             <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center text-lg font-bold border-2 border-muted-foreground/50">
               {leaders[1]?.name?.charAt(0).toUpperCase()}
@@ -106,7 +118,6 @@ const Leaderboard = () => {
             <Badge variant="secondary" className="text-[10px] mt-1">{leaders[1]?.total_xp} XP</Badge>
             <div className="w-16 h-16 bg-secondary/50 rounded-t-lg mt-2 flex items-center justify-center font-bold text-lg text-muted-foreground">2</div>
           </div>
-          {/* 1st place */}
           <div className="flex flex-col items-center">
             <Crown className="w-6 h-6 text-warning mb-1" />
             <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-xl font-bold border-2 border-warning">
@@ -116,7 +127,6 @@ const Leaderboard = () => {
             <Badge className="text-[10px] mt-1 bg-primary text-primary-foreground">{leaders[0]?.total_xp} XP</Badge>
             <div className="w-16 h-24 bg-primary/20 rounded-t-lg mt-2 flex items-center justify-center font-bold text-lg text-primary">1</div>
           </div>
-          {/* 3rd place */}
           <div className="flex flex-col items-center">
             <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center text-lg font-bold border-2 border-primary/50">
               {leaders[2]?.name?.charAt(0).toUpperCase()}
@@ -128,7 +138,6 @@ const Leaderboard = () => {
         </div>
       )}
 
-      {/* Full Rankings */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold">All Rankings</CardTitle>
@@ -147,14 +156,10 @@ const Leaderboard = () => {
               <div
                 key={user.id}
                 className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                  user.id === currentUserId
-                    ? "bg-primary/10 border border-primary/20"
-                    : "hover:bg-muted/50"
+                  user.id === currentUserId ? "bg-primary/10 border border-primary/20" : "hover:bg-muted/50"
                 }`}
               >
-                <span className={`text-sm font-bold w-6 text-center ${
-                  index < 3 ? "text-primary" : "text-muted-foreground"
-                }`}>
+                <span className={`text-sm font-bold w-6 text-center ${index < 3 ? "text-primary" : "text-muted-foreground"}`}>
                   {index + 1}
                 </span>
                 <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-sm font-bold">
@@ -163,15 +168,11 @@ const Leaderboard = () => {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
                     {user.name}
-                    {user.id === currentUserId && (
-                      <span className="text-xs text-primary ml-1">(You)</span>
-                    )}
+                    {user.id === currentUserId && <span className="text-xs text-primary ml-1">(You)</span>}
                   </p>
                   <p className="text-xs text-muted-foreground">Level {user.level}</p>
                 </div>
-                <Badge variant="outline" className="text-xs font-bold">
-                  {user.total_xp || 0} XP
-                </Badge>
+                <Badge variant="outline" className="text-xs font-bold">{user.total_xp || 0} XP</Badge>
               </div>
             ))
           )}

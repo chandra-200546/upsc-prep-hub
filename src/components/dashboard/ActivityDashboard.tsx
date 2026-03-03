@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-local-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -16,6 +17,35 @@ const CHART_COLORS = [
   "hsl(0, 72%, 55%)",
 ];
 
+// Sample data for local/demo mode
+const SAMPLE_WEEKLY = [
+  { day: "Mon", activities: 3 },
+  { day: "Tue", activities: 5 },
+  { day: "Wed", activities: 2 },
+  { day: "Thu", activities: 7 },
+  { day: "Fri", activities: 4 },
+  { day: "Sat", activities: 6 },
+  { day: "Sun", activities: 1 },
+];
+const SAMPLE_PRELIMS = [
+  { day: "Mon", accuracy: 60, total: 5, correct: 3 },
+  { day: "Tue", accuracy: 80, total: 5, correct: 4 },
+  { day: "Wed", accuracy: 40, total: 5, correct: 2 },
+  { day: "Thu", accuracy: 100, total: 4, correct: 4 },
+  { day: "Fri", accuracy: 75, total: 4, correct: 3 },
+];
+const SAMPLE_SUBJECTS = [
+  { name: "History", value: 12, accuracy: 67 },
+  { name: "Polity", value: 8, accuracy: 75 },
+  { name: "Geography", value: 6, accuracy: 50 },
+  { name: "Economy", value: 5, accuracy: 80 },
+];
+const SAMPLE_MAINS = [
+  { attempt: "#1", marks: 5, words: 220 },
+  { attempt: "#2", marks: 7, words: 240 },
+  { attempt: "#3", marks: 6, words: 230 },
+];
+
 interface ActivityDashboardProps {
   profile: any;
 }
@@ -26,32 +56,39 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
   const [subjectBreakdown, setSubjectBreakdown] = useState<any[]>([]);
   const [weeklyActivity, setWeeklyActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user, isLocalMode } = useAuth();
 
   useEffect(() => {
-    fetchActivityData();
-  }, []);
+    if (isLocalMode) {
+      // Use sample data in local mode
+      setPrelimsData(SAMPLE_PRELIMS);
+      setMainsData(SAMPLE_MAINS);
+      setSubjectBreakdown(SAMPLE_SUBJECTS);
+      setWeeklyActivity(SAMPLE_WEEKLY);
+      setLoading(false);
+    } else {
+      fetchActivityData();
+    }
+  }, [isLocalMode]);
 
   const fetchActivityData = async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    if (!session) { setLoading(false); return; }
 
     const userId = session.user.id;
 
-    // Fetch prelims attempts
     const { data: attempts } = await supabase
       .from("prelims_attempts")
       .select("*, prelims_questions(subject)")
       .eq("user_id", userId)
       .order("attempted_at", { ascending: true });
 
-    // Fetch mains submissions
     const { data: submissions } = await supabase
       .from("mains_submissions")
       .select("*")
       .eq("user_id", userId)
       .order("submitted_at", { ascending: true });
 
-    // Process prelims daily accuracy (last 7 days)
     if (attempts && attempts.length > 0) {
       const dailyMap: Record<string, { correct: number; total: number }> = {};
       const subjectMap: Record<string, { correct: number; total: number }> = {};
@@ -70,38 +107,28 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
 
       setPrelimsData(
         Object.entries(dailyMap).slice(-7).map(([day, d]) => ({
-          day,
-          accuracy: Math.round((d.correct / d.total) * 100),
-          total: d.total,
-          correct: d.correct,
+          day, accuracy: Math.round((d.correct / d.total) * 100), total: d.total, correct: d.correct,
         }))
       );
-
       setSubjectBreakdown(
         Object.entries(subjectMap).map(([name, d]) => ({
           name: name.length > 12 ? name.slice(0, 12) + "…" : name,
-          value: d.total,
-          accuracy: Math.round((d.correct / d.total) * 100),
+          value: d.total, accuracy: Math.round((d.correct / d.total) * 100),
         }))
       );
     }
 
-    // Process mains scores
     if (submissions && submissions.length > 0) {
       setMainsData(
         submissions.slice(-10).map((s: any, i: number) => ({
-          attempt: `#${i + 1}`,
-          marks: s.marks || 0,
-          words: s.word_count || 0,
+          attempt: `#${i + 1}`, marks: s.marks || 0, words: s.word_count || 0,
         }))
       );
     }
 
-    // Weekly activity from all sources
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const activityByDay: Record<string, number> = {};
     days.forEach((d) => (activityByDay[d] = 0));
-
     attempts?.forEach((a: any) => {
       const day = new Date(a.attempted_at).toLocaleDateString("en-US", { weekday: "short" });
       if (activityByDay[day] !== undefined) activityByDay[day]++;
@@ -110,7 +137,6 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
       const day = new Date(s.submitted_at).toLocaleDateString("en-US", { weekday: "short" });
       if (activityByDay[day] !== undefined) activityByDay[day]++;
     });
-
     setWeeklyActivity(days.map((d) => ({ day: d, activities: activityByDay[d] })));
     setLoading(false);
   };
@@ -139,6 +165,7 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
       <h2 className="text-xl font-bold flex items-center gap-2">
         <TrendingUp className="w-5 h-5 text-primary" />
         Your Activity Dashboard
+        {isLocalMode && <span className="text-xs text-muted-foreground font-normal">(Demo Data)</span>}
       </h2>
 
       {/* Quick Stats */}
@@ -182,11 +209,8 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Weekly Activity */}
         <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Weekly Activity</CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Weekly Activity</CardTitle></CardHeader>
           <CardContent>
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
@@ -195,25 +219,15 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
                   <XAxis dataKey="day" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip />
-                  <Area
-                    type="monotone"
-                    dataKey="activities"
-                    stroke="hsl(20, 90%, 55%)"
-                    fill="hsl(20, 90%, 55%)"
-                    fillOpacity={0.2}
-                    strokeWidth={2}
-                  />
+                  <Area type="monotone" dataKey="activities" stroke="hsl(20, 90%, 55%)" fill="hsl(20, 90%, 55%)" fillOpacity={0.2} strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Prelims Accuracy Trend */}
         <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Prelims Accuracy Trend</CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Prelims Accuracy Trend</CardTitle></CardHeader>
           <CardContent>
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
@@ -229,30 +243,16 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
           </CardContent>
         </Card>
 
-        {/* Subject Breakdown */}
         <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Subject Distribution</CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Subject Distribution</CardTitle></CardHeader>
           <CardContent>
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={subjectBreakdown.length > 0 ? subjectBreakdown : [{ name: "No data", value: 1 }]}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={40}
-                    outerRadius={70}
-                    paddingAngle={3}
-                    dataKey="value"
-                    label={({ name }) => name}
-                  >
-                    {(subjectBreakdown.length > 0 ? subjectBreakdown : [{ name: "No data", value: 1 }]).map(
-                      (_, index) => (
-                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                      )
-                    )}
+                  <Pie data={subjectBreakdown.length > 0 ? subjectBreakdown : [{ name: "No data", value: 1 }]} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={3} dataKey="value" label={({ name }) => name}>
+                    {(subjectBreakdown.length > 0 ? subjectBreakdown : [{ name: "No data", value: 1 }]).map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    ))}
                   </Pie>
                   <Tooltip />
                 </PieChart>
@@ -261,11 +261,8 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
           </CardContent>
         </Card>
 
-        {/* Mains Score Trend */}
         <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Mains Score Trend</CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Mains Score Trend</CardTitle></CardHeader>
           <CardContent>
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
@@ -274,13 +271,7 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
                   <XAxis dataKey="attempt" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="marks"
-                    stroke="hsl(210, 80%, 55%)"
-                    strokeWidth={2}
-                    dot={{ fill: "hsl(210, 80%, 55%)", r: 4 }}
-                  />
+                  <Line type="monotone" dataKey="marks" stroke="hsl(210, 80%, 55%)" strokeWidth={2} dot={{ fill: "hsl(210, 80%, 55%)", r: 4 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
