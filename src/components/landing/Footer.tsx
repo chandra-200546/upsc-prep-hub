@@ -1,4 +1,5 @@
 import logo from "@/assets/upsc-mentor-logo.jpeg";
+import fiveuLogo from "@/assets/fiveu-logo.jpeg";
 
 const Footer = () => {
   return (
@@ -21,9 +22,10 @@ const Footer = () => {
           </p>
 
           {/* Developer credit */}
-          <p className="text-xs text-muted-foreground">
-            Developed by <span className="font-medium text-foreground">Chandrashekhar Kumbar</span>
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-muted-foreground">Developed by</p>
+            <img src={fiveuLogo} alt="FiveU Vector Technologies" className="h-6 rounded object-contain" />
+          </div>
           
           {/* Copyright */}
           <p className="text-xs text-muted-foreground mt-2">
