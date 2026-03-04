@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-local-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Medal, Award, Crown, RefreshCw } from "lucide-react";
@@ -20,31 +19,16 @@ const PRIZES = [
   { icon: <Award className="w-6 h-6 text-primary" />, label: "🥉 3rd Place", prize: "₹200 + Bronze Certificate" },
 ];
 
-const SAMPLE_LEADERS: LeaderboardEntry[] = [
-  { id: "1", name: "Rahul Sharma", total_xp: 1250, level: 5, profile_photo_url: null },
-  { id: "2", name: "Priya Patel", total_xp: 980, level: 4, profile_photo_url: null },
-  { id: "3", name: "Amit Kumar", total_xp: 850, level: 3, profile_photo_url: null },
-  { id: "4", name: "Sneha Reddy", total_xp: 720, level: 3, profile_photo_url: null },
-  { id: "5", name: "Vikram Singh", total_xp: 600, level: 2, profile_photo_url: null },
-];
-
 const Leaderboard = () => {
   const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [daysLeft, setDaysLeft] = useState(0);
-  const { user, isLocalMode } = useAuth();
 
   useEffect(() => {
     calculateDaysLeft();
-    if (isLocalMode) {
-      setCurrentUserId(user?.id || null);
-      setLeaders(SAMPLE_LEADERS);
-      setLoading(false);
-    } else {
-      fetchLeaderboard();
-    }
-  }, [isLocalMode, user]);
+    fetchLeaderboard();
+  }, []);
 
   const calculateDaysLeft = () => {
     const now = new Date();
@@ -77,9 +61,8 @@ const Leaderboard = () => {
         <h2 className="text-xl font-bold flex items-center gap-2">
           <Crown className="w-5 h-5 text-warning" />
           Monthly Leaderboard
-          {isLocalMode && <span className="text-xs text-muted-foreground font-normal">(Demo)</span>}
         </h2>
-        <Button variant="ghost" size="sm" onClick={isLocalMode ? () => {} : fetchLeaderboard} disabled={loading}>
+        <Button variant="ghost" size="sm" onClick={fetchLeaderboard} disabled={loading}>
           <RefreshCw className={`w-4 h-4 mr-1 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </Button>

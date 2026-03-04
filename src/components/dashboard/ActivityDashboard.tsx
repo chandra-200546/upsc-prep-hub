@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-local-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -17,35 +16,6 @@ const CHART_COLORS = [
   "hsl(0, 72%, 55%)",
 ];
 
-// Sample data for local/demo mode
-const SAMPLE_WEEKLY = [
-  { day: "Mon", activities: 3 },
-  { day: "Tue", activities: 5 },
-  { day: "Wed", activities: 2 },
-  { day: "Thu", activities: 7 },
-  { day: "Fri", activities: 4 },
-  { day: "Sat", activities: 6 },
-  { day: "Sun", activities: 1 },
-];
-const SAMPLE_PRELIMS = [
-  { day: "Mon", accuracy: 60, total: 5, correct: 3 },
-  { day: "Tue", accuracy: 80, total: 5, correct: 4 },
-  { day: "Wed", accuracy: 40, total: 5, correct: 2 },
-  { day: "Thu", accuracy: 100, total: 4, correct: 4 },
-  { day: "Fri", accuracy: 75, total: 4, correct: 3 },
-];
-const SAMPLE_SUBJECTS = [
-  { name: "History", value: 12, accuracy: 67 },
-  { name: "Polity", value: 8, accuracy: 75 },
-  { name: "Geography", value: 6, accuracy: 50 },
-  { name: "Economy", value: 5, accuracy: 80 },
-];
-const SAMPLE_MAINS = [
-  { attempt: "#1", marks: 5, words: 220 },
-  { attempt: "#2", marks: 7, words: 240 },
-  { attempt: "#3", marks: 6, words: 230 },
-];
-
 interface ActivityDashboardProps {
   profile: any;
 }
@@ -56,20 +26,10 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
   const [subjectBreakdown, setSubjectBreakdown] = useState<any[]>([]);
   const [weeklyActivity, setWeeklyActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user, isLocalMode } = useAuth();
 
   useEffect(() => {
-    if (isLocalMode) {
-      // Use sample data in local mode
-      setPrelimsData(SAMPLE_PRELIMS);
-      setMainsData(SAMPLE_MAINS);
-      setSubjectBreakdown(SAMPLE_SUBJECTS);
-      setWeeklyActivity(SAMPLE_WEEKLY);
-      setLoading(false);
-    } else {
-      fetchActivityData();
-    }
-  }, [isLocalMode]);
+    fetchActivityData();
+  }, []);
 
   const fetchActivityData = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -116,10 +76,6 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
           value: d.total, accuracy: Math.round((d.correct / d.total) * 100),
         }))
       );
-    } else {
-      // No prelims data — use sample
-      setPrelimsData(SAMPLE_PRELIMS);
-      setSubjectBreakdown(SAMPLE_SUBJECTS);
     }
 
     if (submissions && submissions.length > 0) {
@@ -128,27 +84,20 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
           attempt: `#${i + 1}`, marks: s.marks || 0, words: s.word_count || 0,
         }))
       );
-    } else {
-      // No mains data — use sample
-      setMainsData(SAMPLE_MAINS);
     }
 
-    if (attempts && attempts.length > 0) {
-      const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-      const activityByDay: Record<string, number> = {};
-      days.forEach((d) => (activityByDay[d] = 0));
-      attempts?.forEach((a: any) => {
-        const day = new Date(a.attempted_at).toLocaleDateString("en-US", { weekday: "short" });
-        if (activityByDay[day] !== undefined) activityByDay[day]++;
-      });
-      submissions?.forEach((s: any) => {
-        const day = new Date(s.submitted_at).toLocaleDateString("en-US", { weekday: "short" });
-        if (activityByDay[day] !== undefined) activityByDay[day]++;
-      });
-      setWeeklyActivity(days.map((d) => ({ day: d, activities: activityByDay[d] })));
-    } else {
-      setWeeklyActivity(SAMPLE_WEEKLY);
-    }
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const activityByDay: Record<string, number> = {};
+    days.forEach((d) => (activityByDay[d] = 0));
+    attempts?.forEach((a: any) => {
+      const day = new Date(a.attempted_at).toLocaleDateString("en-US", { weekday: "short" });
+      if (activityByDay[day] !== undefined) activityByDay[day]++;
+    });
+    submissions?.forEach((s: any) => {
+      const day = new Date(s.submitted_at).toLocaleDateString("en-US", { weekday: "short" });
+      if (activityByDay[day] !== undefined) activityByDay[day]++;
+    });
+    setWeeklyActivity(days.map((d) => ({ day: d, activities: activityByDay[d] })));
     setLoading(false);
   };
 
@@ -162,21 +111,22 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
     );
   }
 
-  const totalAttempts = prelimsData.reduce((s, d) => s + d.total, 0);
+  const totalAttempts = prelimsData.reduce((s, d) => s + (d.total || 0), 0);
   const avgAccuracy = totalAttempts > 0
-    ? Math.round(prelimsData.reduce((s, d) => s + d.accuracy * d.total, 0) / totalAttempts)
+    ? Math.round(prelimsData.reduce((s, d) => s + (d.accuracy || 0) * (d.total || 0), 0) / totalAttempts)
     : 0;
   const totalMainsSubmissions = mainsData.length;
   const avgMarks = totalMainsSubmissions > 0
-    ? Math.round(mainsData.reduce((s, d) => s + d.marks, 0) / totalMainsSubmissions)
+    ? Math.round(mainsData.reduce((s, d) => s + (d.marks || 0), 0) / totalMainsSubmissions)
     : 0;
+
+  const hasNoData = prelimsData.length === 0 && mainsData.length === 0;
 
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold flex items-center gap-2">
         <TrendingUp className="w-5 h-5 text-primary" />
         Your Activity Dashboard
-        {(isLocalMode || (prelimsData === SAMPLE_PRELIMS)) && <span className="text-xs text-muted-foreground font-normal">(Sample Data — start practicing to see yours!)</span>}
       </h2>
 
       {/* Quick Stats */}
@@ -218,6 +168,12 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
           </div>
         </Card>
       </div>
+
+      {hasNoData && (
+        <Card className="p-6 border-0 shadow-sm text-center">
+          <p className="text-muted-foreground">No activity data yet. Start practicing Prelims MCQs or submit Mains answers to see your analytics here!</p>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="border-0 shadow-sm">
