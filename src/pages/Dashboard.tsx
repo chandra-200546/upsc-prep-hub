@@ -10,7 +10,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   BookOpen, Brain, FileText, TrendingUp, Award, 
-  Calendar, LogOut, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap, Mail, Phone, Crown, MoreHorizontal, LayoutDashboard, Trophy
+  Calendar, LogOut, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap, Crown, MoreHorizontal, LayoutDashboard, Trophy
 } from "lucide-react";
 import upscMentorLogo from "@/assets/upsc-mentor-logo.jpeg";
 import FeedbackForm from "@/components/FeedbackForm";
