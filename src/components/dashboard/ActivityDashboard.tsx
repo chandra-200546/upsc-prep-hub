@@ -116,6 +116,10 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
           value: d.total, accuracy: Math.round((d.correct / d.total) * 100),
         }))
       );
+    } else {
+      // No prelims data — use sample
+      setPrelimsData(SAMPLE_PRELIMS);
+      setSubjectBreakdown(SAMPLE_SUBJECTS);
     }
 
     if (submissions && submissions.length > 0) {
@@ -124,20 +128,27 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
           attempt: `#${i + 1}`, marks: s.marks || 0, words: s.word_count || 0,
         }))
       );
+    } else {
+      // No mains data — use sample
+      setMainsData(SAMPLE_MAINS);
     }
 
-    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const activityByDay: Record<string, number> = {};
-    days.forEach((d) => (activityByDay[d] = 0));
-    attempts?.forEach((a: any) => {
-      const day = new Date(a.attempted_at).toLocaleDateString("en-US", { weekday: "short" });
-      if (activityByDay[day] !== undefined) activityByDay[day]++;
-    });
-    submissions?.forEach((s: any) => {
-      const day = new Date(s.submitted_at).toLocaleDateString("en-US", { weekday: "short" });
-      if (activityByDay[day] !== undefined) activityByDay[day]++;
-    });
-    setWeeklyActivity(days.map((d) => ({ day: d, activities: activityByDay[d] })));
+    if (attempts && attempts.length > 0) {
+      const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const activityByDay: Record<string, number> = {};
+      days.forEach((d) => (activityByDay[d] = 0));
+      attempts?.forEach((a: any) => {
+        const day = new Date(a.attempted_at).toLocaleDateString("en-US", { weekday: "short" });
+        if (activityByDay[day] !== undefined) activityByDay[day]++;
+      });
+      submissions?.forEach((s: any) => {
+        const day = new Date(s.submitted_at).toLocaleDateString("en-US", { weekday: "short" });
+        if (activityByDay[day] !== undefined) activityByDay[day]++;
+      });
+      setWeeklyActivity(days.map((d) => ({ day: d, activities: activityByDay[d] })));
+    } else {
+      setWeeklyActivity(SAMPLE_WEEKLY);
+    }
     setLoading(false);
   };
 
