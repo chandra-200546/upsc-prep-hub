@@ -277,10 +277,10 @@ const Dashboard = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Contact Developer Section */}
-        <div className="mt-12 border-t pt-8">
+        {/* Feedback Section */}
+        <div className="mt-12 border-t pt-8 max-w-xl mx-auto">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Contact Developer</h2>
+            <h2 className="text-xl font-bold">Feedback</h2>
             <Button
               variant="ghost"
               size="icon"
@@ -290,46 +290,6 @@ const Dashboard = () => {
               <MoreHorizontal className="w-4 h-4" />
             </Button>
           </div>
-          <Card className="p-6 bg-gradient-card border-0">
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              <div className="w-20 h-20 rounded-full bg-gradient-primary flex items-center justify-center text-3xl font-bold text-primary-foreground">
-                C
-              </div>
-              <div className="flex-1 text-center md:text-left">
-                <h3 className="text-xl font-bold mb-2">Chandrashekhar</h3>
-                <p className="text-muted-foreground mb-4">Full Stack Developer</p>
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <a 
-                    href="mailto:chandrashekharkumbarias8055@gmail.com" 
-                    className="flex items-center gap-2 text-sm text-primary hover:underline"
-                  >
-                    <Mail className="w-4 h-4" />
-                    chandrashekharkumbarias8055@gmail.com
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const phone = "917975256005";
-                      try {
-                        window.location.href = `whatsapp://send?phone=${phone}`;
-                      } catch {
-                        // ignore
-                      }
-                      setTimeout(() => {
-                        window.open(`https://wa.me/${phone}`, "_blank", "noopener,noreferrer");
-                      }, 200);
-                    }}
-                    className="flex items-center gap-2 text-sm text-success hover:underline"
-                  >
-                    <Phone className="w-4 h-4" />
-                    +91 7975256005 (WhatsApp)
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Feedback Form */}
           <FeedbackForm />
         </div>
       </main>
