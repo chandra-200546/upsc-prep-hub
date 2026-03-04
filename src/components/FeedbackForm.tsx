@@ -144,7 +144,7 @@ const FeedbackForm = () => {
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="w-full gap-2"
+          className="w-full md:w-auto gap-2"
         >
           <Send className="w-4 h-4" />
           {isSubmitting ? "Submitting..." : "Submit Feedback"}
