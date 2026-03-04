@@ -176,7 +176,7 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
       <h2 className="text-xl font-bold flex items-center gap-2">
         <TrendingUp className="w-5 h-5 text-primary" />
         Your Activity Dashboard
-        {isLocalMode && <span className="text-xs text-muted-foreground font-normal">(Demo Data)</span>}
+        {(isLocalMode || (prelimsData === SAMPLE_PRELIMS)) && <span className="text-xs text-muted-foreground font-normal">(Sample Data — start practicing to see yours!)</span>}
       </h2>
 
       {/* Quick Stats */}
