@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-local-auth";
@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Smile, Zap, TrendingUp, Shield, Laugh, Heart } from "lucide-react";
+import { Smile, Shield, TrendingUp, Laugh, Heart, Camera, User } from "lucide-react";
 
 const mentorIcons = {
   friendly: Smile,
@@ -26,18 +27,54 @@ const Onboarding = () => {
   const [optionalSubject, setOptionalSubject] = useState("");
   const [studyHours, setStudyHours] = useState(4);
   const [mentorPersonality, setMentorPersonality] = useState("friendly");
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, isLocalMode, saveProfile } = useAuth();
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setPhotoPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const uploadPhoto = async (): Promise<string | null> => {
+    if (!photoFile || !user) return null;
+    setUploading(true);
+    try {
+      const ext = photoFile.name.split(".").pop();
+      const filePath = `${user.id}/avatar.${ext}`;
+      const { error } = await supabase.storage.from("mains-answers").upload(filePath, photoFile, { upsert: true });
+      if (error) throw error;
+      const { data } = supabase.storage.from("mains-answers").getPublicUrl(filePath);
+      return data.publicUrl;
+    } catch (err: any) {
+      toast({ title: "Photo upload failed", description: err.message, variant: "destructive" });
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleComplete = async () => {
     setLoading(true);
     try {
       if (!user) throw new Error("No user found");
 
+      let photoUrl: string | null = null;
+      if (photoFile && !isLocalMode) {
+        photoUrl = await uploadPhoto();
+      }
+
       if (isLocalMode) {
-        // Save to localStorage
         saveProfile({
           name,
           target_year: targetYear,
@@ -46,7 +83,6 @@ const Onboarding = () => {
           mentor_personality: mentorPersonality,
         });
       } else {
-        // Save to Supabase
         const { error } = await supabase.from("profiles").insert({
           id: user.id,
           name,
@@ -54,6 +90,7 @@ const Onboarding = () => {
           optional_subject: optionalSubject || null,
           study_hours_per_day: studyHours,
           mentor_personality: mentorPersonality,
+          profile_photo_url: photoUrl,
         });
         if (error) throw error;
       }
@@ -72,11 +109,38 @@ const Onboarding = () => {
       <Card className="w-full max-w-2xl p-8 space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-2">Let's Get Started! 🎯</h1>
-          <p className="text-muted-foreground">Step {step} of 2</p>
+          <p className="text-muted-foreground">Step {step} of 3</p>
         </div>
 
         {step === 1 ? (
           <div className="space-y-4">
+            {/* Profile Photo Upload */}
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative">
+                <Avatar className="h-28 w-28 border-4 border-primary/20">
+                  <AvatarImage src={photoPreview || undefined} />
+                  <AvatarFallback className="bg-primary/10 text-primary text-3xl">
+                    <User className="w-12 h-12" />
+                  </AvatarFallback>
+                </Avatar>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-2.5 shadow-lg hover:opacity-90 transition"
+                >
+                  <Camera className="w-5 h-5" />
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoSelect}
+                  className="hidden"
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">Upload your profile photo (optional)</p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="name">Your Name</Label>
               <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter your name" className="rounded-xl" />
@@ -114,7 +178,7 @@ const Onboarding = () => {
               Next: Choose Your Mentor
             </Button>
           </div>
-        ) : (
+        ) : step === 2 ? (
           <div className="space-y-4">
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold mb-2">Choose Your AI Mentor</h2>
@@ -141,12 +205,12 @@ const Onboarding = () => {
             </div>
             <div className="flex gap-3">
               <Button onClick={() => setStep(1)} variant="outline" className="flex-1 rounded-xl h-12">Back</Button>
-              <Button onClick={handleComplete} className="flex-1 rounded-xl h-12 bg-gradient-primary" disabled={loading}>
-                {loading ? "Creating..." : "Complete Setup"}
+              <Button onClick={handleComplete} className="flex-1 rounded-xl h-12 bg-gradient-primary" disabled={loading || uploading}>
+                {loading || uploading ? "Creating..." : "Complete Setup"}
               </Button>
             </div>
           </div>
-        )}
+        ) : null}
       </Card>
     </div>
   );
