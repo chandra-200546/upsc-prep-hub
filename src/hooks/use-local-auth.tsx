@@ -30,7 +30,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
-  saveProfile: (profile: Omit<LocalProfile, "id" | "current_streak" | "total_xp" | "level" | "language" | "profile_photo_url">) => void;
+  saveProfile: (profile: Omit<LocalProfile, "id" | "current_streak" | "total_xp" | "level" | "language" | "profile_photo_url" | "last_login_date">) => void;
   refreshProfile: () => void;
 }
 
@@ -196,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(LOCAL_USER_KEY);
   };
 
-  const saveProfile = (p: Omit<LocalProfile, "id" | "current_streak" | "total_xp" | "level" | "language" | "profile_photo_url">) => {
+  const saveProfile = (p: Omit<LocalProfile, "id" | "current_streak" | "total_xp" | "level" | "language" | "profile_photo_url" | "last_login_date">) => {
     if (!user) return;
     const fullProfile: LocalProfile = {
       ...p,
