@@ -374,6 +374,7 @@ export type Database = {
           current_streak: number | null
           id: string
           language: string | null
+          last_login_date: string | null
           level: number | null
           mentor_personality: string | null
           name: string
@@ -389,6 +390,7 @@ export type Database = {
           current_streak?: number | null
           id: string
           language?: string | null
+          last_login_date?: string | null
           level?: number | null
           mentor_personality?: string | null
           name: string
@@ -404,6 +406,7 @@ export type Database = {
           current_streak?: number | null
           id?: string
           language?: string | null
+          last_login_date?: string | null
           level?: number | null
           mentor_personality?: string | null
           name?: string

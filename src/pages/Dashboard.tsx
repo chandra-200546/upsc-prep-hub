@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/use-local-auth";
+import { useGamification } from "@/hooks/use-gamification";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,12 +31,15 @@ const Dashboard = () => {
   const { toast } = useToast();
   const { isSubscribed, loading: subLoading } = useSubscription();
   const { user, profile, isReady } = useAuth();
+  const { updateStreak } = useGamification();
 
   useEffect(() => {
     if (!isReady) return;
     if (!user) { navigate("/auth"); return; }
     if (!profile) { navigate("/onboarding"); return; }
     setLoading(false);
+    // Update daily streak on dashboard load
+    updateStreak();
   }, [isReady, user, profile, navigate]);
 
   const handleAdminAccess = () => {
