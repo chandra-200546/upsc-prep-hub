@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useGamification } from "@/hooks/use-gamification";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -42,6 +43,7 @@ const Prelims = () => {
   const [quizStarted, setQuizStarted] = useState(false);
   const [quizComplete, setQuizComplete] = useState(false);
   const navigate = useNavigate();
+  const { awardXP, XP_REWARDS } = useGamification();
 
   const generateQuestions = async (level: number, subject?: string) => {
     setLoading(true);
@@ -89,6 +91,8 @@ const Prelims = () => {
     const isCorrect = answer === questions[currentIndex].correct_answer;
     if (isCorrect) {
       setCorrectCount(prev => prev + 1);
+      // Award XP for correct answer
+      awardXP(XP_REWARDS.CORRECT_ANSWER, "Correct answer!");
     }
 
     // Save attempt to database
@@ -119,10 +123,13 @@ const Prelims = () => {
     setQuizComplete(true);
 
     if (accuracy >= PASS_THRESHOLD) {
+      // Award XP for level clearance
+      awardXP(XP_REWARDS.LEVEL_CLEARANCE, `Level ${currentLevel} cleared!`);
       if (currentLevel < 5) {
         toast.success(`🎉 Great job! You passed Level ${currentLevel} with ${Math.round(accuracy * 100)}% accuracy!`);
       } else {
         toast.success(`🏆 Congratulations! You've mastered all 5 levels!`);
+        awardXP(XP_REWARDS.LEVEL_CLEARANCE * 2, "All 5 levels mastered! 🏆");
       }
     } else {
       toast.info(`You scored ${Math.round(accuracy * 100)}%. Need ${Math.round(PASS_THRESHOLD * 100)}% to advance.`);
