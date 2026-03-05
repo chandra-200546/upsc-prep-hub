@@ -19,6 +19,7 @@ interface LocalProfile {
   level: number;
   language: string;
   profile_photo_url: string | null;
+  last_login_date: string | null;
 }
 
 interface AuthContextType {
@@ -205,6 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       level: 1,
       language: "English",
       profile_photo_url: null,
+      last_login_date: null,
     };
     const profiles = getLocalProfiles();
     profiles[user.id] = fullProfile;
