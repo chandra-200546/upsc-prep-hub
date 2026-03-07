@@ -44,7 +44,7 @@ serve(async (req) => {
     
     let systemPrompt = `You are an expert UPSC current affairs analyst. Generate current affairs news items that are highly relevant for UPSC Civil Services Examination preparation.
 
-Today's date is ${today}.
+Today's date is ${today}. You MUST generate content that reflects the LATEST developments as of this date. Focus on the most recent events, policy changes, and developments that have occurred in the last 24-48 hours.
 
 Each news item should include:
 - A clear, concise title
@@ -131,7 +131,7 @@ Include both recent developments and important background context for this topic
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
