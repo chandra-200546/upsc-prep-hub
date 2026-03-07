@@ -280,7 +280,7 @@ const CurrentAffairs = () => {
               <Card className="p-8 text-center">
                 <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                 <p className="text-muted-foreground mb-4">No current affairs loaded yet</p>
-                <Button onClick={generateDailyAffairs}>
+                <Button onClick={() => generateDailyAffairs()}>
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Generate Daily Affairs
                 </Button>
