@@ -24,7 +24,7 @@ const Subscription = () => {
     {
       id: "monthly",
       name: "Monthly",
-      price: 199,
+      price: 99,
       period: "/month",
       features: [
         "All premium features unlocked",
@@ -47,7 +47,7 @@ const Subscription = () => {
       period: "/year",
       features: [
         "All monthly features",
-        "Save ₹1,389 (58% off)",
+        "Save ₹189 (16% off)",
         "Priority support",
         "Early access to new features",
         "Auto-renewal (cancel anytime)"
