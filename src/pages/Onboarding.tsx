@@ -83,7 +83,7 @@ const Onboarding = () => {
           mentor_personality: mentorPersonality,
         });
       } else {
-        const { error } = await supabase.from("profiles").insert({
+        const { error } = await supabase.from("profiles").upsert({
           id: user.id,
           name,
           target_year: targetYear,
@@ -91,7 +91,7 @@ const Onboarding = () => {
           study_hours_per_day: studyHours,
           mentor_personality: mentorPersonality,
           profile_photo_url: photoUrl,
-        });
+        }, { onConflict: "id" });
         if (error) throw error;
       }
 
