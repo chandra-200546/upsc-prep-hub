@@ -147,15 +147,11 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Feedback */}
-        <div className="mt-12 border-t pt-8 max-w-xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Feedback</h2>
-            <Button variant="ghost" size="icon" onClick={handleAdminAccess} className="h-8 w-8 rounded-full opacity-50 hover:opacity-100">
-              <MoreHorizontal className="w-4 h-4" />
-            </Button>
-          </div>
-          <FeedbackForm />
+        {/* Admin Access (hidden) */}
+        <div className="mt-12 flex justify-end">
+          <Button variant="ghost" size="icon" onClick={handleAdminAccess} className="h-8 w-8 rounded-full opacity-50 hover:opacity-100">
+            <MoreHorizontal className="w-4 h-4" />
+          </Button>
         </div>
       </div>
 
