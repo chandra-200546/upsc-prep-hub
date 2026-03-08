@@ -13,7 +13,7 @@ import FeedbackForm from "@/components/FeedbackForm";
 import AdminDashboard from "@/components/AdminDashboard";
 import {
   BookOpen, Brain, FileText, TrendingUp, Award,
-  Calendar, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap, Crown, MoreHorizontal
+  Calendar, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap, MoreHorizontal
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
