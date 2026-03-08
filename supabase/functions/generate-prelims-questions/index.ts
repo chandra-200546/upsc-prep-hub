@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,18 +19,12 @@ const UPSC_SUBJECTS = [
 
 const getLevelDescription = (level: number): string => {
   switch (level) {
-    case 1:
-      return "Basic factual questions. Direct recall from NCERT books. Single concept questions.";
-    case 2:
-      return "Moderate difficulty. Requires understanding of concepts. May involve 2 related concepts.";
-    case 3:
-      return "Intermediate level. Application-based questions. Requires connecting multiple concepts.";
-    case 4:
-      return "Advanced level. Analytical questions. Requires deep understanding and current affairs linkage.";
-    case 5:
-      return "Expert level. Complex multi-dimensional questions. Requires critical thinking, elimination skills, and comprehensive knowledge.";
-    default:
-      return "Standard UPSC Prelims level question.";
+    case 1: return "Basic factual questions. Direct recall from NCERT books. Single concept questions.";
+    case 2: return "Moderate difficulty. Requires understanding of concepts. May involve 2 related concepts.";
+    case 3: return "Intermediate level. Application-based questions. Requires connecting multiple concepts.";
+    case 4: return "Advanced level. Analytical questions. Requires deep understanding and current affairs linkage.";
+    case 5: return "Expert level. Complex multi-dimensional questions. Requires critical thinking, elimination skills, and comprehensive knowledge.";
+    default: return "Standard UPSC Prelims level question.";
   }
 };
 
@@ -102,14 +97,12 @@ You must respond with a valid JSON array of questions in this exact format:
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       if (response.status === 402) {
         return new Response(JSON.stringify({ error: 'AI credits exhausted. Please add credits.' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       const errorText = await response.text();
@@ -124,30 +117,25 @@ You must respond with a valid JSON array of questions in this exact format:
       throw new Error('No content in AI response');
     }
 
-    // Parse JSON from response
     let questions;
     try {
-      // Clean the response - remove markdown code blocks if present
       let cleanContent = content.trim();
-      if (cleanContent.startsWith('```json')) {
-        cleanContent = cleanContent.slice(7);
-      } else if (cleanContent.startsWith('```')) {
-        cleanContent = cleanContent.slice(3);
-      }
-      if (cleanContent.endsWith('```')) {
-        cleanContent = cleanContent.slice(0, -3);
-      }
+      if (cleanContent.startsWith('```json')) cleanContent = cleanContent.slice(7);
+      else if (cleanContent.startsWith('```')) cleanContent = cleanContent.slice(3);
+      if (cleanContent.endsWith('```')) cleanContent = cleanContent.slice(0, -3);
       cleanContent = cleanContent.trim();
-
       questions = JSON.parse(cleanContent);
     } catch (parseError) {
       console.error('Failed to parse AI response:', content);
       throw new Error('Failed to parse questions from AI response');
     }
 
-    // Validate and add IDs
-    const validatedQuestions = questions.map((q: any, index: number) => ({
-      id: `ai-${Date.now()}-${index}`,
+    // Save questions to the database so we have real UUIDs for attempt tracking
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    const questionsToInsert = questions.map((q: any) => ({
       question: q.question,
       option_a: q.option_a,
       option_b: q.option_b,
@@ -158,10 +146,25 @@ You must respond with a valid JSON array of questions in this exact format:
       subject: q.subject || selectedSubject,
       topic: q.topic || 'General',
       difficulty: q.difficulty || `Level ${level}`,
-      level: level
     }));
 
-    console.log(`Successfully generated ${validatedQuestions.length} questions`);
+    const { data: savedQuestions, error: insertError } = await supabaseAdmin
+      .from('prelims_questions')
+      .insert(questionsToInsert)
+      .select();
+
+    if (insertError) {
+      console.error('Error saving questions to DB:', insertError);
+      throw new Error('Failed to save questions');
+    }
+
+    // Return saved questions with real DB UUIDs
+    const validatedQuestions = savedQuestions.map((q: any) => ({
+      ...q,
+      level: level,
+    }));
+
+    console.log(`Successfully generated and saved ${validatedQuestions.length} questions`);
 
     return new Response(JSON.stringify({ 
       questions: validatedQuestions,
