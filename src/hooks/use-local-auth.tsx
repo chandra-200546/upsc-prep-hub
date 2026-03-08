@@ -214,14 +214,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(fullProfile);
   };
 
-  const refreshProfile = () => {
+  const refreshProfile = async () => {
     if (!user) return;
     if (isLocalMode) {
       const profiles = getLocalProfiles();
       if (profiles[user.id]) setProfile(profiles[user.id]);
     } else {
-      supabase.from("profiles").select("*").eq("id", user.id).single()
-        .then(({ data }) => { if (data) setProfile(data as unknown as LocalProfile); });
+      const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+      if (data) setProfile(data as unknown as LocalProfile);
     }
   };
 

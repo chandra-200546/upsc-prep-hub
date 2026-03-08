@@ -35,7 +35,7 @@ const Onboarding = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, isLocalMode, saveProfile } = useAuth();
+  const { user, isLocalMode, saveProfile, refreshProfile } = useAuth();
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -93,6 +93,8 @@ const Onboarding = () => {
           profile_photo_url: photoUrl,
         }, { onConflict: "id" });
         if (error) throw error;
+        // Refresh profile in auth context before navigating
+        await refreshProfile();
       }
 
       toast({ title: "Profile created!", description: "Let's start your UPSC journey" });
