@@ -1,6 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/use-local-auth";
-import { useSubscription } from "@/hooks/use-subscription";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -16,11 +15,13 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
-  LayoutDashboard, BarChart3, Trophy, Settings, LogOut, Crown,
+  LayoutDashboard, BarChart3, Trophy, Settings, LogOut,
   MessageSquare, Brain, FileText, Calendar, Award,
-  BookOpen, Map, Video, GitBranch, Newspaper, GraduationCap,
+  BookOpen, Map, Video, GitBranch, Newspaper, GraduationCap, MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import FeedbackForm from "@/components/FeedbackForm";
 
 const mainNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -29,15 +30,12 @@ const mainNav = [
   { title: "Profile Settings", url: "/dashboard/profile", icon: Settings },
 ];
 
-const freeFeatures = [
+const allFeatures = [
   { title: "AI Mentor", url: "/mentor", icon: MessageSquare },
   { title: "Prelims Quiz", url: "/prelims", icon: Brain },
   { title: "Current Affairs", url: "/current-affairs", icon: FileText },
   { title: "Study Plan", url: "/study-plan", icon: Calendar },
   { title: "Mains Practice", url: "/mains", icon: Award },
-];
-
-const premiumFeatures = [
   { title: "Notes Library", url: "/notes", icon: BookOpen },
   { title: "Map Practice", url: "/map-practice", icon: Map },
   { title: "Mock Interview", url: "/mock-interview", icon: Video },
