@@ -94,11 +94,7 @@ const Onboarding = () => {
         }, { onConflict: "id" });
         if (error) throw error;
         // Refresh profile in auth context before navigating
-        await new Promise<void>((resolve) => {
-          refreshProfile();
-          // Give time for profile state to update
-          setTimeout(resolve, 500);
-        });
+        await refreshProfile();
       }
 
       toast({ title: "Profile created!", description: "Let's start your UPSC journey" });
