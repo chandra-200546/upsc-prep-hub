@@ -1,0 +1,1 @@
+ALTER TABLE public.prelims_questions DROP CONSTRAINT IF EXISTS prelims_questions_difficulty_check;
