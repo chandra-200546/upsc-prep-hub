@@ -49,9 +49,9 @@ export function DashboardSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { profile, signOut } = useAuth();
-  const { isSubscribed } = useSubscription();
   const navigate = useNavigate();
   const location = useLocation();
+  const [showFeedback, setShowFeedback] = useState(false);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -61,6 +61,7 @@ export function DashboardSidebar() {
   };
 
   return (
+    <>
     <Sidebar collapsible="icon" className="border-r border-border/50">
       <SidebarContent className="bg-card/50 backdrop-blur-sm">
         {/* User Profile Summary */}
@@ -105,12 +106,12 @@ export function DashboardSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Free Features */}
+        {/* All Features */}
         <SidebarGroup>
-          <SidebarGroupLabel>Free Features</SidebarGroupLabel>
+          <SidebarGroupLabel>Features</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {freeFeatures.map((item) => (
+              {allFeatures.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -128,28 +129,16 @@ export function DashboardSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Premium Features */}
+        {/* Feedback */}
         <SidebarGroup>
-          <SidebarGroupLabel>
-            {!collapsed && <Crown className="w-3 h-3 mr-1 inline text-warning" />}
-            Premium
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {premiumFeatures.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={isSubscribed ? item.url : "/subscription"}
-                      className={`hover:bg-muted/50 ${!isSubscribed ? "opacity-60" : ""}`}
-                      activeClassName="bg-primary/10 text-primary font-medium"
-                    >
-                      <item.icon className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={() => setShowFeedback(true)}>
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  {!collapsed && <span>Feedback</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -166,5 +155,14 @@ export function DashboardSidebar() {
         </Button>
       </SidebarFooter>
     </Sidebar>
+
+    {showFeedback && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowFeedback(false)}>
+        <div className="max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+          <FeedbackForm />
+        </div>
+      </div>
+    )}
+    </>
   );
 }
