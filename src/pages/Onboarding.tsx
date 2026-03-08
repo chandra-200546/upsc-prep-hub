@@ -35,7 +35,7 @@ const Onboarding = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, isLocalMode, saveProfile } = useAuth();
+  const { user, isLocalMode, saveProfile, refreshProfile } = useAuth();
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
