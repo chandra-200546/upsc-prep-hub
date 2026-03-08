@@ -21,12 +21,8 @@ const Auth = () => {
   const auth = useAuth();
 
   useEffect(() => {
-    if (isReady && user) {
-      if (profile) {
-        navigate("/dashboard");
-      } else {
-        navigate("/onboarding");
-      }
+    if (isReady && user && profile) {
+      navigate("/dashboard");
     }
   }, [isReady, user, profile, navigate]);
 
@@ -39,7 +35,7 @@ const Auth = () => {
         const result = await auth.signIn(email, password);
         if (result.error) throw new Error(result.error);
         toast({ title: "Welcome back!", description: "Successfully logged in" });
-        // Navigation handled by useEffect
+        navigate("/dashboard");
       } else {
         const result = await auth.signUp(email, password, name);
         if (result.error) throw new Error(result.error);

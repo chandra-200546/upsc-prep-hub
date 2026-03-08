@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useSubscription } from "@/hooks/use-subscription";
+
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import FeatureCard from "@/components/FeatureCard";
 import FeedbackForm from "@/components/FeedbackForm";
@@ -29,7 +29,7 @@ const Dashboard = () => {
   const [passwordError, setPasswordError] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { isSubscribed, loading: subLoading } = useSubscription();
+  
   const { user, profile, isReady } = useAuth();
   const { updateStreak } = useGamification();
 
@@ -70,15 +70,12 @@ const Dashboard = () => {
     );
   }
 
-  const freeFeatures = [
+  const allFeatures = [
     { path: "/mentor", icon: <MessageSquare className="w-10 h-10" />, title: "AI Mentor", description: "Chat with your personal mentor" },
     { path: "/prelims", icon: <Brain className="w-10 h-10" />, title: "Prelims Quiz", description: "Practice MCQs" },
     { path: "/current-affairs", icon: <FileText className="w-10 h-10" />, title: "Current Affairs", description: "Today's updates" },
     { path: "/study-plan", icon: <Calendar className="w-10 h-10" />, title: "Study Plan", description: "Daily schedule" },
     { path: "/mains", icon: <Award className="w-10 h-10" />, title: "Mains Practice", description: "Practice essay writing" },
-  ];
-
-  const premiumFeatures = [
     { path: "/notes", icon: <BookOpen className="w-10 h-10" />, title: "Notes Library", description: "Your study notes" },
     { path: "/map-practice", icon: <Map className="w-10 h-10" />, title: "Map Practice", description: "India & World Geography" },
     { path: "/mock-interview", icon: <Video className="w-10 h-10" />, title: "Mock Interview", description: "AI Interview Room" },
@@ -140,31 +137,12 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Free Features */}
+        {/* All Features */}
         <div>
-          <h2 className="text-xl font-bold mb-4">Free Features</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {freeFeatures.map((f) => (
-              <FeatureCard key={f.path} {...f} isLocked={false} />
-            ))}
-          </div>
-        </div>
-
-        {/* Premium Features */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <Crown className="w-5 h-5 text-warning" /> Premium Features
-            </h2>
-            {!isSubscribed && (
-              <Button variant="link" size="sm" onClick={() => navigate("/subscription")} className="text-primary">
-                View Plans →
-              </Button>
-            )}
-          </div>
+          <h2 className="text-xl font-bold mb-4">Features</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {premiumFeatures.map((f) => (
-              <FeatureCard key={f.path} {...f} isLocked={!isSubscribed} />
+            {allFeatures.map((f) => (
+              <FeatureCard key={f.path} {...f} isLocked={false} />
             ))}
           </div>
         </div>
