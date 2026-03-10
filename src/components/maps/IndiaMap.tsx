@@ -66,7 +66,7 @@ const IndiaMap = ({ onStateClick, highlightedState }: IndiaMapProps) => {
             <Geographies geography={geo}>
               {({ geographies }) =>
                 geographies.map((geo) => {
-                  const stateName = geo.properties?.name || geo.properties?.NAME_1 || "Unknown";
+                  const stateName = geo.properties?.dt_name || geo.properties?.name || geo.properties?.NAME_1 || geo.properties?.st_nm || "Unknown";
                 const isHighlighted = highlightedState === stateName;
                 const isHovered = hoveredState === stateName;
 
