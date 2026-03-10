@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 // High-quality India States TopoJSON (deldersveld/topojson via jsDelivr)
 const INDIA_STATES_TOPOJSON =
-  "https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/india/india-states.json";
+  "https://cdn.jsdelivr.net/gh/udit-001/india-maps-data@main/topojson/india.json";
 
 interface IndiaMapProps {
   onStateClick?: (stateName: string) => void;
@@ -66,7 +66,7 @@ const IndiaMap = ({ onStateClick, highlightedState }: IndiaMapProps) => {
             <Geographies geography={geo}>
               {({ geographies }) =>
                 geographies.map((geo) => {
-                  const stateName = geo.properties?.name || geo.properties?.NAME_1 || "Unknown";
+                  const stateName = geo.properties?.dt_name || geo.properties?.name || geo.properties?.NAME_1 || geo.properties?.st_nm || "Unknown";
                 const isHighlighted = highlightedState === stateName;
                 const isHovered = hoveredState === stateName;
 
