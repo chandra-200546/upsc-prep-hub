@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 // High-quality India States TopoJSON (deldersveld/topojson via jsDelivr)
 const INDIA_STATES_TOPOJSON =
-  "https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/india/india-states.json";
+  "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 interface IndiaMapProps {
   onStateClick?: (stateName: string) => void;
