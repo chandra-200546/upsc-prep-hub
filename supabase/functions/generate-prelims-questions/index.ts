@@ -17,6 +17,9 @@ const UPSC_SUBJECTS = [
   "Art & Culture"
 ];
 
+const normalizeQuestionText = (text: string): string =>
+  text.toLowerCase().replace(/\s+/g, " ").trim();
+
 const getLevelDescription = (level: number): string => {
   switch (level) {
     case 1: return "Basic factual questions. Direct recall from NCERT books. Single concept questions.";
@@ -34,7 +37,7 @@ serve(async (req) => {
   }
 
   try {
-    const { level = 1, count = 5, subject } = await req.json();
+    const { level = 1, count = 5, subject, excludeQuestions = [] } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -44,7 +47,37 @@ serve(async (req) => {
     const selectedSubject = subject || UPSC_SUBJECTS[Math.floor(Math.random() * UPSC_SUBJECTS.length)];
     const levelDescription = getLevelDescription(level);
 
-    const systemPrompt = `You are a UPSC Prelims question generator. Generate exactly ${count} multiple choice questions for the subject: ${selectedSubject}.
+    const parseQuestions = (content: string): any[] => {
+      let cleanContent = content.trim();
+      if (cleanContent.startsWith('```json')) cleanContent = cleanContent.slice(7);
+      else if (cleanContent.startsWith('```')) cleanContent = cleanContent.slice(3);
+      if (cleanContent.endsWith('```')) cleanContent = cleanContent.slice(0, -3);
+      cleanContent = cleanContent.trim();
+
+      const parsed = JSON.parse(cleanContent);
+      if (!Array.isArray(parsed)) {
+        throw new Error('AI did not return a question array');
+      }
+      return parsed;
+    };
+
+    const excludedSet = new Set(
+      (Array.isArray(excludeQuestions) ? excludeQuestions : [])
+        .filter((q: unknown) => typeof q === 'string')
+        .map((q: string) => normalizeQuestionText(q))
+        .filter((q: string) => q.length > 0)
+    );
+
+    const generatedUniqueSet = new Set<string>();
+    const collectedQuestions: any[] = [];
+    const maxAttempts = 3;
+
+    for (let attempt = 1; attempt <= maxAttempts && collectedQuestions.length < count; attempt++) {
+      const remaining = count - collectedQuestions.length;
+      const requestedCount = Math.min(remaining + 2, count + 2);
+      const exclusionPreview = [...excludedSet].slice(0, 30);
+
+      const systemPrompt = `You are a UPSC Prelims question generator. Generate exactly ${requestedCount} multiple choice questions for the subject: ${selectedSubject}.
 
 Difficulty Level: ${level}/5
 Level Description: ${levelDescription}
@@ -57,13 +90,17 @@ IMPORTANT RULES:
 5. Make wrong options plausible but clearly incorrect upon analysis
 6. For higher levels (4-5), include statement-based questions, match the following, or assertion-reason type
 7. Explanations should be educational and cite sources where applicable
+8. Avoid repeating or paraphrasing previously asked questions
+
+Previously asked question stems to avoid:
+${exclusionPreview.length ? exclusionPreview.map((q) => `- ${q}`).join('\n') : '- none provided'}
 
 You must respond with a valid JSON array of questions in this exact format:
 [
   {
     "question": "The question text here?",
     "option_a": "First option",
-    "option_b": "Second option", 
+    "option_b": "Second option",
     "option_c": "Third option",
     "option_d": "Fourth option",
     "correct_answer": "A",
@@ -74,60 +111,71 @@ You must respond with a valid JSON array of questions in this exact format:
   }
 ]`;
 
-    const userPrompt = `Generate ${count} UPSC Prelims questions for ${selectedSubject} at difficulty Level ${level}. Make them challenging but fair, typical of actual UPSC exam patterns. Include variety in question types.`;
+      const userPrompt = `Generate ${requestedCount} UPSC Prelims questions for ${selectedSubject} at difficulty Level ${level}. Questions must be different from any previously asked questions and should include variety in question types and topics.`;
 
-    console.log(`Generating ${count} questions for ${selectedSubject} at Level ${level}`);
+      console.log(`Generating questions for ${selectedSubject} at Level ${level}, attempt ${attempt}`);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.7,
-      }),
-    });
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-3-flash-preview',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.8,
+        }),
+      });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
-          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
+            status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: 'AI credits exhausted. Please add credits.' }), {
+            status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const errorText = await response.text();
+        console.error('AI Gateway error:', response.status, errorText);
+        throw new Error(`AI Gateway error: ${response.status}`);
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: 'AI credits exhausted. Please add credits.' }), {
-          status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error('No content in AI response');
       }
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+
+      let parsedQuestions: any[] = [];
+      try {
+        parsedQuestions = parseQuestions(content);
+      } catch (parseError) {
+        console.error('Failed to parse AI response:', content);
+        throw new Error('Failed to parse questions from AI response');
+      }
+
+      parsedQuestions.forEach((q: any) => {
+        if (!q || typeof q.question !== 'string') return;
+        const normalized = normalizeQuestionText(q.question);
+        if (!normalized) return;
+        if (excludedSet.has(normalized) || generatedUniqueSet.has(normalized)) return;
+        if (!q.option_a || !q.option_b || !q.option_c || !q.option_d) return;
+
+        generatedUniqueSet.add(normalized);
+        excludedSet.add(normalized);
+        collectedQuestions.push(q);
+      });
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error('No content in AI response');
-    }
-
-    let questions;
-    try {
-      let cleanContent = content.trim();
-      if (cleanContent.startsWith('```json')) cleanContent = cleanContent.slice(7);
-      else if (cleanContent.startsWith('```')) cleanContent = cleanContent.slice(3);
-      if (cleanContent.endsWith('```')) cleanContent = cleanContent.slice(0, -3);
-      cleanContent = cleanContent.trim();
-      questions = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error('Failed to parse AI response:', content);
-      throw new Error('Failed to parse questions from AI response');
+    if (collectedQuestions.length < count) {
+      throw new Error('Unable to generate enough unique questions for this level. Please retry.');
     }
 
     // Save questions to the database so we have real UUIDs for attempt tracking
@@ -135,7 +183,7 @@ You must respond with a valid JSON array of questions in this exact format:
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    const questionsToInsert = questions.map((q: any) => ({
+    const questionsToInsert = collectedQuestions.slice(0, count).map((q: any) => ({
       question: q.question,
       option_a: q.option_a,
       option_b: q.option_b,

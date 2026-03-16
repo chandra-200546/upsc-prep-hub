@@ -31,6 +31,41 @@ const SUBJECTS = [
   "Art & Culture"
 ];
 
+const normalizeQuestionText = (text: string) =>
+  text.toLowerCase().replace(/\s+/g, " ").trim();
+
+const getQuestionHistoryKey = (level: number, subject?: string) =>
+  `prelims-question-history-v1:${level}:${subject || "all-subjects"}`;
+
+const getUsedQuestionsForLevel = (level: number, subject?: string): string[] => {
+  try {
+    const raw = localStorage.getItem(getQuestionHistoryKey(level, subject));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveUsedQuestionsForLevel = (level: number, subject: string | undefined, questions: any[]) => {
+  const existing = getUsedQuestionsForLevel(level, subject);
+  const existingSet = new Set(existing.map(normalizeQuestionText));
+
+  const merged = [...existing];
+  questions.forEach((q) => {
+    const questionText = typeof q?.question === "string" ? q.question : "";
+    const normalized = normalizeQuestionText(questionText);
+    if (!normalized || existingSet.has(normalized)) return;
+    existingSet.add(normalized);
+    merged.push(questionText.trim());
+  });
+
+  // Keep history bounded in local storage
+  const bounded = merged.slice(-200);
+  localStorage.setItem(getQuestionHistoryKey(level, subject), JSON.stringify(bounded));
+};
+
 const Prelims = () => {
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -48,17 +83,20 @@ const Prelims = () => {
   const generateQuestions = async (level: number, subject?: string) => {
     setLoading(true);
     try {
+      const excludeQuestions = getUsedQuestionsForLevel(level, subject);
       const { data, error } = await supabase.functions.invoke('generate-prelims-questions', {
         body: { 
           level, 
           count: QUESTIONS_PER_LEVEL,
-          subject: subject 
+          subject: subject,
+          excludeQuestions
         }
       });
 
       if (error) throw error;
       
       if (data.questions && data.questions.length > 0) {
+        saveUsedQuestionsForLevel(level, subject, data.questions);
         setQuestions(data.questions);
         setCurrentIndex(0);
         setSelectedAnswer(null);
