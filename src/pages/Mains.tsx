@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,49 @@ interface DailyQuestion {
   date: string;
 }
 
+interface ScoreSection {
+  title: string;
+  score: number;
+  maxScore: number;
+}
+
+const SCORE_SECTION_TITLES = [
+  "Content Quality",
+  "Structure & Organization",
+  "Relevance to Question",
+  "Use of Examples",
+  "Overall Presentation",
+];
+
+const cleanFeedbackText = (input: string) =>
+  input
+    .replace(/\r/g, "")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/^\s*[-*]\s+/gm, "")
+    .replace(/\*\*/g, "")
+    .replace(/\*/g, "")
+    .trim();
+
+const extractSectionScore = (text: string, sectionTitle: string): ScoreSection | null => {
+  const escaped = sectionTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`${escaped}\\s*[:\\-]?\\s*\\(?\\s*(\\d+)\\s*\\/\\s*(\\d+)\\s*\\)?`, "i");
+  const match = text.match(pattern);
+  if (!match) return null;
+
+  const score = Number(match[1]);
+  const maxScore = Number(match[2]);
+  if (Number.isNaN(score) || Number.isNaN(maxScore)) return null;
+
+  return { title: sectionTitle, score, maxScore };
+};
+
+const parseLabeledSection = (text: string, label: string): string => {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`${escaped}\\s*:?([\\s\\S]*?)(?=\\n\\s*[A-Za-z][A-Za-z &]+\\s*:|$)`, "i");
+  const match = text.match(pattern);
+  return (match?.[1] || "").trim();
+};
+
 const Mains = () => {
   const navigate = useNavigate();
   const [dailyQuestion, setDailyQuestion] = useState<DailyQuestion | null>(null);
@@ -29,6 +72,32 @@ const Mains = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [submitMode, setSubmitMode] = useState<"text" | "image">("text");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const parsedFeedback = useMemo(() => {
+    const cleaned = cleanFeedbackText(feedback);
+    const sectionScores = SCORE_SECTION_TITLES
+      .map((title) => extractSectionScore(cleaned, title))
+      .filter((section): section is ScoreSection => section !== null);
+
+    const totalMatch = cleaned.match(/Total\s*Marks\s*[:\-]?\s*(\d+)\s*\/\s*(\d+)/i);
+    const totalScore = totalMatch ? Number(totalMatch[1]) : null;
+    const totalMax = totalMatch ? Number(totalMatch[2]) : null;
+
+    return {
+      cleaned,
+      sectionScores,
+      totalScore,
+      totalMax,
+      strengths: parseLabeledSection(cleaned, "Key Strengths"),
+      improvements: parseLabeledSection(cleaned, "Areas for Improvement"),
+      suggestions: parseLabeledSection(cleaned, "Specific Suggestions"),
+      summary: parseLabeledSection(cleaned, "Overall Summary"),
+    };
+  }, [feedback]);
+
+  const allSectionsPassed =
+    parsedFeedback.sectionScores.length > 0 &&
+    parsedFeedback.sectionScores.every((section) => section.score >= Math.ceil(section.maxScore * 0.6));
 
   useEffect(() => {
     checkAuth();
@@ -155,18 +224,17 @@ const Mains = () => {
       const evaluationPrompt = submitMode === "text"
         ? `Evaluate this UPSC Mains answer. Question: "${dailyQuestion.question_text}". Category: ${dailyQuestion.category}. Word limit: ${dailyQuestion.word_limit}. Answer: "${answer}". 
 
-Provide detailed feedback covering:
-1. Content Quality (out of 10)
-2. Structure & Organization (out of 10)
-3. Relevance to Question (out of 10)
-4. Use of Examples (out of 10)
-5. Overall Presentation (out of 10)
-
-Then give:
-- Total Marks: X/50
-- Key Strengths (2-3 points)
-- Areas for Improvement (2-3 points)
-- Specific Suggestions
+Return the evaluation in this exact plain-text template with NO markdown symbols (#, *, -, bullets):
+Content Quality: X/10
+Structure & Organization: X/10
+Relevance to Question: X/10
+Use of Examples: X/10
+Overall Presentation: X/10
+Total Marks: X/50
+Overall Summary: 2-3 lines in a friendly tone
+Key Strengths: 2-3 short points in one paragraph
+Areas for Improvement: 2-3 short points in one paragraph
+Specific Suggestions: 3-4 actionable suggestions in one paragraph
 
 Be encouraging but constructive.`
         : `The student has submitted an image of their handwritten answer for this UPSC Mains question: "${dailyQuestion.question_text}". Category: ${dailyQuestion.category}. Word limit: ${dailyQuestion.word_limit}.
@@ -178,7 +246,8 @@ Since you cannot see the image, provide general feedback on what makes a good UP
 4. Common mistakes to avoid
 5. Presentation tips for handwritten answers
 
-Encourage them to practice more and mention that detailed evaluation requires text input.`;
+Encourage them to practice more and mention that detailed evaluation requires text input.
+Use plain text only and avoid markdown symbols.`;
 
       // Stream the evaluation
       const response = await fetch(
@@ -411,14 +480,86 @@ Encourage them to practice more and mention that detailed evaluation requires te
           {feedback && (
             <Card className="border-primary/20">
               <CardHeader>
-                <CardTitle className="text-primary">AI Evaluation & Feedback</CardTitle>
+                <CardTitle className="text-slate-900 dark:text-slate-100">AI Evaluation & Feedback</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="prose prose-sm max-w-none dark:prose-invert">
-                  <div className="whitespace-pre-wrap text-foreground leading-relaxed">
-                    {feedback}
+              <CardContent className="space-y-5">
+                {parsedFeedback.sectionScores.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Section-wise Marks</h3>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {parsedFeedback.sectionScores.map((section) => {
+                        const passMark = Math.ceil(section.maxScore * 0.6);
+                        const passed = section.score >= passMark;
+                        return (
+                          <div
+                            key={section.title}
+                            className="rounded-lg border p-3 flex items-center justify-between bg-card"
+                          >
+                            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{section.title}</span>
+                            <span className={`text-sm font-semibold ${passed ? "text-green-600" : "text-red-600"}`}>
+                              {section.score}/{section.maxScore}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {parsedFeedback.totalScore !== null && parsedFeedback.totalMax !== null && (
+                  <div className="rounded-lg border p-4 bg-secondary/20 flex items-center justify-between">
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Total Marks</h3>
+                    <span
+                      className={`text-lg font-bold ${
+                        (parsedFeedback.sectionScores.length > 0
+                          ? allSectionsPassed
+                          : parsedFeedback.totalScore >= Math.ceil(parsedFeedback.totalMax * 0.6))
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {parsedFeedback.totalScore}/{parsedFeedback.totalMax}
+                    </span>
+                  </div>
+                )}
+
+                {parsedFeedback.summary && (
+                  <div className="space-y-1">
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Overall Summary</h3>
+                    <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">{parsedFeedback.summary}</p>
+                  </div>
+                )}
+
+                {parsedFeedback.strengths && (
+                  <div className="space-y-1">
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Key Strengths</h3>
+                    <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">{parsedFeedback.strengths}</p>
+                  </div>
+                )}
+
+                {parsedFeedback.improvements && (
+                  <div className="space-y-1">
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Areas for Improvement</h3>
+                    <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">{parsedFeedback.improvements}</p>
+                  </div>
+                )}
+
+                {parsedFeedback.suggestions && (
+                  <div className="space-y-1">
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Specific Suggestions</h3>
+                    <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">{parsedFeedback.suggestions}</p>
+                  </div>
+                )}
+
+                {parsedFeedback.cleaned && parsedFeedback.sectionScores.length === 0 && !parsedFeedback.summary && (
+                  <div className="space-y-1">
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Feedback</h3>
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                      {parsedFeedback.cleaned}
+                    </p>
+                  </div>
+                )}
+
                 <Button onClick={handleStartNew} className="mt-6">
                   Practice Again
                 </Button>
