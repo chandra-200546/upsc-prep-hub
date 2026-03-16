@@ -12,18 +12,47 @@ serve(async (req) => {
   }
 
   try {
-    const { mapType } = await req.json();
+    const { mapType = "india", level = 1, count = 5 } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const prompt = mapType === "india" 
-      ? "Generate 5 multiple-choice geography questions about India. Include questions about states, capitals, rivers, mountains, and important cities. Return ONLY a valid JSON array without any markdown formatting or extra text. Format: [{\"question\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correct\": 0, \"explanation\": \"...\"}]"
-      : "Generate 5 multiple-choice geography questions about World geography. Include questions about countries, capitals, continents, oceans, and major landmarks. Return ONLY a valid JSON array without any markdown formatting or extra text. Format: [{\"question\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correct\": 0, \"explanation\": \"...\"}]";
+    const levelDescription = (() => {
+      switch (level) {
+        case 1:
+          return "Beginner: basic factual questions and direct map identification.";
+        case 2:
+          return "Elementary: concept-based location and feature recognition.";
+        case 3:
+          return "Intermediate: application-oriented map reasoning questions.";
+        case 4:
+          return "Advanced: analytical map questions with multi-step reasoning.";
+        case 5:
+          return "Expert: UPSC-style elimination and integrated geography reasoning.";
+        default:
+          return "Standard difficulty map questions.";
+      }
+    })();
 
-    console.log("Calling Lovable AI gateway for map questions...");
+    const domainPrompt = mapType === "india"
+      ? "India geography only. Cover states, capitals, rivers, mountain ranges, biosphere reserves, ports, and major cities."
+      : "World geography only. Cover countries, capitals, oceans, straits, mountain ranges, climate zones, and major landmarks.";
+
+    const prompt = `Generate exactly ${count} multiple-choice questions for ${mapType} map practice.
+Difficulty Level: ${level}/5
+Level Description: ${levelDescription}
+Scope: ${domainPrompt}
+
+Rules:
+1. Return ONLY a valid JSON array (no markdown, no extra text)
+2. Each item must be: {"question":"...","options":["...","...","...","..."],"correct":0,"explanation":"..."}
+3. "correct" must be an integer index from 0 to 3
+4. Make wrong options plausible
+5. Explanations must clearly state why the answer is correct`;
+
+    console.log(`Calling Lovable AI gateway for map questions (${mapType}, level ${level})...`);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -32,11 +61,12 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: "You are a geography quiz generator. Always return valid JSON arrays only, no markdown formatting." },
           { role: "user", content: prompt }
         ],
+        temperature: 0.8,
       }),
     });
 
@@ -77,8 +107,26 @@ serve(async (req) => {
     }
     
     const questions = JSON.parse(cleanedText);
+    if (!Array.isArray(questions) || questions.length === 0) {
+      throw new Error("No questions parsed from AI response");
+    }
 
-    return new Response(JSON.stringify({ questions }), {
+    const sanitizedQuestions = questions
+      .filter((q) => q && typeof q.question === "string" && Array.isArray(q.options) && q.options.length === 4)
+      .map((q) => ({
+        question: q.question,
+        options: q.options,
+        correct: Number.isInteger(q.correct) ? q.correct : 0,
+        explanation: q.explanation || "No explanation provided.",
+      }))
+      .filter((q) => q.correct >= 0 && q.correct <= 3)
+      .slice(0, count);
+
+    if (sanitizedQuestions.length < count) {
+      throw new Error("Insufficient valid questions generated");
+    }
+
+    return new Response(JSON.stringify({ questions: sanitizedQuestions }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
