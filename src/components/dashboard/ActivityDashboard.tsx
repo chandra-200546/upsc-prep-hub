@@ -25,6 +25,7 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
   const [mainsData, setMainsData] = useState<any[]>([]);
   const [subjectBreakdown, setSubjectBreakdown] = useState<any[]>([]);
   const [weeklyActivity, setWeeklyActivity] = useState<any[]>([]);
+  const [mainsSubmissionCount, setMainsSubmissionCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -79,11 +80,16 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
     }
 
     if (submissions && submissions.length > 0) {
+      setMainsSubmissionCount(submissions.length);
+      const scoredSubmissions = submissions.filter((s: any) => typeof s.marks === "number");
       setMainsData(
-        submissions.slice(-10).map((s: any, i: number) => ({
+        scoredSubmissions.slice(-10).map((s: any, i: number) => ({
           attempt: `#${i + 1}`, marks: s.marks || 0, words: s.word_count || 0,
         }))
       );
+    } else {
+      setMainsSubmissionCount(0);
+      setMainsData([]);
     }
 
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -120,7 +126,7 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
     ? Math.round(mainsData.reduce((s, d) => s + (d.marks || 0), 0) / totalMainsSubmissions)
     : 0;
 
-  const hasNoData = prelimsData.length === 0 && mainsData.length === 0;
+  const hasNoData = prelimsData.length === 0 && mainsSubmissionCount === 0;
 
   return (
     <div className="space-y-6">
@@ -153,7 +159,7 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-info" />
             <div>
-              <p className="text-xl font-bold">{totalMainsSubmissions}</p>
+              <p className="text-xl font-bold">{mainsSubmissionCount}</p>
               <p className="text-xs text-muted-foreground">Mains Answers</p>
             </div>
           </div>

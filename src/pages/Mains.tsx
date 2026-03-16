@@ -60,6 +60,14 @@ const parseLabeledSection = (text: string, label: string): string => {
   return (match?.[1] || "").trim();
 };
 
+const extractTotalMarks = (text: string): number | null => {
+  const cleaned = cleanFeedbackText(text);
+  const totalMatch = cleaned.match(/Total\s*Marks\s*[:\-]?\s*(\d+)\s*\/\s*(\d+)/i);
+  if (!totalMatch) return null;
+  const marks = Number(totalMatch[1]);
+  return Number.isNaN(marks) ? null : marks;
+};
+
 const Mains = () => {
   const navigate = useNavigate();
   const [dailyQuestion, setDailyQuestion] = useState<DailyQuestion | null>(null);
@@ -208,7 +216,7 @@ const Mains = () => {
       }
 
       // Store submission in database
-      const { error: insertError } = await supabase
+      const { data: insertedSubmission, error: insertError } = await supabase
         .from('mains_submissions')
         .insert({
           user_id: user.id,
@@ -216,7 +224,9 @@ const Mains = () => {
           answer_text: submitMode === "text" ? answer : null,
           answer_image_url: imageUrl,
           word_count: wordCount,
-        });
+        })
+        .select("id")
+        .single();
 
       if (insertError) throw insertError;
 
@@ -297,6 +307,17 @@ Use plain text only and avoid markdown symbols.`;
             }
           }
         }
+      }
+
+      if (insertedSubmission?.id) {
+        const extractedMarks = submitMode === "text" ? extractTotalMarks(accumulatedFeedback) : null;
+        await supabase
+          .from("mains_submissions")
+          .update({
+            evaluation: accumulatedFeedback || null,
+            marks: extractedMarks,
+          })
+          .eq("id", insertedSubmission.id);
       }
 
       toast.success("Answer submitted and evaluated!");
