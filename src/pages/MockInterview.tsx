@@ -13,6 +13,42 @@ type Message = {
   content: string;
 };
 
+const pickIndianMaleVoice = (voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined => {
+  const maleCues = [
+    "male",
+    "man",
+    "rahul",
+    "amit",
+    "ravi",
+    "arjun",
+    "prabhat",
+    "vijay",
+    "aditya",
+  ];
+  const femaleCues = ["female", "woman", "zira", "susan", "karen", "siri", "priya", "veena"];
+
+  const scoreVoice = (voice: SpeechSynthesisVoice) => {
+    const name = voice.name.toLowerCase();
+    const lang = voice.lang.toLowerCase();
+    let score = 0;
+
+    if (lang.startsWith("en-in") || lang.includes("en-in")) score += 100;
+    else if (lang.startsWith("hi-in") || lang.includes("hi-in")) score += 80;
+    else if (lang.startsWith("en")) score += 35;
+
+    if (name.includes("india") || name.includes("indian")) score += 70;
+    if (maleCues.some((cue) => name.includes(cue))) score += 45;
+    if (femaleCues.some((cue) => name.includes(cue))) score -= 60;
+    if (voice.localService) score += 5;
+
+    return score;
+  };
+
+  return voices
+    .filter((voice) => /^en|^hi/i.test(voice.lang))
+    .sort((a, b) => scoreVoice(b) - scoreVoice(a))[0];
+};
+
 const UPSC_SYSTEM_PROMPT = `You are the Chairman of a UPSC Civil Services Interview Board. You are conducting a real personality test (interview) of a candidate. 
 
 RULES:
@@ -78,12 +114,12 @@ const MockInterview = () => {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 0.9;
-      utterance.pitch = 0.9;
+      utterance.pitch = 0.8;
       utterance.lang = "en-IN";
       
-      // Try to pick an Indian English voice
+      // Prefer Indian male voice for interview chairman tone
       const voices = window.speechSynthesis.getVoices();
-      const indianVoice = voices.find(v => v.lang.includes("en-IN")) || voices.find(v => v.lang.includes("en"));
+      const indianVoice = pickIndianMaleVoice(voices);
       if (indianVoice) utterance.voice = indianVoice;
 
       utterance.onstart = () => setIsSpeaking(true);
