@@ -64,6 +64,12 @@ interface PYQQuestion {
   expectedApproach?: string;
 }
 
+interface ScoreSection {
+  title: string;
+  score: number;
+  maxScore: number;
+}
+
 const PRELIMS_SUBJECT_OPTIONS = [
   "Indian Economy",
   "Indian Polity",
@@ -96,6 +102,41 @@ const extractTotalMarks = (text: string): number | null => {
   if (!match) return null;
   const score = Number(match[1]);
   return Number.isNaN(score) ? null : score;
+};
+
+const SCORE_SECTION_TITLES = [
+  "Content Quality",
+  "Structure & Organization",
+  "Relevance to Question",
+  "Use of Examples",
+  "Overall Presentation",
+];
+
+const cleanFeedbackText = (input: string) =>
+  input
+    .replace(/\r/g, "")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/^\s*[-*]\s+/gm, "")
+    .replace(/\*\*/g, "")
+    .replace(/\*/g, "")
+    .trim();
+
+const extractSectionScore = (text: string, sectionTitle: string): ScoreSection | null => {
+  const escaped = sectionTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`${escaped}\\s*[:\\-]?\\s*\\(?\\s*(\\d+)\\s*\\/\\s*(\\d+)\\s*\\)?`, "i");
+  const match = text.match(pattern);
+  if (!match) return null;
+  const score = Number(match[1]);
+  const maxScore = Number(match[2]);
+  if (Number.isNaN(score) || Number.isNaN(maxScore)) return null;
+  return { title: sectionTitle, score, maxScore };
+};
+
+const parseLabeledSection = (text: string, label: string): string => {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`${escaped}\\s*:?([\\s\\S]*?)(?=\\n\\s*[A-Za-z][A-Za-z &]+\\s*:|$)`, "i");
+  const match = text.match(pattern);
+  return (match?.[1] || "").trim();
 };
 
 const PYQEngine = () => {
@@ -219,14 +260,49 @@ const PYQEngine = () => {
     });
   }, [pyqQuestions, selectedSubject, selectedLevel]);
 
+  const effectivePrelimsQuestions = useMemo(() => {
+    if (filteredPrelimsQuestions.length > 0) return filteredPrelimsQuestions;
+
+    const sameSubjectAnyLevel = pyqQuestions.filter(
+      (q) => q.subject === selectedSubject && Array.isArray(q.options) && q.options.length === 4
+    );
+    if (sameSubjectAnyLevel.length > 0) return sameSubjectAnyLevel;
+
+    const anySubjectSameLevel = pyqQuestions.filter(
+      (q) => (q.level || 1) === selectedLevel && Array.isArray(q.options) && q.options.length === 4
+    );
+    if (anySubjectSameLevel.length > 0) return anySubjectSameLevel;
+
+    return pyqQuestions.filter((q) => Array.isArray(q.options) && q.options.length === 4);
+  }, [filteredPrelimsQuestions, pyqQuestions, selectedLevel, selectedSubject]);
+
   const descriptiveQuestions = useMemo(
     () => pyqQuestions.filter((q) => !q.options || q.options.length === 0),
     [pyqQuestions]
   );
 
-  const currentPrelimsQuestion = filteredPrelimsQuestions[currentQuestionIndex];
+  const currentPrelimsQuestion = effectivePrelimsQuestions[currentQuestionIndex];
   const currentWritingQuestion = descriptiveQuestions[writingQuestionIndex];
   const writingWordCount = writingAnswer.trim().split(/\s+/).filter(Boolean).length;
+
+  const parsedWritingFeedback = useMemo(() => {
+    const cleaned = cleanFeedbackText(writingFeedback);
+    const sectionScores = SCORE_SECTION_TITLES
+      .map((title) => extractSectionScore(cleaned, title))
+      .filter((section): section is ScoreSection => section !== null);
+    const totalMatch = cleaned.match(/Total\s*Marks\s*[:\-]?\s*(\d+)\s*\/\s*(\d+)/i);
+    return {
+      cleaned,
+      sectionScores,
+      totalScore: totalMatch ? Number(totalMatch[1]) : null,
+      totalMax: totalMatch ? Number(totalMatch[2]) : null,
+      summary: parseLabeledSection(cleaned, "Overall Summary"),
+      strengths: parseLabeledSection(cleaned, "Key Strengths"),
+      improvements: parseLabeledSection(cleaned, "Areas for Improvement"),
+      suggestions: parseLabeledSection(cleaned, "Specific Suggestions"),
+      modelAnswer: parseLabeledSection(cleaned, "Model Answer"),
+    };
+  }, [writingFeedback]);
 
   const handleAnswerSelect = async (answer: string) => {
     setSelectedAnswer(answer);
@@ -237,7 +313,7 @@ const PYQEngine = () => {
   };
 
   const nextPrelimsQuestion = () => {
-    if (currentQuestionIndex < filteredPrelimsQuestions.length - 1) {
+    if (currentQuestionIndex < effectivePrelimsQuestions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
       setSelectedAnswer(null);
       setShowExplanation(false);
@@ -627,9 +703,14 @@ Model Answer: 150-200 word model answer in simple UPSC language`;
 
                     {currentPrelimsQuestion ? (
                       <div>
+                        {filteredPrelimsQuestions.length === 0 && effectivePrelimsQuestions.length > 0 && (
+                          <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 text-warning text-sm mb-3">
+                            Exact subject + level match is unavailable. Showing best available PYQs.
+                          </div>
+                        )}
                         <div className="flex items-center justify-between mb-4 text-sm text-muted-foreground">
                           <span>
-                            Question {currentQuestionIndex + 1} of {filteredPrelimsQuestions.length}
+                            Question {currentQuestionIndex + 1} of {effectivePrelimsQuestions.length}
                           </span>
                           <div className="flex items-center gap-2">
                             <Badge variant="outline">{currentPrelimsQuestion.subject}</Badge>
@@ -676,7 +757,7 @@ Model Answer: 150-200 word model answer in simple UPSC language`;
                           )}
                         </div>
 
-                        {showExplanation && currentQuestionIndex < filteredPrelimsQuestions.length - 1 && (
+                        {showExplanation && currentQuestionIndex < effectivePrelimsQuestions.length - 1 && (
                           <Button onClick={nextPrelimsQuestion} className="w-full bg-gradient-primary">
                             Next Question
                             <ChevronRight className="w-4 h-4 ml-2" />
@@ -743,9 +824,77 @@ Model Answer: 150-200 word model answer in simple UPSC language`;
                     </Button>
 
                     {writingFeedback && (
-                      <Card className="p-4 border-primary/20">
-                        <h4 className="font-semibold mb-2">AI Evaluation</h4>
-                        <p className="whitespace-pre-wrap text-sm text-muted-foreground leading-relaxed">{writingFeedback}</p>
+                      <Card className="p-4 border-primary/20 space-y-4">
+                        <h4 className="font-semibold">AI Evaluation</h4>
+
+                        {parsedWritingFeedback.sectionScores.length > 0 && (
+                          <div className="space-y-2">
+                            <h5 className="text-sm font-semibold">Section-wise Marks</h5>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {parsedWritingFeedback.sectionScores.map((section) => {
+                                const passed = section.score >= Math.ceil(section.maxScore * 0.6);
+                                return (
+                                  <div key={section.title} className="rounded-lg border p-3 flex items-center justify-between bg-card">
+                                    <span className="text-sm font-medium">{section.title}</span>
+                                    <span className={`text-sm font-semibold ${passed ? "text-green-600" : "text-red-600"}`}>
+                                      {section.score}/{section.maxScore}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {parsedWritingFeedback.totalScore !== null && parsedWritingFeedback.totalMax !== null && (
+                          <div className="rounded-lg border p-3 bg-secondary/20 flex items-center justify-between">
+                            <span className="font-semibold">Total Marks</span>
+                            <span
+                              className={`font-bold ${
+                                parsedWritingFeedback.totalScore >= Math.ceil(parsedWritingFeedback.totalMax * 0.6)
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
+                            >
+                              {parsedWritingFeedback.totalScore}/{parsedWritingFeedback.totalMax}
+                            </span>
+                          </div>
+                        )}
+
+                        {parsedWritingFeedback.summary && (
+                          <div>
+                            <h5 className="text-sm font-semibold mb-1">Overall Summary</h5>
+                            <p className="text-sm text-muted-foreground leading-relaxed">{parsedWritingFeedback.summary}</p>
+                          </div>
+                        )}
+                        {parsedWritingFeedback.strengths && (
+                          <div>
+                            <h5 className="text-sm font-semibold mb-1">Key Strengths</h5>
+                            <p className="text-sm text-muted-foreground leading-relaxed">{parsedWritingFeedback.strengths}</p>
+                          </div>
+                        )}
+                        {parsedWritingFeedback.improvements && (
+                          <div>
+                            <h5 className="text-sm font-semibold mb-1">Areas for Improvement</h5>
+                            <p className="text-sm text-muted-foreground leading-relaxed">{parsedWritingFeedback.improvements}</p>
+                          </div>
+                        )}
+                        {parsedWritingFeedback.suggestions && (
+                          <div>
+                            <h5 className="text-sm font-semibold mb-1">Specific Suggestions</h5>
+                            <p className="text-sm text-muted-foreground leading-relaxed">{parsedWritingFeedback.suggestions}</p>
+                          </div>
+                        )}
+                        {parsedWritingFeedback.modelAnswer && (
+                          <div>
+                            <h5 className="text-sm font-semibold mb-1">Model Answer</h5>
+                            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{parsedWritingFeedback.modelAnswer}</p>
+                          </div>
+                        )}
+
+                        {!parsedWritingFeedback.sectionScores.length && (
+                          <p className="whitespace-pre-wrap text-sm text-muted-foreground leading-relaxed">{parsedWritingFeedback.cleaned}</p>
+                        )}
                       </Card>
                     )}
                   </div>

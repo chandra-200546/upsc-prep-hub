@@ -107,7 +107,7 @@ Generate:
 - 8 trend items covering major subjects
 - 6 predictions for upcoming examination
 - 5 strategic recommendations
-- 40 sample PYQs for prelims OR 15 sample PYQs for other exam types, with proper UPSC-style formatting
+- 24 sample PYQs for prelims OR 15 sample PYQs for other exam types, with proper UPSC-style formatting
 
 Focus on accuracy and realistic patterns observed in UPSC exams. The questions should be authentic PYQ-style questions that could appear in ${examType}.
 ${practiceGuidanceByExam}
@@ -180,7 +180,51 @@ IMPORTANT: Return ONLY valid JSON, no markdown or additional text.`;
     } catch (parseError) {
       console.error("JSON parse error:", parseError);
       console.error("Content that failed to parse:", content);
-      throw new Error("Failed to parse AI response as JSON");
+      const fallbackPrompt = `Return ONLY valid JSON with this shape:
+{
+  "trends": [],
+  "predictions": [],
+  "strategy": [],
+  ${questionSchemaByExam}
+}
+
+Exam type: ${examType}
+Keep response compact. Use 12 PYQs for prelims or 8 PYQs for other exam types.
+No markdown.`;
+
+      const fallbackResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: "You are an expert UPSC analyst. Always respond with valid JSON only." },
+            { role: "user", content: fallbackPrompt }
+          ],
+          temperature: 0.3,
+        }),
+      });
+
+      if (!fallbackResponse.ok) {
+        throw new Error("Failed to parse AI response as JSON");
+      }
+
+      const fallbackData = await fallbackResponse.json();
+      const fallbackContent = fallbackData.choices?.[0]?.message?.content;
+      if (!fallbackContent) {
+        throw new Error("Failed to parse AI response as JSON");
+      }
+
+      let cleanFallback = fallbackContent.trim();
+      if (cleanFallback.startsWith("```json")) cleanFallback = cleanFallback.slice(7);
+      else if (cleanFallback.startsWith("```")) cleanFallback = cleanFallback.slice(3);
+      if (cleanFallback.endsWith("```")) cleanFallback = cleanFallback.slice(0, -3);
+      cleanFallback = cleanFallback.trim();
+
+      analysisData = JSON.parse(cleanFallback);
     }
 
     return new Response(JSON.stringify(analysisData), {
