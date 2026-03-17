@@ -155,6 +155,8 @@ const PYQEngine = () => {
 
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [selectedLevel, setSelectedLevel] = useState<number>(1);
+  const [loadingExactPractice, setLoadingExactPractice] = useState(false);
+  const [prelimsPracticeCache, setPrelimsPracticeCache] = useState<Record<string, PYQQuestion[]>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -179,6 +181,8 @@ const PYQEngine = () => {
     setSelectedAnswer(null);
     setShowExplanation(false);
     setCurrentQuestionIndex(0);
+    setLoadingExactPractice(false);
+    setPrelimsPracticeCache({});
     setWritingQuestionIndex(0);
     setWritingAnswer("");
     setWritingFeedback("");
@@ -224,6 +228,7 @@ const PYQEngine = () => {
         const firstSubject = PRELIMS_SUBJECT_OPTIONS[0];
         setSelectedSubject(firstSubject);
         setSelectedLevel(1);
+        setPrelimsPracticeCache({});
       }
 
       setAnalysisGenerated(true);
@@ -250,6 +255,8 @@ const PYQEngine = () => {
 
   const prelimsSubjects = PRELIMS_SUBJECT_OPTIONS;
 
+  const getCacheKey = (subject: string, level: number) => `${subject}::L${level}`;
+
   const filteredPrelimsQuestions = useMemo(() => {
     return pyqQuestions.filter((q) => {
       const matchSubject = selectedSubject ? q.subject === selectedSubject : true;
@@ -261,20 +268,10 @@ const PYQEngine = () => {
   }, [pyqQuestions, selectedSubject, selectedLevel]);
 
   const effectivePrelimsQuestions = useMemo(() => {
-    if (filteredPrelimsQuestions.length > 0) return filteredPrelimsQuestions;
-
-    const sameSubjectAnyLevel = pyqQuestions.filter(
-      (q) => q.subject === selectedSubject && Array.isArray(q.options) && q.options.length === 4
-    );
-    if (sameSubjectAnyLevel.length > 0) return sameSubjectAnyLevel;
-
-    const anySubjectSameLevel = pyqQuestions.filter(
-      (q) => (q.level || 1) === selectedLevel && Array.isArray(q.options) && q.options.length === 4
-    );
-    if (anySubjectSameLevel.length > 0) return anySubjectSameLevel;
-
-    return pyqQuestions.filter((q) => Array.isArray(q.options) && q.options.length === 4);
-  }, [filteredPrelimsQuestions, pyqQuestions, selectedLevel, selectedSubject]);
+    const cached = prelimsPracticeCache[getCacheKey(selectedSubject, selectedLevel)];
+    if (cached && cached.length > 0) return cached;
+    return filteredPrelimsQuestions;
+  }, [filteredPrelimsQuestions, prelimsPracticeCache, selectedLevel, selectedSubject]);
 
   const descriptiveQuestions = useMemo(
     () => pyqQuestions.filter((q) => !q.options || q.options.length === 0),
@@ -319,6 +316,67 @@ const PYQEngine = () => {
       setShowExplanation(false);
     }
   };
+
+  const fetchExactPrelimsPractice = async (subject: string, level: number) => {
+    if (!subject || selectedExam !== "prelims") return;
+    const key = getCacheKey(subject, level);
+    if (prelimsPracticeCache[key]?.length) return;
+
+    setLoadingExactPractice(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pyq-analysis`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          examType: "prelims",
+          analysisType: "practice_only",
+          subject,
+          level,
+          count: 20,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch exact practice set");
+      const data = await response.json();
+      const incoming: PYQQuestion[] = (data.pyqQuestions || []).map((q: any, idx: number) => ({
+        id: q.id || `exact-${idx}-${Date.now()}`,
+        year: Number(q.year) || 2000,
+        question: q.question || "",
+        options: Array.isArray(q.options) ? q.options.slice(0, 4) : undefined,
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation || "",
+        subject: normalizeSubject(q.subject || subject),
+        difficulty: q.difficulty || "medium",
+        level: Number.isInteger(q.level) ? q.level : level,
+      })).filter((q) => q.subject === subject && (q.level || level) === level && Array.isArray(q.options) && q.options.length === 4);
+
+      if (incoming.length > 0) {
+        setPrelimsPracticeCache((prev) => ({ ...prev, [key]: incoming }));
+        setCurrentQuestionIndex(0);
+        setSelectedAnswer(null);
+        setShowExplanation(false);
+      }
+    } catch (error) {
+      console.error("Error fetching exact prelims practice:", error);
+      toast({
+        title: "Practice load failed",
+        description: "Could not fetch exact PYQs for this subject and level. Please retry.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingExactPractice(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!analysisGenerated || selectedExam !== "prelims" || !selectedSubject) return;
+    if (effectivePrelimsQuestions.length === 0) {
+      fetchExactPrelimsPractice(selectedSubject, selectedLevel);
+    }
+  }, [analysisGenerated, effectivePrelimsQuestions.length, selectedExam, selectedLevel, selectedSubject]);
 
   const evaluateWritingAnswer = async () => {
     if (!currentWritingQuestion || !writingAnswer.trim()) {
@@ -671,6 +729,7 @@ Model Answer: 150-200 word model answer in simple UPSC language`;
                                 setCurrentQuestionIndex(0);
                                 setSelectedAnswer(null);
                                 setShowExplanation(false);
+                                fetchExactPrelimsPractice(subject, selectedLevel);
                               }}
                             >
                               {subject}
@@ -692,6 +751,7 @@ Model Answer: 150-200 word model answer in simple UPSC language`;
                                 setCurrentQuestionIndex(0);
                                 setSelectedAnswer(null);
                                 setShowExplanation(false);
+                                fetchExactPrelimsPractice(selectedSubject, level);
                               }}
                             >
                               L{level}
@@ -701,13 +761,12 @@ Model Answer: 150-200 word model answer in simple UPSC language`;
                       </div>
                     </div>
 
-                    {currentPrelimsQuestion ? (
+                    {loadingExactPractice ? (
+                      <div className="p-4 rounded-xl border bg-background/50">
+                        <p className="text-sm text-muted-foreground">Loading exact PYQs for {selectedSubject} - Level {selectedLevel}...</p>
+                      </div>
+                    ) : currentPrelimsQuestion ? (
                       <div>
-                        {filteredPrelimsQuestions.length === 0 && effectivePrelimsQuestions.length > 0 && (
-                          <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 text-warning text-sm mb-3">
-                            Exact subject + level match is unavailable. Showing best available PYQs.
-                          </div>
-                        )}
                         <div className="flex items-center justify-between mb-4 text-sm text-muted-foreground">
                           <span>
                             Question {currentQuestionIndex + 1} of {effectivePrelimsQuestions.length}

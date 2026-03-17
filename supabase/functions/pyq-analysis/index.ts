@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { examType, analysisType } = await req.json();
+    const { examType, analysisType, subject, level = 1, count = 20 } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -52,6 +52,81 @@ serve(async (req) => {
       "expectedApproach": "What a high-quality answer should include"
     }
   ]`;
+
+    if (analysisType === "practice_only" && examType === "prelims") {
+      const practicePrompt = `Return ONLY valid JSON with this exact shape:
+{
+  "trends": [],
+  "predictions": [],
+  "strategy": [],
+  "pyqQuestions": [
+    {
+      "id": "unique_id",
+      "year": <year number>,
+      "question": "Exact previous-year prelims question text",
+      "options": ["Exact option A text", "Exact option B text", "Exact option C text", "Exact option D text"],
+      "correctAnswer": "A" | "B" | "C" | "D",
+      "explanation": "Detailed explanation",
+      "subject": "${subject || "Indian Polity"}",
+      "difficulty": "easy" | "medium" | "hard",
+      "level": ${level}
+    }
+  ]
+}
+
+Generate exactly ${count} real previous-year UPSC Prelims PYQs for:
+Subject: ${subject || "Indian Polity"}
+Level: ${level}
+
+Rules:
+1. Every question must belong to this exact subject.
+2. Every question must have level ${level}.
+3. Keep original PYQ wording/options as close as possible.
+4. No markdown, no extra text, JSON only.`;
+
+      const focusedResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: "You are an expert UPSC analyst. Always respond with valid JSON only." },
+            { role: "user", content: practicePrompt }
+          ],
+          temperature: 0.4,
+        }),
+      });
+
+      if (!focusedResponse.ok) {
+        return new Response(JSON.stringify({ error: "Failed to generate practice set" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const focusedData = await focusedResponse.json();
+      const focusedContent = focusedData.choices?.[0]?.message?.content;
+      if (!focusedContent) {
+        return new Response(JSON.stringify({ error: "No content in practice response" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      let cleanFocused = focusedContent.trim();
+      if (cleanFocused.startsWith("```json")) cleanFocused = cleanFocused.slice(7);
+      else if (cleanFocused.startsWith("```")) cleanFocused = cleanFocused.slice(3);
+      if (cleanFocused.endsWith("```")) cleanFocused = cleanFocused.slice(0, -3);
+      cleanFocused = cleanFocused.trim();
+
+      const parsed = JSON.parse(cleanFocused);
+      return new Response(JSON.stringify(parsed), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const practiceGuidanceByExam = examType === "prelims"
       ? `For PYQ questions, use only real previous-year UPSC Prelims questions and retain original wording/options as closely as possible.
