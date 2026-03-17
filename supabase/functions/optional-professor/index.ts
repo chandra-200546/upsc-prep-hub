@@ -166,15 +166,72 @@ Respond in JSON format:
       throw new Error("No content in AI response");
     }
 
-    // Parse JSON from response
+    // Parse JSON from response with resilient fallback
     content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    
+
     let result;
     try {
       result = JSON.parse(content);
     } catch (e) {
-      console.error("JSON parse error:", e, "Content:", content);
-      throw new Error("Failed to parse AI response");
+      // Try extracting the first JSON object block
+      const objectMatch = content.match(/\{[\s\S]*\}/);
+      if (objectMatch) {
+        try {
+          result = JSON.parse(objectMatch[0]);
+        } catch {
+          result = null;
+        }
+      }
+
+      if (!result) {
+        console.error("JSON parse error:", e, "Content:", content);
+        // Return safe structured fallback by mode so UI continues to work.
+        if (mode === "explain") {
+          result = {
+            overview: content,
+            keyPoints: [],
+            examples: [],
+            upscRelevance: "",
+            diagram: "",
+          };
+        } else if (mode === "trends") {
+          result = {
+            recurringTopics: [],
+            predictions: [],
+            ignoredTopics: [],
+            yearWiseBreakdown: [],
+            strategy: content,
+          };
+        } else if (mode === "evaluate") {
+          result = {
+            score: 0,
+            breakdown: { structure: 0, content: 0, examples: 0, presentation: 0 },
+            strengths: [],
+            improvements: [],
+            feedback: content,
+            modelAnswer: "",
+          };
+        } else if (mode === "daily-practice") {
+          result = {
+            question: content,
+            type: "Long Answer",
+            marks: 20,
+            hint: "",
+            relatedTopics: [],
+          };
+        } else if (mode === "revision") {
+          result = {
+            topic: topic || "Revision Topic",
+            keyPoints: [],
+            mindMap: "",
+            oneLiners: [],
+            importantFacts: [],
+            pyqConnection: content,
+          };
+        } else {
+          result = { content };
+        }
+      }
     }
 
     return new Response(JSON.stringify(result), {

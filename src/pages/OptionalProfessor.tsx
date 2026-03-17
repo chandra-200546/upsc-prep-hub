@@ -30,6 +30,17 @@ interface Profile {
   optional_subject: string | null;
 }
 
+const toArray = (value: any): string[] => {
+  if (Array.isArray(value)) return value.map((v) => String(v)).filter(Boolean);
+  if (typeof value === "string") {
+    return value
+      .split(/\n|•|- /g)
+      .map((v) => v.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
 const OPTIONAL_SUBJECTS = [
   "Anthropology",
   "Geography",
@@ -168,7 +179,13 @@ export default function OptionalProfessor() {
     
     try {
       const data = await callAI("explain", { topic });
-      setExplanation(data);
+      setExplanation({
+        overview: data?.overview || data?.summary || "",
+        keyPoints: toArray(data?.keyPoints),
+        examples: toArray(data?.examples),
+        upscRelevance: data?.upscRelevance || data?.relevance || "",
+        diagram: data?.diagram || "",
+      });
     } catch (error: any) {
       console.error("Error:", error);
       toast.error(error.message || "Failed to get explanation");
@@ -183,7 +200,13 @@ export default function OptionalProfessor() {
     
     try {
       const data = await callAI("trends", {});
-      setTrends(data);
+      setTrends({
+        recurringTopics: toArray(data?.recurringTopics),
+        predictions: toArray(data?.predictions),
+        ignoredTopics: toArray(data?.ignoredTopics),
+        yearWiseBreakdown: Array.isArray(data?.yearWiseBreakdown) ? data.yearWiseBreakdown : [],
+        strategy: data?.strategy || "",
+      });
     } catch (error: any) {
       console.error("Error:", error);
       toast.error(error.message || "Failed to get trends");
@@ -203,7 +226,14 @@ export default function OptionalProfessor() {
     
     try {
       const data = await callAI("evaluate", { question, answer });
-      setEvaluation(data);
+      setEvaluation({
+        score: Number(data?.score) || 0,
+        breakdown: data?.breakdown || {},
+        strengths: toArray(data?.strengths),
+        improvements: toArray(data?.improvements),
+        feedback: data?.feedback || "",
+        modelAnswer: data?.modelAnswer || "",
+      });
     } catch (error: any) {
       console.error("Error:", error);
       toast.error(error.message || "Failed to evaluate answer");
@@ -242,7 +272,14 @@ export default function OptionalProfessor() {
         question: dailyQuestion.question, 
         answer: practiceAnswer 
       });
-      setPracticeFeedback(data);
+      setPracticeFeedback({
+        score: Number(data?.score) || 0,
+        breakdown: data?.breakdown || {},
+        strengths: toArray(data?.strengths),
+        improvements: toArray(data?.improvements),
+        feedback: data?.feedback || "",
+        modelAnswer: data?.modelAnswer || "",
+      });
     } catch (error: any) {
       console.error("Error:", error);
       toast.error(error.message || "Failed to evaluate practice answer");
