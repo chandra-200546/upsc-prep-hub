@@ -55,7 +55,18 @@ serve(async (req) => {
 
     const practiceGuidanceByExam = examType === "prelims"
       ? `For PYQ questions, use only real previous-year UPSC Prelims questions and retain original wording/options as closely as possible.
-Each prelims question must include a subject and level (1-5).`
+Each prelims question must include a subject and level (1-5).
+Cover all these subjects with balanced distribution:
+- Indian Economy
+- Indian Polity
+- Ancient History
+- Modern History
+- Geography
+- Current Events / General Knowledge
+- Social Development / Government Schemes
+- Environment & Ecology
+- Science & Technology
+Ensure all levels 1 to 5 are represented.`
       : `For PYQ questions, use only real previous-year UPSC descriptive questions for this exam type.
 Questions must be answer-writing friendly and include wordLimit and expectedApproach.`;
 
@@ -96,7 +107,7 @@ Generate:
 - 8 trend items covering major subjects
 - 6 predictions for upcoming examination
 - 5 strategic recommendations
-- 15 sample PYQs with proper UPSC-style formatting
+- 40 sample PYQs for prelims OR 15 sample PYQs for other exam types, with proper UPSC-style formatting
 
 Focus on accuracy and realistic patterns observed in UPSC exams. The questions should be authentic PYQ-style questions that could appear in ${examType}.
 ${practiceGuidanceByExam}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useGamification } from "@/hooks/use-gamification";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -63,9 +64,44 @@ interface PYQQuestion {
   expectedApproach?: string;
 }
 
+const PRELIMS_SUBJECT_OPTIONS = [
+  "Indian Economy",
+  "Indian Polity",
+  "Ancient History",
+  "Modern History",
+  "Geography",
+  "Current Events / General Knowledge",
+  "Social Development / Government Schemes",
+  "Environment & Ecology",
+  "Science & Technology",
+];
+
+const normalizeSubject = (subject: string): string => {
+  const s = subject.toLowerCase();
+  if (s.includes("econom")) return "Indian Economy";
+  if (s.includes("polity") || s.includes("governance")) return "Indian Polity";
+  if (s.includes("ancient")) return "Ancient History";
+  if (s.includes("modern")) return "Modern History";
+  if (s.includes("history")) return "Ancient History";
+  if (s.includes("geograph")) return "Geography";
+  if (s.includes("current") || s.includes("general knowledge") || s.includes("gk")) return "Current Events / General Knowledge";
+  if (s.includes("social") || s.includes("scheme") || s.includes("welfare")) return "Social Development / Government Schemes";
+  if (s.includes("environment") || s.includes("ecology")) return "Environment & Ecology";
+  if (s.includes("science") || s.includes("technology")) return "Science & Technology";
+  return subject || "General";
+};
+
+const extractTotalMarks = (text: string): number | null => {
+  const match = text.match(/Total\s*Marks\s*[:\-]?\s*(\d+)\s*\/\s*(\d+)/i);
+  if (!match) return null;
+  const score = Number(match[1]);
+  return Number.isNaN(score) ? null : score;
+};
+
 const PYQEngine = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { awardXP, XP_REWARDS } = useGamification();
 
   const [selectedExam, setSelectedExam] = useState<ExamType>("prelims");
   const [activeSection, setActiveSection] = useState<AnalysisSection>("trends");
@@ -131,7 +167,7 @@ const PYQEngine = () => {
         options: Array.isArray(q.options) ? q.options.slice(0, 4) : undefined,
         correctAnswer: q.correctAnswer,
         explanation: q.explanation || "",
-        subject: q.subject || "General",
+        subject: selectedExam === "prelims" ? normalizeSubject(q.subject || "General") : (q.subject || "General"),
         difficulty: q.difficulty || "medium",
         level: Number.isInteger(q.level) ? q.level : q.difficulty === "easy" ? 1 : q.difficulty === "hard" ? 4 : 2,
         wordLimit: Number(q.wordLimit) || (selectedExam === "essay" ? 1000 : 250),
@@ -144,7 +180,7 @@ const PYQEngine = () => {
       setPyqQuestions(incomingQuestions);
 
       if (selectedExam === "prelims") {
-        const firstSubject = incomingQuestions[0]?.subject || "";
+        const firstSubject = PRELIMS_SUBJECT_OPTIONS[0];
         setSelectedSubject(firstSubject);
         setSelectedLevel(1);
       }
@@ -171,10 +207,7 @@ const PYQEngine = () => {
     }
   };
 
-  const prelimsSubjects = useMemo(() => {
-    const unique = Array.from(new Set(pyqQuestions.map((q) => q.subject).filter(Boolean)));
-    return unique;
-  }, [pyqQuestions]);
+  const prelimsSubjects = PRELIMS_SUBJECT_OPTIONS;
 
   const filteredPrelimsQuestions = useMemo(() => {
     return pyqQuestions.filter((q) => {
@@ -195,9 +228,12 @@ const PYQEngine = () => {
   const currentWritingQuestion = descriptiveQuestions[writingQuestionIndex];
   const writingWordCount = writingAnswer.trim().split(/\s+/).filter(Boolean).length;
 
-  const handleAnswerSelect = (answer: string) => {
+  const handleAnswerSelect = async (answer: string) => {
     setSelectedAnswer(answer);
     setShowExplanation(true);
+    if (currentPrelimsQuestion && answer === currentPrelimsQuestion.correctAnswer) {
+      await awardXP(XP_REWARDS.CORRECT_ANSWER, "PYQ correct answer!");
+    }
   };
 
   const nextPrelimsQuestion = () => {
@@ -241,7 +277,8 @@ Total Marks: X/50
 Overall Summary: 2-3 lines
 Key Strengths: 2-3 points in one paragraph
 Areas for Improvement: 2-3 points in one paragraph
-Specific Suggestions: 3-4 actionable suggestions in one paragraph`;
+Specific Suggestions: 3-4 actionable suggestions in one paragraph
+Model Answer: 150-200 word model answer in simple UPSC language`;
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
         method: "POST",
@@ -284,6 +321,12 @@ Specific Suggestions: 3-4 actionable suggestions in one paragraph`;
             }
           }
         }
+      }
+
+      const totalMarks = extractTotalMarks(accumulated);
+      await awardXP(XP_REWARDS.MAINS_SUBMISSION, "PYQ descriptive answer submitted!");
+      if (totalMarks !== null && totalMarks >= 30) {
+        await awardXP(XP_REWARDS.CORRECT_ANSWER, "Strong PYQ answer quality bonus");
       }
 
       toast({ title: "Evaluation ready", description: "Your PYQ answer has been evaluated." });
