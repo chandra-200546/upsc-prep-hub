@@ -164,7 +164,22 @@ export default function OptionalProfessor() {
       body: { mode, subject: selectedSubject, ...payload }
     });
     
-    if (response.error) throw response.error;
+    if (response.error) {
+      const raw = response.error as any;
+      let detailedMessage = raw?.message || "Optional AI service error";
+
+      try {
+        const context = raw?.context;
+        if (context && typeof context.json === "function") {
+          const parsed = await context.json();
+          if (parsed?.error) detailedMessage = parsed.error;
+        }
+      } catch {
+        // Ignore context parse failure
+      }
+
+      throw new Error(detailedMessage);
+    }
     return response.data;
   };
 

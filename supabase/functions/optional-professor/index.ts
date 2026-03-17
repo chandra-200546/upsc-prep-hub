@@ -143,6 +143,30 @@ Respond in JSON format:
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
+
+      if (mode === "explain") {
+        // Keep explanation UX working even during transient AI gateway failures.
+        return new Response(
+          JSON.stringify({
+            overview: `I could not fetch the full AI explanation right now due to a temporary service issue. Here is a quick UPSC-oriented starter for "${topic}": define the concept clearly, explain its core dimensions, add 2-3 contemporary examples, and conclude with exam relevance.`,
+            keyPoints: [
+              "Start with a crisp conceptual definition.",
+              "Use a structured body with subheadings.",
+              "Add current examples/case studies.",
+              "Link to UPSC PYQ framing and keywords.",
+              "Close with a balanced conclusion."
+            ],
+            examples: [
+              "Use one recent policy/program example related to the topic.",
+              "Add one constitutional/theoretical reference if relevant."
+            ],
+            upscRelevance: "This topic is frequently used for conceptual clarity + application-based optional questions.",
+            diagram: "Concept -> Dimensions -> Examples -> Critique -> Way Forward",
+            serviceNotice: "Temporary AI service issue; regenerated fallback explanation."
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       
       if (response.status === 429) {
         return new Response(
