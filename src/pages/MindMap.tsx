@@ -38,6 +38,11 @@ const COLORS = [
   { bg: "hsl(175, 84%, 32%)", glow: "hsl(175, 84%, 48%)" }, // Teal
 ];
 
+const CANVAS_WIDTH = 1400;
+const CANVAS_HEIGHT = 1000;
+const CENTER_X = CANVAS_WIDTH / 2;
+const CENTER_Y = CANVAS_HEIGHT / 2;
+
 const MindMap = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -152,11 +157,7 @@ const MindMap = () => {
   const calculatePositions = useCallback((root: MindMapNode): NodePosition[] => {
     const positions: NodePosition[] = [];
 
-    // Larger canvas coordinates (matches viewBox below)
-    const centerX = 500;
-    const centerY = 400;
-
-    positions.push({ x: centerX, y: centerY, node: root, level: 0, angle: 0, colorIndex: -1 });
+    positions.push({ x: CENTER_X, y: CENTER_Y, node: root, level: 0, angle: 0, colorIndex: -1 });
     if (!root.children?.length) return positions;
 
     const childCount = root.children.length;
@@ -167,8 +168,8 @@ const MindMap = () => {
 
     root.children.forEach((child, i) => {
       const angle = angleStep * i - Math.PI / 2;
-      const x = centerX + Math.cos(angle) * level1Radius;
-      const y = centerY + Math.sin(angle) * level1Radius;
+      const x = CENTER_X + Math.cos(angle) * level1Radius;
+      const y = CENTER_Y + Math.sin(angle) * level1Radius;
 
       positions.push({
         x,
@@ -176,7 +177,7 @@ const MindMap = () => {
         node: child,
         level: 1,
         angle,
-        parentPos: { x: centerX, y: centerY },
+        parentPos: { x: CENTER_X, y: CENTER_Y },
         colorIndex: i,
       });
 
@@ -414,12 +415,18 @@ const MindMap = () => {
             </div>
 
             {/* SVG Mind Map */}
-            <div className="overflow-auto bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800" style={{ minHeight: "500px" }}>
+            <div className="overflow-auto bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 min-h-[620px]">
               <svg
                 ref={svgRef}
-                viewBox="0 0 1000 800"
-                className="w-full h-auto min-h-[560px]"
-                style={{ transform: `scale(${zoom})`, transformOrigin: "center", transition: "transform 0.2s" }}
+                viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`}
+                width={CANVAS_WIDTH}
+                height={CANVAS_HEIGHT}
+                className="block mx-auto"
+                style={{
+                  width: `${CANVAS_WIDTH * zoom}px`,
+                  height: `${CANVAS_HEIGHT * zoom}px`,
+                  transition: "width 0.2s, height 0.2s",
+                }}
               >
                 <defs>
                   {/* Gradients for nodes */}
@@ -452,7 +459,7 @@ const MindMap = () => {
                 <rect width="100%" height="100%" fill="url(#grid)" />
 
                 {/* Center glow */}
-                <circle cx="500" cy="400" r="220" fill="url(#centerGlow)" />
+                <circle cx={CENTER_X} cy={CENTER_Y} r="260" fill="url(#centerGlow)" />
 
                 {/* Connection lines */}
                 {positions.filter(p => p.parentPos).map((pos) => {
