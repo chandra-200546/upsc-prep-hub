@@ -1,19 +1,31 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  ArrowLeft, TrendingUp, Target, BookOpen, Brain, 
-  BarChart3, Lightbulb, Zap, Calendar, RefreshCw,
-  ChevronRight, Sparkles, LineChart
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import {
+  ArrowLeft,
+  BarChart3,
+  Brain,
+  Calendar,
+  ChevronRight,
+  Lightbulb,
+  LineChart,
+  RefreshCw,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Zap,
+  BookOpen,
 } from "lucide-react";
 
 type ExamType = "prelims" | "mains" | "optional" | "essay";
-type AnalysisSection = "trends" | "predictions" | "strategy" | "practice" | "quiz";
+type AnalysisSection = "trends" | "predictions" | "strategy" | "practice";
 
 interface TrendData {
   subject: string;
@@ -41,72 +53,111 @@ interface PYQQuestion {
   id: string;
   year: number;
   question: string;
-  options: string[];
-  correctAnswer: string;
-  explanation: string;
+  options?: string[];
+  correctAnswer?: string;
+  explanation?: string;
   subject: string;
   difficulty: "easy" | "medium" | "hard";
+  level?: number;
+  wordLimit?: number;
+  expectedApproach?: string;
 }
 
 const PYQEngine = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
   const [selectedExam, setSelectedExam] = useState<ExamType>("prelims");
   const [activeSection, setActiveSection] = useState<AnalysisSection>("trends");
   const [loading, setLoading] = useState(false);
+  const [analysisGenerated, setAnalysisGenerated] = useState(false);
   const [trends, setTrends] = useState<TrendData[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [strategy, setStrategy] = useState<StrategyItem[]>([]);
   const [pyqQuestions, setPyqQuestions] = useState<PYQQuestion[]>([]);
+
+  const [selectedSubject, setSelectedSubject] = useState<string>("");
+  const [selectedLevel, setSelectedLevel] = useState<number>(1);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
-  const [analysisGenerated, setAnalysisGenerated] = useState(false);
-  
-  const navigate = useNavigate();
-  const { toast } = useToast();
+
+  const [writingQuestionIndex, setWritingQuestionIndex] = useState(0);
+  const [writingAnswer, setWritingAnswer] = useState("");
+  const [writingFeedback, setWritingFeedback] = useState("");
+  const [isEvaluatingWriting, setIsEvaluatingWriting] = useState(false);
 
   useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) navigate("/auth");
+    };
     checkAuth();
-  }, []);
+  }, [navigate]);
 
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      navigate("/auth");
-    }
-  };
+  useEffect(() => {
+    setActiveSection("trends");
+    setAnalysisGenerated(false);
+    setPyqQuestions([]);
+    setSelectedAnswer(null);
+    setShowExplanation(false);
+    setCurrentQuestionIndex(0);
+    setWritingQuestionIndex(0);
+    setWritingAnswer("");
+    setWritingFeedback("");
+  }, [selectedExam]);
 
   const generateAnalysis = async () => {
     setLoading(true);
     setAnalysisGenerated(false);
-    
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pyq-analysis`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ examType: selectedExam, analysisType: "full" }),
-        }
-      );
 
-      if (!response.ok) {
-        throw new Error("Failed to generate analysis");
-      }
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pyq-analysis`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ examType: selectedExam, analysisType: "full" }),
+      });
+
+      if (!response.ok) throw new Error("Failed to generate analysis");
 
       const data = await response.json();
-      
+      const incomingQuestions: PYQQuestion[] = (data.pyqQuestions || []).map((q: any, idx: number) => ({
+        id: q.id || `pyq-${idx}`,
+        year: Number(q.year) || 2000,
+        question: q.question || "",
+        options: Array.isArray(q.options) ? q.options.slice(0, 4) : undefined,
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation || "",
+        subject: q.subject || "General",
+        difficulty: q.difficulty || "medium",
+        level: Number.isInteger(q.level) ? q.level : q.difficulty === "easy" ? 1 : q.difficulty === "hard" ? 4 : 2,
+        wordLimit: Number(q.wordLimit) || (selectedExam === "essay" ? 1000 : 250),
+        expectedApproach: q.expectedApproach || "",
+      }));
+
       setTrends(data.trends || []);
       setPredictions(data.predictions || []);
       setStrategy(data.strategy || []);
-      setPyqQuestions(data.pyqQuestions || []);
+      setPyqQuestions(incomingQuestions);
+
+      if (selectedExam === "prelims") {
+        const firstSubject = incomingQuestions[0]?.subject || "";
+        setSelectedSubject(firstSubject);
+        setSelectedLevel(1);
+      }
+
       setAnalysisGenerated(true);
-      
+      setCurrentQuestionIndex(0);
+      setWritingQuestionIndex(0);
+      setWritingAnswer("");
+      setWritingFeedback("");
+
       toast({
         title: "Analysis Generated!",
-        description: `40-year analysis for ${selectedExam.toUpperCase()} is ready.`,
+        description: `PYQ analysis and practice set for ${selectedExam.toUpperCase()} is ready.`,
       });
     } catch (error) {
       console.error("Error generating analysis:", error);
@@ -120,38 +171,154 @@ const PYQEngine = () => {
     }
   };
 
+  const prelimsSubjects = useMemo(() => {
+    const unique = Array.from(new Set(pyqQuestions.map((q) => q.subject).filter(Boolean)));
+    return unique;
+  }, [pyqQuestions]);
+
+  const filteredPrelimsQuestions = useMemo(() => {
+    return pyqQuestions.filter((q) => {
+      const matchSubject = selectedSubject ? q.subject === selectedSubject : true;
+      const level = q.level || 1;
+      const matchLevel = level === selectedLevel;
+      const hasOptions = Array.isArray(q.options) && q.options.length === 4;
+      return matchSubject && matchLevel && hasOptions;
+    });
+  }, [pyqQuestions, selectedSubject, selectedLevel]);
+
+  const descriptiveQuestions = useMemo(
+    () => pyqQuestions.filter((q) => !q.options || q.options.length === 0),
+    [pyqQuestions]
+  );
+
+  const currentPrelimsQuestion = filteredPrelimsQuestions[currentQuestionIndex];
+  const currentWritingQuestion = descriptiveQuestions[writingQuestionIndex];
+  const writingWordCount = writingAnswer.trim().split(/\s+/).filter(Boolean).length;
+
   const handleAnswerSelect = (answer: string) => {
     setSelectedAnswer(answer);
     setShowExplanation(true);
   };
 
-  const nextQuestion = () => {
-    if (currentQuestionIndex < pyqQuestions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
+  const nextPrelimsQuestion = () => {
+    if (currentQuestionIndex < filteredPrelimsQuestions.length - 1) {
+      setCurrentQuestionIndex((prev) => prev + 1);
       setSelectedAnswer(null);
       setShowExplanation(false);
     }
   };
 
+  const evaluateWritingAnswer = async () => {
+    if (!currentWritingQuestion || !writingAnswer.trim()) {
+      toast({ title: "Answer required", description: "Please write your answer before evaluation.", variant: "destructive" });
+      return;
+    }
+
+    setIsEvaluatingWriting(true);
+    setWritingFeedback("");
+
+    try {
+      const evaluationPrompt = `Evaluate this UPSC PYQ answer in a friendly but strict examiner style.
+
+Exam Type: ${selectedExam}
+Question (${currentWritingQuestion.year}) [${currentWritingQuestion.subject}]:
+${currentWritingQuestion.question}
+
+Expected approach:
+${currentWritingQuestion.expectedApproach || "Assess against UPSC standards of structure, relevance, examples, and conclusion."}
+
+Word Limit: ${currentWritingQuestion.wordLimit || 250}
+Candidate Answer:
+${writingAnswer}
+
+Return plain text only (no markdown symbols) in this template:
+Content Quality: X/10
+Structure & Organization: X/10
+Relevance to Question: X/10
+Use of Examples: X/10
+Overall Presentation: X/10
+Total Marks: X/50
+Overall Summary: 2-3 lines
+Key Strengths: 2-3 points in one paragraph
+Areas for Improvement: 2-3 points in one paragraph
+Specific Suggestions: 3-4 actionable suggestions in one paragraph`;
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: evaluationPrompt }],
+          chatType: "mains_evaluation",
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to evaluate answer");
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6);
+            if (data === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                accumulated += content;
+                setWritingFeedback(accumulated);
+              }
+            } catch {
+              // Skip invalid chunk
+            }
+          }
+        }
+      }
+
+      toast({ title: "Evaluation ready", description: "Your PYQ answer has been evaluated." });
+    } catch (error) {
+      console.error("Error evaluating answer:", error);
+      toast({ title: "Error", description: "Failed to evaluate answer. Please try again.", variant: "destructive" });
+    } finally {
+      setIsEvaluatingWriting(false);
+    }
+  };
+
   const getTrendIcon = (trend: string) => {
     switch (trend) {
-      case "rising": return <TrendingUp className="w-4 h-4 text-success" />;
-      case "declining": return <TrendingUp className="w-4 h-4 text-destructive rotate-180" />;
-      default: return <LineChart className="w-4 h-4 text-muted-foreground" />;
+      case "rising":
+        return <TrendingUp className="w-4 h-4 text-success" />;
+      case "declining":
+        return <TrendingUp className="w-4 h-4 text-destructive rotate-180" />;
+      default:
+        return <LineChart className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
   const getProbabilityColor = (prob: string) => {
     switch (prob) {
-      case "high": return "bg-success/20 text-success border-success/30";
-      case "medium": return "bg-warning/20 text-warning border-warning/30";
-      default: return "bg-muted text-muted-foreground border-border";
+      case "high":
+        return "bg-success/20 text-success border-success/30";
+      case "medium":
+        return "bg-warning/20 text-warning border-warning/30";
+      default:
+        return "bg-muted text-muted-foreground border-border";
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/20">
-      {/* Header */}
       <header className="bg-card/80 backdrop-blur-sm border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="rounded-full">
@@ -162,13 +329,12 @@ const PYQEngine = () => {
               <BarChart3 className="w-5 h-5 text-primary" />
               PYQ Breakdown Engine
             </h1>
-            <p className="text-xs text-muted-foreground">AI-Powered 40-Year Analysis</p>
+            <p className="text-xs text-muted-foreground">Trends, Predictions, Strategy, and PYQ Practice</p>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* Exam Type Selection */}
         <Card className="p-6 bg-gradient-card border-0 shadow-sm">
           <h2 className="font-semibold mb-4 flex items-center gap-2">
             <Target className="w-5 h-5 text-primary" />
@@ -180,10 +346,7 @@ const PYQEngine = () => {
                 key={exam}
                 variant={selectedExam === exam ? "default" : "outline"}
                 className={`capitalize h-14 ${selectedExam === exam ? "bg-gradient-primary" : ""}`}
-                onClick={() => {
-                  setSelectedExam(exam);
-                  setAnalysisGenerated(false);
-                }}
+                onClick={() => setSelectedExam(exam)}
               >
                 {exam === "prelims" && <Brain className="w-4 h-4 mr-2" />}
                 {exam === "mains" && <BookOpen className="w-4 h-4 mr-2" />}
@@ -193,16 +356,12 @@ const PYQEngine = () => {
               </Button>
             ))}
           </div>
-          
-          <Button 
-            onClick={generateAnalysis} 
-            disabled={loading}
-            className="w-full mt-4 bg-gradient-primary h-12"
-          >
+
+          <Button onClick={generateAnalysis} disabled={loading} className="w-full mt-4 bg-gradient-primary h-12">
             {loading ? (
               <>
                 <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                Analyzing 40 Years of PYQs...
+                Analyzing PYQs...
               </>
             ) : (
               <>
@@ -213,10 +372,9 @@ const PYQEngine = () => {
           </Button>
         </Card>
 
-        {/* Analysis Sections */}
         {(loading || analysisGenerated) && (
           <Tabs value={activeSection} onValueChange={(v) => setActiveSection(v as AnalysisSection)}>
-            <TabsList className="grid grid-cols-5 w-full h-auto p-1">
+            <TabsList className="grid grid-cols-4 w-full h-auto p-1">
               <TabsTrigger value="trends" className="text-xs py-2">
                 <TrendingUp className="w-3 h-3 mr-1" />
                 Trends
@@ -233,20 +391,15 @@ const PYQEngine = () => {
                 <Brain className="w-3 h-3 mr-1" />
                 Practice
               </TabsTrigger>
-              <TabsTrigger value="quiz" className="text-xs py-2">
-                <BookOpen className="w-3 h-3 mr-1" />
-                Quiz
-              </TabsTrigger>
             </TabsList>
 
-            {/* Trend Analysis */}
             <TabsContent value="trends" className="space-y-4 mt-4">
               <Card className="p-6 bg-gradient-card border-0">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-primary" />
                   40-Year Trend Analysis
                 </h3>
-                
+
                 {loading ? (
                   <div className="space-y-4">
                     {[1, 2, 3, 4, 5].map((i) => (
@@ -263,19 +416,27 @@ const PYQEngine = () => {
                           <span className="font-medium">{trend.subject}</span>
                           <div className="flex items-center gap-2">
                             {getTrendIcon(trend.trend)}
-                            <span className={`text-sm font-semibold ${
-                              trend.trend === "rising" ? "text-success" : 
-                              trend.trend === "declining" ? "text-destructive" : "text-muted-foreground"
-                            }`}>
+                            <span
+                              className={`text-sm font-semibold ${
+                                trend.trend === "rising"
+                                  ? "text-success"
+                                  : trend.trend === "declining"
+                                  ? "text-destructive"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
                               {trend.weightage}%
                             </span>
                           </div>
                         </div>
                         <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
-                          <div 
+                          <div
                             className={`h-full rounded-full transition-all ${
-                              trend.trend === "rising" ? "bg-success" : 
-                              trend.trend === "declining" ? "bg-destructive" : "bg-primary"
+                              trend.trend === "rising"
+                                ? "bg-success"
+                                : trend.trend === "declining"
+                                ? "bg-destructive"
+                                : "bg-primary"
                             }`}
                             style={{ width: `${Math.min(trend.weightage, 100)}%` }}
                           />
@@ -288,14 +449,13 @@ const PYQEngine = () => {
               </Card>
             </TabsContent>
 
-            {/* Predictions */}
             <TabsContent value="predictions" className="space-y-4 mt-4">
               <Card className="p-6 bg-gradient-card border-0">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-primary" />
                   AI Predictions for Next Attempt
                 </h3>
-                
+
                 {loading ? (
                   <div className="space-y-4">
                     {[1, 2, 3, 4].map((i) => (
@@ -324,14 +484,13 @@ const PYQEngine = () => {
               </Card>
             </TabsContent>
 
-            {/* Personalized Strategy */}
             <TabsContent value="strategy" className="space-y-4 mt-4">
               <Card className="p-6 bg-gradient-card border-0">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <Zap className="w-5 h-5 text-primary" />
                   Personalized PYQ Strategy
                 </h3>
-                
+
                 {loading ? (
                   <div className="space-y-4">
                     {[1, 2, 3, 4].map((i) => (
@@ -342,11 +501,15 @@ const PYQEngine = () => {
                   <div className="space-y-3">
                     {strategy.map((item, index) => (
                       <div key={index} className="p-4 rounded-xl bg-background/50 border border-border/50 flex gap-4">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          item.priority === 1 ? "bg-success/20 text-success" :
-                          item.priority === 2 ? "bg-warning/20 text-warning" :
-                          "bg-muted text-muted-foreground"
-                        }`}>
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            item.priority === 1
+                              ? "bg-success/20 text-success"
+                              : item.priority === 2
+                              ? "bg-warning/20 text-warning"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
                           {item.priority}
                         </div>
                         <div className="flex-1">
@@ -364,131 +527,188 @@ const PYQEngine = () => {
               </Card>
             </TabsContent>
 
-            {/* Smart Practice */}
             <TabsContent value="practice" className="space-y-4 mt-4">
               <Card className="p-6 bg-gradient-card border-0">
                 <h3 className="font-semibold mb-4 flex items-center gap-2">
                   <Brain className="w-5 h-5 text-primary" />
-                  Smart PYQ Practice (Weak Areas Focus)
+                  PYQ Practice
                 </h3>
-                
+
                 {loading ? (
                   <Skeleton className="h-64 w-full" />
-                ) : pyqQuestions.length > 0 ? (
-                  <div>
-                    <div className="flex items-center justify-between mb-4 text-sm text-muted-foreground">
-                      <span>Question {currentQuestionIndex + 1} of {pyqQuestions.length}</span>
-                      <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs">
-                        Year: {pyqQuestions[currentQuestionIndex]?.year}
-                      </span>
-                    </div>
-                    
-                    <div className="p-4 rounded-xl bg-background/50 border border-border/50 mb-4">
-                      <p className="font-medium mb-4">{pyqQuestions[currentQuestionIndex]?.question}</p>
-                      
-                      <div className="space-y-2">
-                        {pyqQuestions[currentQuestionIndex]?.options.map((option, idx) => {
-                          const optionLetter = String.fromCharCode(65 + idx);
-                          const isCorrect = optionLetter === pyqQuestions[currentQuestionIndex]?.correctAnswer;
-                          const isSelected = selectedAnswer === optionLetter;
-                          
-                          return (
-                            <button
-                              key={idx}
-                              onClick={() => !showExplanation && handleAnswerSelect(optionLetter)}
-                              disabled={showExplanation}
-                              className={`w-full p-3 rounded-lg border text-left transition-all ${
-                                showExplanation
-                                  ? isCorrect
-                                    ? "bg-success/20 border-success text-success"
-                                    : isSelected
-                                    ? "bg-destructive/20 border-destructive text-destructive"
-                                    : "bg-muted/50 border-border"
-                                  : "hover:bg-primary/10 hover:border-primary border-border"
-                              }`}
+                ) : selectedExam === "prelims" ? (
+                  <div className="space-y-4">
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-medium mb-2">Subject</p>
+                        <div className="flex flex-wrap gap-2">
+                          {prelimsSubjects.map((subject) => (
+                            <Button
+                              key={subject}
+                              variant={selectedSubject === subject ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => {
+                                setSelectedSubject(subject);
+                                setCurrentQuestionIndex(0);
+                                setSelectedAnswer(null);
+                                setShowExplanation(false);
+                              }}
                             >
-                              <span className="font-medium mr-2">{optionLetter}.</span>
-                              {option}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      
-                      {showExplanation && (
-                        <div className="mt-4 p-4 rounded-lg bg-primary/10 border border-primary/30">
-                          <p className="text-sm font-medium mb-1">Explanation:</p>
-                          <p className="text-sm text-muted-foreground">
-                            {pyqQuestions[currentQuestionIndex]?.explanation}
-                          </p>
+                              {subject}
+                            </Button>
+                          ))}
                         </div>
-                      )}
-                    </div>
-                    
-                    {showExplanation && currentQuestionIndex < pyqQuestions.length - 1 && (
-                      <Button onClick={nextQuestion} className="w-full bg-gradient-primary">
-                        Next Question
-                        <ChevronRight className="w-4 h-4 ml-2" />
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-center text-muted-foreground py-8">
-                    Generate analysis to start practicing PYQs
-                  </p>
-                )}
-              </Card>
-            </TabsContent>
+                      </div>
 
-            {/* PYQ to Quiz */}
-            <TabsContent value="quiz" className="space-y-4 mt-4">
-              <Card className="p-6 bg-gradient-card border-0">
-                <h3 className="font-semibold mb-4 flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-primary" />
-                  PYQ to Modern Quiz Converter
-                </h3>
-                
-                {loading ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <Skeleton key={i} className="h-32 w-full" />
-                    ))}
-                  </div>
-                ) : pyqQuestions.length > 0 ? (
-                  <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {pyqQuestions.length} PYQs converted to modern MCQ format with detailed explanations
-                    </p>
-                    
-                    {pyqQuestions.slice(0, 5).map((q, index) => (
-                      <div key={index} className="p-4 rounded-xl bg-background/50 border border-border/50">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
-                            {q.subject} • {q.year}
-                          </span>
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            q.difficulty === "easy" ? "bg-success/20 text-success" :
-                            q.difficulty === "hard" ? "bg-destructive/20 text-destructive" :
-                            "bg-warning/20 text-warning"
-                          }`}>
-                            {q.difficulty}
-                          </span>
+                      <div>
+                        <p className="text-sm font-medium mb-2">Level</p>
+                        <div className="flex flex-wrap gap-2">
+                          {[1, 2, 3, 4, 5].map((level) => (
+                            <Button
+                              key={level}
+                              variant={selectedLevel === level ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => {
+                                setSelectedLevel(level);
+                                setCurrentQuestionIndex(0);
+                                setSelectedAnswer(null);
+                                setShowExplanation(false);
+                              }}
+                            >
+                              L{level}
+                            </Button>
+                          ))}
                         </div>
-                        <p className="font-medium text-sm mb-2">{q.question}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Answer: {q.correctAnswer}
-                        </p>
                       </div>
-                    ))}
-                    
-                    {pyqQuestions.length > 5 && (
-                      <p className="text-center text-sm text-muted-foreground">
-                        + {pyqQuestions.length - 5} more questions available in Practice tab
+                    </div>
+
+                    {currentPrelimsQuestion ? (
+                      <div>
+                        <div className="flex items-center justify-between mb-4 text-sm text-muted-foreground">
+                          <span>
+                            Question {currentQuestionIndex + 1} of {filteredPrelimsQuestions.length}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">{currentPrelimsQuestion.subject}</Badge>
+                            <Badge variant="secondary">{currentPrelimsQuestion.year}</Badge>
+                            <Badge variant="outline">L{currentPrelimsQuestion.level || 1}</Badge>
+                          </div>
+                        </div>
+
+                        <div className="p-4 rounded-xl bg-background/50 border border-border/50 mb-4">
+                          <p className="font-medium mb-4">{currentPrelimsQuestion.question}</p>
+                          <div className="space-y-2">
+                            {currentPrelimsQuestion.options?.map((option, idx) => {
+                              const optionLetter = String.fromCharCode(65 + idx);
+                              const isCorrect = optionLetter === currentPrelimsQuestion.correctAnswer;
+                              const isSelected = selectedAnswer === optionLetter;
+
+                              return (
+                                <button
+                                  key={idx}
+                                  onClick={() => !showExplanation && handleAnswerSelect(optionLetter)}
+                                  disabled={showExplanation}
+                                  className={`w-full p-3 rounded-lg border text-left transition-all ${
+                                    showExplanation
+                                      ? isCorrect
+                                        ? "bg-success/20 border-success text-success"
+                                        : isSelected
+                                        ? "bg-destructive/20 border-destructive text-destructive"
+                                        : "bg-muted/50 border-border"
+                                      : "hover:bg-primary/10 hover:border-primary border-border"
+                                  }`}
+                                >
+                                  <span className="font-medium mr-2">{optionLetter}.</span>
+                                  {option}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {showExplanation && (
+                            <div className="mt-4 p-4 rounded-lg bg-primary/10 border border-primary/30">
+                              <p className="text-sm font-medium mb-1">Explanation:</p>
+                              <p className="text-sm text-muted-foreground">{currentPrelimsQuestion.explanation}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {showExplanation && currentQuestionIndex < filteredPrelimsQuestions.length - 1 && (
+                          <Button onClick={nextPrelimsQuestion} className="w-full bg-gradient-primary">
+                            Next Question
+                            <ChevronRight className="w-4 h-4 ml-2" />
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-center text-muted-foreground py-8">
+                        No PYQs available for this subject and level. Try another level or regenerate analysis.
                       </p>
                     )}
                   </div>
+                ) : descriptiveQuestions.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        Question {writingQuestionIndex + 1} of {descriptiveQuestions.length}
+                      </span>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const next = (writingQuestionIndex + 1) % descriptiveQuestions.length;
+                          setWritingQuestionIndex(next);
+                          setWritingAnswer("");
+                          setWritingFeedback("");
+                        }}
+                      >
+                        Next PYQ
+                      </Button>
+                    </div>
+
+                    <Card className="p-4 border">
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        <Badge variant="secondary">{currentWritingQuestion?.subject}</Badge>
+                        <Badge variant="outline">{currentWritingQuestion?.year}</Badge>
+                        <Badge variant="outline">{currentWritingQuestion?.wordLimit || 250} words</Badge>
+                      </div>
+                      <p className="font-medium mb-3">{currentWritingQuestion?.question}</p>
+                      {currentWritingQuestion?.expectedApproach && (
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">Expected approach:</span> {currentWritingQuestion.expectedApproach}
+                        </p>
+                      )}
+                    </Card>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-sm font-medium">Your Answer</label>
+                        <span className="text-sm text-muted-foreground">
+                          {writingWordCount} / {currentWritingQuestion?.wordLimit || 250} words
+                        </span>
+                      </div>
+                      <Textarea
+                        value={writingAnswer}
+                        onChange={(e) => setWritingAnswer(e.target.value)}
+                        placeholder="Write your PYQ answer here..."
+                        className="min-h-[260px] resize-none"
+                        disabled={isEvaluatingWriting}
+                      />
+                    </div>
+
+                    <Button onClick={evaluateWritingAnswer} disabled={isEvaluatingWriting || !writingAnswer.trim()} className="w-full">
+                      {isEvaluatingWriting ? "Evaluating..." : "Submit for Evaluation"}
+                    </Button>
+
+                    {writingFeedback && (
+                      <Card className="p-4 border-primary/20">
+                        <h4 className="font-semibold mb-2">AI Evaluation</h4>
+                        <p className="whitespace-pre-wrap text-sm text-muted-foreground leading-relaxed">{writingFeedback}</p>
+                      </Card>
+                    )}
+                  </div>
                 ) : (
                   <p className="text-center text-muted-foreground py-8">
-                    Generate analysis to convert PYQs to quiz format
+                    Generate analysis to start PYQ practice.
                   </p>
                 )}
               </Card>

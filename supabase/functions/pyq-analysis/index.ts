@@ -26,6 +26,39 @@ serve(async (req) => {
       essay: "UPSC Essay Paper"
     };
 
+    const questionSchemaByExam = examType === "prelims"
+      ? `"pyqQuestions": [
+    {
+      "id": "unique_id",
+      "year": <year number>,
+      "question": "Exact previous-year prelims question text",
+      "options": ["Exact option A text", "Exact option B text", "Exact option C text", "Exact option D text"],
+      "correctAnswer": "A" | "B" | "C" | "D",
+      "explanation": "Detailed explanation of why this is the correct answer",
+      "subject": "Subject name",
+      "difficulty": "easy" | "medium" | "hard",
+      "level": <integer 1-5>
+    }
+  ]`
+      : `"pyqQuestions": [
+    {
+      "id": "unique_id",
+      "year": <year number>,
+      "question": "Exact previous-year descriptive question text",
+      "subject": "Paper/Subject area",
+      "difficulty": "easy" | "medium" | "hard",
+      "level": <integer 1-5>,
+      "wordLimit": <recommended word limit>,
+      "expectedApproach": "What a high-quality answer should include"
+    }
+  ]`;
+
+    const practiceGuidanceByExam = examType === "prelims"
+      ? `For PYQ questions, use only real previous-year UPSC Prelims questions and retain original wording/options as closely as possible.
+Each prelims question must include a subject and level (1-5).`
+      : `For PYQ questions, use only real previous-year UPSC descriptive questions for this exam type.
+Questions must be answer-writing friendly and include wordLimit and expectedApproach.`;
+
     const prompt = `You are an expert UPSC analyst with deep knowledge of the last 40 years (1984-2024) of UPSC examination patterns.
 
 Analyze the ${examDescriptions[examType] || examType} and provide a comprehensive JSON response with the following structure:
@@ -56,27 +89,17 @@ Analyze the ${examDescriptions[examType] || examType} and provide a comprehensiv
       "timeframe": "Suggested timeframe"
     }
   ],
-  "pyqQuestions": [
-    {
-      "id": "unique_id",
-      "year": <year number>,
-      "question": "The question text",
-      "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
-      "correctAnswer": "A" | "B" | "C" | "D",
-      "explanation": "Detailed explanation of why this is the correct answer",
-      "subject": "Subject name",
-      "difficulty": "easy" | "medium" | "hard"
-    }
-  ]
+  ${questionSchemaByExam}
 }
 
 Generate:
 - 8 trend items covering major subjects
 - 6 predictions for upcoming examination
 - 5 strategic recommendations
-- 10 sample PYQ-style questions with proper UPSC-style formatting
+- 15 sample PYQs with proper UPSC-style formatting
 
 Focus on accuracy and realistic patterns observed in UPSC exams. The questions should be authentic PYQ-style questions that could appear in ${examType}.
+${practiceGuidanceByExam}
 
 IMPORTANT: Return ONLY valid JSON, no markdown or additional text.`;
 
