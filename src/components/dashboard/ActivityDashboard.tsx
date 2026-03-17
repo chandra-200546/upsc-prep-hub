@@ -30,6 +30,12 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
 
   useEffect(() => {
     fetchActivityData();
+    const onFocus = () => fetchActivityData();
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+    };
   }, []);
 
   const fetchActivityData = async () => {
@@ -92,18 +98,44 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
       setMainsData([]);
     }
 
-    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const activityByDay: Record<string, number> = {};
-    days.forEach((d) => (activityByDay[d] = 0));
+    // Build rolling 7-day buckets so activity updates accurately with new attempts.
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - (6 - i));
+      return d;
+    });
+
+    const toDateKey = (date: Date) =>
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+    const activityByDate: Record<string, number> = {};
+    last7Days.forEach((d) => {
+      activityByDate[toDateKey(d)] = 0;
+    });
+
     attempts?.forEach((a: any) => {
-      const day = new Date(a.attempted_at).toLocaleDateString("en-US", { weekday: "short" });
-      if (activityByDay[day] !== undefined) activityByDay[day]++;
+      if (!a.attempted_at) return;
+      const d = new Date(a.attempted_at);
+      d.setHours(0, 0, 0, 0);
+      const key = toDateKey(d);
+      if (activityByDate[key] !== undefined) activityByDate[key]++;
     });
+
     submissions?.forEach((s: any) => {
-      const day = new Date(s.submitted_at).toLocaleDateString("en-US", { weekday: "short" });
-      if (activityByDay[day] !== undefined) activityByDay[day]++;
+      if (!s.submitted_at) return;
+      const d = new Date(s.submitted_at);
+      d.setHours(0, 0, 0, 0);
+      const key = toDateKey(d);
+      if (activityByDate[key] !== undefined) activityByDate[key]++;
     });
-    setWeeklyActivity(days.map((d) => ({ day: d, activities: activityByDay[d] })));
+
+    setWeeklyActivity(
+      last7Days.map((d) => ({
+        day: d.toLocaleDateString("en-US", { weekday: "short" }),
+        activities: activityByDate[toDateKey(d)] || 0,
+      }))
+    );
     setLoading(false);
   };
 
