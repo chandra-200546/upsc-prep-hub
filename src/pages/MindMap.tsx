@@ -490,10 +490,15 @@ const MindMap = () => {
                 {positions.map((pos) => {
                   const isRoot = pos.level === 0;
                   const color = COLORS[Math.max(0, pos.colorIndex) % COLORS.length];
+                  const label = pos.node.label || "";
 
-                  // Node dimensions based on level with more spacing
-                  const nodeWidth = isRoot ? 140 : pos.level === 1 ? 130 : 110;
-                  const nodeHeight = isRoot ? 50 : pos.level === 1 ? 44 : 36;
+                  // Auto-size boxes to fit full words (no truncation)
+                  const charWidth = isRoot ? 8.5 : pos.level === 1 ? 7.8 : 7.2;
+                  const horizontalPadding = isRoot ? 42 : pos.level === 1 ? 34 : 28;
+                  const baseWidth = isRoot ? 180 : pos.level === 1 ? 150 : 130;
+                  const maxWidth = isRoot ? 520 : pos.level === 1 ? 460 : 400;
+                  const nodeWidth = Math.min(maxWidth, Math.max(baseWidth, label.length * charWidth + horizontalPadding));
+                  const nodeHeight = isRoot ? 50 : pos.level === 1 ? 44 : 38;
                   const fontSize = isRoot ? 13 : pos.level === 1 ? 11 : 10;
                   const rx = isRoot ? 25 : 18;
 
@@ -521,9 +526,7 @@ const MindMap = () => {
                         fontSize={fontSize}
                         fontWeight={isRoot ? "700" : "600"}
                       >
-                        {pos.node.label.length > 16 
-                          ? pos.node.label.substring(0, 14) + "..." 
-                          : pos.node.label}
+                        {label}
                       </text>
                     </g>
                   );
