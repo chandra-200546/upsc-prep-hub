@@ -1,725 +1,314 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ArrowLeft, BookOpen } from "lucide-react";
+import { ArrowLeft, BookOpen, Landmark, Scale, Building2 } from "lucide-react";
 
 type TopicNote = {
-  topic: string;
-  notes: string[];
+  title: string;
+  points: string[];
 };
 
-type SubjectUnit = {
-  unit: string;
+type Chapter = {
+  id: string;
+  title: string;
+  focus: string;
   topics: TopicNote[];
 };
 
-type SubjectNotes = {
-  subject: string;
-  examFocus: string;
-  units: SubjectUnit[];
-};
-
-const UPSC_NOTES: SubjectNotes[] = [
+const POLITY_CHAPTERS: Chapter[] = [
   {
-    subject: "Indian Polity & Governance",
-    examFocus: "GS Paper II + Prelims",
-    units: [
-      {
-        unit: "Constitutional Framework",
-        topics: [
-          {
-            topic: "Preamble, Features, Basic Structure",
-            notes: [
-              "Preamble reflects justice, liberty, equality, fraternity and provides constitutional philosophy.",
-              "Indian Constitution has federal features with unitary bias, parliamentary form, judicial review, and independent constitutional bodies.",
-              "Basic Structure Doctrine (Kesavananda Bharati, 1973) limits Parliament's amending power."
-            ]
-          },
-          {
-            topic: "Fundamental Rights and DPSP",
-            notes: [
-              "Part III ensures enforceable rights; Article 32 is a core constitutional remedy.",
-              "Directive Principles are non-justiciable but guide welfare-state policy and lawmaking.",
-              "Right-DPSP harmony evolved through Minerva Mills and later judgments."
-            ]
-          },
-          {
-            topic: "Parliament and State Legislature",
-            notes: [
-              "Law-making process includes bill introduction, committee scrutiny, and passage in both houses (except Money Bill rules).",
-              "Parliamentary committees improve accountability and technical quality of legislation.",
-              "Federal tensions often arise over Concurrent List and fiscal devolution."
-            ]
-          }
-        ]
-      },
-      {
-        unit: "Executive and Judiciary",
-        topics: [
-          {
-            topic: "President, PM, Council of Ministers",
-            notes: [
-              "Real executive power is exercised by PM and Council under aid and advice framework.",
-              "Collective responsibility to Lok Sabha is a key parliamentary accountability tool.",
-              "Ordinance power is temporary and subject to legislative approval."
-            ]
-          },
-          {
-            topic: "Supreme Court and High Courts",
-            notes: [
-              "Judicial review protects constitutional supremacy and rights.",
-              "Public Interest Litigation expanded access to justice in social and environmental issues.",
-              "Independence of judiciary depends on appointments, tenure security, and institutional autonomy."
-            ]
-          },
-          {
-            topic: "Constitutional and Statutory Bodies",
-            notes: [
-              "ECI, CAG, UPSC, Finance Commission have constitutional status and specific mandates.",
-              "NITI Aayog, CVC, CIC and NHRC strengthen policy coordination and oversight.",
-              "Questions often test functional distinction and constitutional backing."
-            ]
-          }
-        ]
-      },
-      {
-        unit: "Governance and Accountability",
-        topics: [
-          {
-            topic: "E-Governance and Service Delivery",
-            notes: [
-              "Digital governance improves transparency, DBT targeting and grievance redressal.",
-              "Challenges include data privacy, digital exclusion, and local capacity gaps.",
-              "UPSC answers should balance innovation with institutional safeguards."
-            ]
-          },
-          {
-            topic: "Transparency and Citizen Participation",
-            notes: [
-              "RTI, social audits, citizen charters and public consultations improve accountability.",
-              "Outcome-oriented governance requires measurable service standards.",
-              "Local body strengthening is critical for last-mile implementation."
-            ]
-          }
-        ]
-      }
+    id: "1",
+    title: "1. Constitutional Framework",
+    focus: "Foundations of Indian Constitution",
+    topics: [
+      { title: "Historical Background", points: ["Study Acts from 1773 to 1947 and their institutional legacy.", "Use timeline-based revision for prelims factual recall."] },
+      { title: "Making of the Constitution", points: ["Constituent Assembly debates, committees, and adopted principles are core.", "Link framers' intent with current constitutional practice."] },
+      { title: "Salient Features of the Constitution", points: ["Parliamentary democracy, federalism, judicial review, and secularism are recurring themes.", "Compare with other constitutions in mains answers."] },
+      { title: "Preamble of the Constitution", points: ["Reflects constitutional philosophy: justice, liberty, equality, fraternity.", "Interpret terms through Supreme Court jurisprudence."] },
+      { title: "Union and its Territory", points: ["Understand Articles on admission, establishment, and alteration of states.", "Questions often test Article 2 vs Article 3 distinction."] },
+      { title: "Citizenship", points: ["Know constitutional provisions and Citizenship Act evolution.", "Track current debates around registration and rights."] },
+      { title: "Fundamental Rights", points: ["Part III is highly dynamic via judicial interpretation.", "Prepare restrictions, exceptions, and landmark case mapping."] },
+      { title: "Directive Principles of State Policy", points: ["Non-justiciable but central to welfare-state legislation.", "Use FR-DPSP harmony in mains analytical structure."] },
+      { title: "Fundamental Duties", points: ["Useful in ethics-governance answers and civic constitutionalism.", "Questions ask constitutional morality and duty-right balance."] },
+      { title: "Amendment of the Constitution", points: ["Classify simple majority, special majority, and state ratification cases.", "Track frequently amended areas and political context."] },
+      { title: "Basic Structure of the Constitution", points: ["Kesavananda and later rulings define constitutional limits on amending power.", "Use doctrine in constitutional conflict questions."] }
     ]
   },
   {
-    subject: "Indian Economy",
-    examFocus: "GS Paper III + Prelims",
-    units: [
-      {
-        unit: "Macroeconomic Fundamentals",
-        topics: [
-          {
-            topic: "Growth, Inflation, Unemployment",
-            notes: [
-              "GDP growth indicates output expansion but should be read with employment and inequality metrics.",
-              "Inflation dynamics involve food, fuel, and core components; policy response differs by source.",
-              "UPSC expects linkage between macro indicators and welfare outcomes."
-            ]
-          },
-          {
-            topic: "Fiscal Policy and Budget",
-            notes: [
-              "Fiscal deficit, revenue deficit and primary deficit indicate macro stability pressure.",
-              "Quality of expenditure (capital vs revenue) is key for medium-term growth.",
-              "FRBM framework targets prudence while preserving counter-cyclical policy space."
-            ]
-          },
-          {
-            topic: "Monetary Policy and Banking",
-            notes: [
-              "RBI uses repo corridor, CRR/SLR and liquidity tools for inflation and financial stability.",
-              "Transmission, credit growth and NPA trends determine policy effectiveness.",
-              "Questions often compare fiscal and monetary roles during shocks."
-            ]
-          }
-        ]
-      },
-      {
-        unit: "Development and Sectors",
-        topics: [
-          {
-            topic: "Agriculture and Food Security",
-            notes: [
-              "Key themes: productivity, irrigation, MSP debate, value chains, and risk mitigation.",
-              "Food security includes availability, affordability, nutrition outcomes, and distribution efficiency.",
-              "UPSC answers should integrate climate resilience and farm diversification."
-            ]
-          },
-          {
-            topic: "Industry and Infrastructure",
-            notes: [
-              "Manufacturing competitiveness depends on logistics, power reliability, and regulatory simplicity.",
-              "Infrastructure financing needs blended models: budget, PPP, DFI, and state capacity.",
-              "Employment elasticity and export competitiveness are core analytical angles."
-            ]
-          },
-          {
-            topic: "External Sector",
-            notes: [
-              "CAD sustainability depends on export performance, remittances, and capital inflows.",
-              "Exchange rate management balances stability with competitiveness.",
-              "Global commodity shocks and geopolitics influence inflation-growth trade-offs."
-            ]
-          }
-        ]
-      }
+    id: "2",
+    title: "2. System of Government",
+    focus: "Institutional design and federal functioning",
+    topics: [
+      { title: "Parliamentary System", points: ["Real executive in Council of Ministers; nominal head at Union/State level.", "Focus on collective responsibility and cabinet accountability."] },
+      { title: "Federal System", points: ["Indian model is federal with unitary tilt in structure and operation.", "Use comparative approach with classic federations."] },
+      { title: "Centre-State Relations", points: ["Legislative, administrative, and financial relations are a core mains zone.", "Current affairs linkage is essential for high-quality answers."] },
+      { title: "Inter-State Relations", points: ["Inter-State Council, river disputes, and coordination mechanisms matter.", "Map federal cooperation vs federal friction examples."] },
+      { title: "Emergency Provisions", points: ["National, State, and Financial emergencies have distinct triggers and effects.", "Practice constitutional safeguards and misuse debates."] },
+      { title: "President's Rule", points: ["Article 356 use, S.R. Bommai limits, and federal implications are important.", "Questions often test constitutional morality in imposition."] },
+      { title: "Financial Emergency", points: ["Never invoked but conceptually significant for constitutional understanding.", "Prepare constitutional consequences and fiscal control aspects."] }
     ]
   },
   {
-    subject: "History and Culture",
-    examFocus: "GS Paper I + Prelims",
-    units: [
-      {
-        unit: "Ancient and Medieval India",
-        topics: [
-          {
-            topic: "Sources and Historical Reconstruction",
-            notes: [
-              "Archaeology, inscriptions, coins, literary texts and foreign accounts are core sources.",
-              "Cross-verification of sources prevents one-dimensional interpretations.",
-              "UPSC prelims often asks chronology, cultural features, and source-based distinctions."
-            ]
-          },
-          {
-            topic: "Society, Religion and Art",
-            notes: [
-              "Bhakti-Sufi traditions shaped syncretic cultural practices and social reform currents.",
-              "Temple architecture, sculpture, and manuscript traditions require period-region mapping.",
-              "Prepare comparative tables for schools, styles and dynastic patronage."
-            ]
-          }
-        ]
-      },
-      {
-        unit: "Modern India and Freedom Struggle",
-        topics: [
-          {
-            topic: "Colonial Economy and Society",
-            notes: [
-              "Colonial policies restructured agrarian relations, trade patterns, and deindustrialization debates.",
-              "Drain of wealth and fiscal extraction are recurring analytical dimensions.",
-              "Link economic policies to peasant/tribal resistance patterns."
-            ]
-          },
-          {
-            topic: "National Movement",
-            notes: [
-              "Trace phases: moderate, extremist, Gandhian mass movements, socialist and revolutionary strands.",
-              "Understand differences in strategies: constitutionalism, satyagraha, mass mobilization.",
-              "UPSC mains expects critical evaluation of leadership, inclusivity and outcomes."
-            ]
-          }
-        ]
-      }
+    id: "3",
+    title: "3. Central Government",
+    focus: "Union executive, legislature and legal offices",
+    topics: [
+      { title: "President", points: ["Election, powers, vetoes, pardoning and ordinance role are key areas.", "Separate constitutional text from political convention."] },
+      { title: "Vice-President", points: ["Ex-officio Chairman of Rajya Sabha with specific constitutional role.", "Revise election process and removal procedure."] },
+      { title: "Prime Minister", points: ["Center of parliamentary executive and cabinet coordination.", "UPSC asks role in policy, coalition and governance architecture."] },
+      { title: "Central Council of Ministers", points: ["Understand composition tiers and constitutional responsibility.", "Differentiate cabinet from council and committees."] },
+      { title: "Cabinet Committees", points: ["Non-constitutional but central to policy decision-making.", "Study functional significance in governance efficiency."] },
+      { title: "Parliament", points: ["Structure, sessions, devices, and legislative process are frequent.", "Use procedure + constitutional principle in answers."] },
+      { title: "Parliamentary Committees", points: ["Backbone of legislative scrutiny and oversight.", "Important for questions on accountability deficits."] },
+      { title: "Parliamentary Forums", points: ["Issue-based awareness platforms inside Parliament.", "Useful for governance and thematic policy linkage."] },
+      { title: "Attorney General of India", points: ["Highest law officer at Union level with advisory and court functions.", "Clarify rights, limitations, and parliamentary participation."] }
     ]
   },
   {
-    subject: "Geography",
-    examFocus: "GS Paper I + Prelims",
-    units: [
-      {
-        unit: "Physical Geography",
-        topics: [
-          {
-            topic: "Geomorphology and Climatology",
-            notes: [
-              "Plate tectonics explains mountains, earthquakes, volcanism, and continental drift.",
-              "Atmospheric circulation drives pressure belts, winds, monsoons, and cyclonic systems.",
-              "Use process-based diagrams for mains answers."
-            ]
-          },
-          {
-            topic: "Oceanography and Biogeography",
-            notes: [
-              "Currents influence climate, fisheries, and marine trade routes.",
-              "Marine ecology and coastal vulnerability are increasingly relevant for policy questions.",
-              "Biodiversity hotspots and conservation geography overlap with environment syllabus."
-            ]
-          }
-        ]
-      },
-      {
-        unit: "Indian Geography",
-        topics: [
-          {
-            topic: "Physiography, Climate and Monsoon",
-            notes: [
-              "Indian monsoon depends on land-sea contrast, ITCZ shift, ENSO/IOD interactions.",
-              "Regional climate variability affects agriculture, water and disaster risk.",
-              "Interlink maps with current events (heatwaves, floods, drought)."
-            ]
-          },
-          {
-            topic: "Resources, Agriculture and Industry",
-            notes: [
-              "Spatial patterns of minerals, crops, and industries are asked frequently.",
-              "Location factors include transport, market, labor, and resource proximity.",
-              "UPSC answers should combine maps with economic and environmental implications."
-            ]
-          }
-        ]
-      }
+    id: "4",
+    title: "4. State Government",
+    focus: "State executive-legislature-judiciary framework",
+    topics: [
+      { title: "Governor", points: ["Constitutional head with discretionary powers under debate.", "Use Sarkaria/Punchhi recommendations in mains answers."] },
+      { title: "Chief Minister", points: ["Real executive authority at state level.", "Discuss role in federal bargaining and governance delivery."] },
+      { title: "State Council of Ministers", points: ["Collective responsibility to Legislative Assembly remains central.", "Compare state and union executive structures."] },
+      { title: "State Legislature", points: ["Legislative powers, bicameralism in select states, and procedures.", "Focus on control over executive and lawmaking constraints."] },
+      { title: "High Court", points: ["Constitutional court with writ and supervisory jurisdiction.", "Important in federal judicial structure and rights protection."] },
+      { title: "Subordinate Courts", points: ["District judiciary and judicial administration basics.", "Connect with judicial reforms and access to justice."] },
+      { title: "Advocate General of State", points: ["Highest law officer of state government.", "Revise appointment, duties, and legislative role."] }
     ]
   },
   {
-    subject: "Environment & Ecology",
-    examFocus: "GS Paper III + Prelims",
-    units: [
-      {
-        unit: "Ecology Basics",
-        topics: [
-          {
-            topic: "Ecosystems and Biodiversity",
-            notes: [
-              "Ecosystem structure includes producers, consumers, decomposers and nutrient cycles.",
-              "Biodiversity loss is driven by habitat change, invasive species, overexploitation and climate stress.",
-              "Conservation requires in-situ and ex-situ strategies with community participation."
-            ]
-          },
-          {
-            topic: "Environmental Governance",
-            notes: [
-              "National laws, institutions and EIA mechanisms regulate ecological externalities.",
-              "International conventions (CBD, UNFCCC, CITES, Ramsar) are recurring prelims areas.",
-              "Prepare convention-year-objective quick revision sheets."
-            ]
-          }
-        ]
-      },
-      {
-        unit: "Climate and Sustainability",
-        topics: [
-          {
-            topic: "Climate Change and Adaptation",
-            notes: [
-              "Mitigation reduces emissions; adaptation reduces vulnerability.",
-              "India's strategy blends energy transition, adaptation finance, and climate justice.",
-              "Use sectoral examples: agriculture, coastal zones, urban heat, water systems."
-            ]
-          },
-          {
-            topic: "Pollution and Resource Management",
-            notes: [
-              "Air-water-soil pollution needs integrated regulation and local enforcement.",
-              "Circular economy and waste hierarchy are policy priorities.",
-              "UPSC mains rewards practical governance recommendations."
-            ]
-          }
-        ]
-      }
+    id: "5",
+    title: "5. Local Government",
+    focus: "Grassroots democracy and decentralisation",
+    topics: [
+      { title: "Panchayati Raj", points: ["73rd Amendment, 3-tier system, powers and finances.", "Analyze devolution quality: funds, functions, functionaries."] },
+      { title: "Municipalities", points: ["74th Amendment and urban local governance architecture.", "Link to urban planning, service delivery, and accountability."] },
+      { title: "Scheduled and Tribal Areas", points: ["Special administrative provisions for inclusion and protection.", "Use PESA and local autonomy dimensions in answers."] }
     ]
   },
   {
-    subject: "Science & Technology",
-    examFocus: "GS Paper III + Prelims",
-    units: [
-      {
-        unit: "Emerging Technologies",
-        topics: [
-          {
-            topic: "AI, Data and Cyber Security",
-            notes: [
-              "AI governance needs fairness, transparency, accountability and privacy safeguards.",
-              "Cyber security involves institutional coordination, CERT systems, capacity and awareness.",
-              "Balance innovation with rights and national security concerns."
-            ]
-          },
-          {
-            topic: "Biotechnology and Health Tech",
-            notes: [
-              "Core areas: genomics, vaccines, diagnostics, bio-manufacturing, and regulation.",
-              "Ethical issues include consent, biosafety, and equitable access.",
-              "UPSC may ask techno-legal-policy integration."
-            ]
-          }
-        ]
-      },
-      {
-        unit: "Space, Defence and Innovation Ecosystem",
-        topics: [
-          {
-            topic: "Space Technology Applications",
-            notes: [
-              "Remote sensing, navigation and communication satellites support governance and development.",
-              "Commercialization and private participation are new policy trends.",
-              "Use examples from agriculture, disaster management and logistics."
-            ]
-          },
-          {
-            topic: "R&D and Start-up Ecosystem",
-            notes: [
-              "Innovation requires public R&D, university-industry collaboration and patient capital.",
-              "Policy bottlenecks include regulatory delays and skill gaps.",
-              "Answer structure: status, challenges, reforms, way forward."
-            ]
-          }
-        ]
-      }
+    id: "6",
+    title: "6. Union Territories and Special Areas",
+    focus: "Asymmetrical constitutional arrangements",
+    topics: [
+      { title: "Union Territories", points: ["Administration models differ by UT and legislative setup.", "Prepare constitutional articles and current governance patterns."] },
+      { title: "Special Status / Special Provisions for States", points: ["Study temporary/special provisions and their political-legal context.", "Use current developments cautiously with constitutional backing."] },
+      { title: "Scheduled Areas", points: ["Fifth Schedule governance and protective framework.", "Important for tribal rights, land and administration."] },
+      { title: "Tribal Areas", points: ["Sixth Schedule autonomous councils in select northeastern states.", "Compare Fifth and Sixth Schedule institutions."] }
     ]
   },
   {
-    subject: "Current Affairs & International Relations",
-    examFocus: "GS Paper II + Essay + Interview",
-    units: [
-      {
-        unit: "International Relations",
-        topics: [
-          {
-            topic: "India's Neighborhood and Strategic Partnerships",
-            notes: [
-              "Neighborhood policy combines security, connectivity, trade and development cooperation.",
-              "Major partnerships should be assessed through strategic autonomy lens.",
-              "UPSC expects issue-wise analysis, not only event description."
-            ]
-          },
-          {
-            topic: "Global Institutions and Geopolitics",
-            notes: [
-              "UN reforms, WTO disputes, climate negotiations and supply chains shape India's policy options.",
-              "Multipolarity and minilateral groupings influence diplomacy.",
-              "Use recent examples with continuity of long-term strategic interests."
-            ]
-          }
-        ]
-      },
-      {
-        unit: "Contemporary Policy Issues",
-        topics: [
-          {
-            topic: "Social Sector and Welfare Delivery",
-            notes: [
-              "Themes: health, education, nutrition, skilling, and social protection architecture.",
-              "Delivery quality depends on state capacity, data quality, and last-mile institutions.",
-              "Frame answers with outcomes, inclusion gaps, and governance reforms."
-            ]
-          }
-        ]
-      }
+    id: "7",
+    title: "7. Constitutional Bodies",
+    focus: "Bodies directly established by Constitution",
+    topics: [
+      { title: "Election Commission", points: ["Autonomy, powers, and electoral integrity are core dimensions.", "Track reforms around finance, transparency and enforcement."] },
+      { title: "Union Public Service Commission", points: ["Constitutional recruitment body safeguarding merit and neutrality.", "Questions ask independence and consultation scope."] },
+      { title: "State Public Service Commission", points: ["State-level recruitment architecture and constitutional safeguards.", "Compare with UPSC where relevant."] },
+      { title: "Finance Commission", points: ["Vertical-horizontal devolution and fiscal federalism engine.", "Use latest commission trends in mains answers."] },
+      { title: "CAG", points: ["Audits public expenditure and strengthens parliamentary control.", "Prepare role in accountability architecture."] },
+      { title: "Attorney General", points: ["Constitutional legal advisor to Union government.", "Distinguish from Solicitor General (non-constitutional)."] },
+      { title: "Advocate General", points: ["State-level counterpart of Attorney General.", "Understand advisory and representational duties."] },
+      { title: "National Commissions for SCs, STs, BCs", points: ["Safeguard rights and monitor constitutional protections.", "Use institution-performance analysis in answers."] }
     ]
   },
   {
-    subject: "Ethics, Integrity and Aptitude",
-    examFocus: "GS Paper IV",
-    units: [
-      {
-        unit: "Ethical Theory and Public Service Values",
-        topics: [
-          {
-            topic: "Foundational Concepts",
-            notes: [
-              "Differentiate ethics, morality, values, attitude and aptitude with administrative examples.",
-              "Core civil service values: integrity, impartiality, objectivity, compassion, dedication.",
-              "Use thinker references only when they strengthen practical argument."
-            ]
-          },
-          {
-            topic: "Probity and Accountability",
-            notes: [
-              "Probity tools include transparency, conflict-of-interest rules, audits and grievance systems.",
-              "Ethical governance links institutional design with moral leadership.",
-              "Case studies require stakeholder mapping + feasible decision path."
-            ]
-          }
-        ]
-      },
-      {
-        unit: "Case Study Practice Framework",
-        topics: [
-          {
-            topic: "Answer Structure",
-            notes: [
-              "State facts, identify ethical issues, list stakeholders, provide options, justify final choice.",
-              "Include short-term and long-term consequences.",
-              "Prioritize legality, public interest and fairness."
-            ]
-          }
-        ]
-      }
+    id: "8",
+    title: "8. Non-Constitutional Bodies",
+    focus: "Statutory/executive institutions in governance",
+    topics: [
+      { title: "NITI Aayog", points: ["Policy think tank replacing Planning Commission model.", "Cooperative federalism and SDG localization are key angles."] },
+      { title: "NHRC", points: ["National human rights oversight with recommendatory powers.", "Assess effectiveness and institutional constraints."] },
+      { title: "SHRC", points: ["State-level human rights monitoring institutions.", "Questions may ask overlap and coordination with NHRC."] },
+      { title: "CIC", points: ["Central Information Commission under RTI framework.", "Core for transparency and accountable governance."] },
+      { title: "CVC", points: ["Integrity institution against corruption in central administration.", "Map its powers and limitations with examples."] },
+      { title: "CBI", points: ["Premier investigation agency with legal and federal issues.", "Consent and autonomy debates are frequent in mains."] },
+      { title: "Lokpal and Lokayuktas", points: ["Anti-corruption ombudsman institutions at Union and State levels.", "Focus on implementation gap and institutional design."] },
+      { title: "National Development Council (legacy context)", points: ["Historically linked to planning era center-state policy dialogue.", "Use as institutional evolution context in answers."] }
     ]
   },
   {
-    subject: "Indian Society and Social Justice",
-    examFocus: "GS Paper I + GS Paper II",
-    units: [
-      {
-        unit: "Societal Structure and Diversity",
-        topics: [
-          {
-            topic: "Salient Features of Indian Society",
-            notes: [
-              "Indian society is plural with regional, linguistic, religious and caste-based diversity.",
-              "Urbanization, migration and technology are rapidly changing social institutions.",
-              "Answers should combine constitutional values with social realities."
-            ]
-          },
-          {
-            topic: "Women, Population and Social Empowerment",
-            notes: [
-              "Examine gender issues through education, health, labor force participation and representation.",
-              "Population trends should be linked to demographic dividend, ageing and regional imbalance.",
-              "Use scheme + institutional reform + behavioral change in way-forward."
-            ]
-          }
-        ]
-      },
-      {
-        unit: "Welfare and Inclusion",
-        topics: [
-          {
-            topic: "Poverty, Hunger and Human Development",
-            notes: [
-              "Poverty is multidimensional and should be analyzed with health, education and living standards.",
-              "Nutrition and learning outcomes are key to long-term productivity and equity.",
-              "UPSC asks policy effectiveness and implementation bottlenecks."
-            ]
-          },
-          {
-            topic: "Vulnerable Sections and Social Justice",
-            notes: [
-              "Focus on SC/ST, minorities, elderly, persons with disabilities and migrant workers.",
-              "Legal safeguards need strong delivery systems and local accountability.",
-              "Write with rights-based approach and measurable outcomes."
-            ]
-          }
-        ]
-      }
+    id: "9",
+    title: "9. Other Constitutional Dimensions",
+    focus: "Important but less-discussed constitutional provisions",
+    topics: [
+      { title: "Co-operative Societies", points: ["97th Amendment context and federal legal debates are important.", "Know constitutional status and governance concerns."] },
+      { title: "Official Language", points: ["Constitutional language framework and practical multilingual governance.", "Prepare Eighth Schedule and language policy debates."] },
+      { title: "Public Services", points: ["Civil services framework, safeguards, and tribunal linkage.", "Important for governance quality questions."] },
+      { title: "Tribunals", points: ["Specialized adjudication bodies and judicial review concerns.", "Use separation of powers and efficiency balance."] },
+      { title: "Rights and Liabilities of Government", points: ["State liability and sovereign function debates in constitutional law.", "Useful for legal-governance analytical questions."] },
+      { title: "Special Officer for Linguistic Minorities", points: ["Constitutional protection mechanism for linguistic rights.", "Low-frequency but scoring prelims area."] }
     ]
   },
   {
-    subject: "Internal Security and Disaster Management",
-    examFocus: "GS Paper III",
-    units: [
-      {
-        unit: "Internal Security",
-        topics: [
-          {
-            topic: "Terrorism, Left Wing Extremism and Border Security",
-            notes: [
-              "Security strategy should integrate intelligence, policing, development and community trust.",
-              "Border management requires technology, infrastructure and inter-agency coordination.",
-              "Answers should balance national security with civil liberties and federal cooperation."
-            ]
-          },
-          {
-            topic: "Cyber and Information Security",
-            notes: [
-              "Critical infrastructure protection needs legal, technical and institutional preparedness.",
-              "Cyber resilience includes prevention, detection, response and recovery systems.",
-              "UPSC questions often test governance architecture more than technical detail."
-            ]
-          }
-        ]
-      },
-      {
-        unit: "Disaster Management",
-        topics: [
-          {
-            topic: "Disaster Risk Reduction Framework",
-            notes: [
-              "Shift from relief-centric model to preparedness and resilience building.",
-              "Risk mapping, early warning systems and local capacity are central to loss reduction.",
-              "Use Sendai principles and Indian institutional framework in answers."
-            ]
-          },
-          {
-            topic: "Climate-linked and Urban Disasters",
-            notes: [
-              "Heatwaves, floods and cyclones require region-specific adaptation plans.",
-              "Urban disaster risks rise due to poor planning, drainage stress and weak compliance.",
-              "Way-forward should include governance reform, finance and citizen participation."
-            ]
-          }
-        ]
-      }
+    id: "10",
+    title: "10. Political Dynamics",
+    focus: "Constitution in real political practice",
+    topics: [
+      { title: "Anti-Defection Law", points: ["Tenth Schedule, role of Speaker, and reform debates are central.", "Frequent mains topic on ethics and democracy quality."] },
+      { title: "Pressure Groups", points: ["Influence policy through advocacy, mobilization and negotiation.", "Contrast with political parties and civil society roles."] },
+      { title: "National Integration", points: ["Constitutional values, unity-diversity balance, and social cohesion.", "Use federalism + inclusion framework in answers."] },
+      { title: "Foreign Policy", points: ["Executive-led domain with parliamentary and constitutional context.", "Link constitutional values with strategic interests."] },
+      { title: "Election Laws", points: ["Legal architecture governing electoral conduct and fairness.", "Track reforms on criminalization, money power, transparency."] },
+      { title: "Representation of People Acts", points: ["Core statutory base for elections, disqualifications, and process.", "Revise sections frequently used in current affairs."] }
     ]
   },
   {
-    subject: "CSAT Aptitude",
-    examFocus: "Prelims Paper II",
-    units: [
-      {
-        unit: "Comprehension and Reasoning",
-        topics: [
-          {
-            topic: "Reading Comprehension",
-            notes: [
-              "Practice inference, tone, argument mapping and elimination-based answering.",
-              "Time management is critical: short passages first, difficult passages later.",
-              "Avoid outside knowledge; mark strictly from passage evidence."
-            ]
-          },
-          {
-            topic: "Logical and Analytical Reasoning",
-            notes: [
-              "Core areas: statements-assumptions, syllogism, arrangements and decision making.",
-              "Use diagram-based solving for speed and lower error rates.",
-              "Revise standard fallacies and conditional logic patterns."
-            ]
-          }
-        ]
-      },
-      {
-        unit: "Numeracy and Data Interpretation",
-        topics: [
-          {
-            topic: "Basic Numeracy",
-            notes: [
-              "Revise percentages, ratios, averages, time-work, time-speed-distance and number systems.",
-              "Prioritize mental math and approximation for efficiency.",
-              "Track question selection to avoid time sink problems."
-            ]
-          },
-          {
-            topic: "Data Interpretation",
-            notes: [
-              "Interpret tables, charts and mixed data sets accurately before calculation.",
-              "Estimate options first to reduce heavy calculations.",
-              "Maintain accuracy because CSAT is qualifying but elimination risk is high."
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  {
-    subject: "Essay",
-    examFocus: "Mains Essay Paper",
-    units: [
-      {
-        unit: "Essay Structure and Flow",
-        topics: [
-          {
-            topic: "Introduction, Body, Conclusion",
-            notes: [
-              "Use a broad yet relevant introduction with conceptual clarity.",
-              "Body should be multi-dimensional: social, economic, political, ethical and technological angles.",
-              "Conclusion must be constructive, value-driven and future-oriented."
-            ]
-          },
-          {
-            topic: "Argument Quality and Balance",
-            notes: [
-              "Present clear thesis, support with examples, and include counter-view before synthesis.",
-              "Avoid one-sided ideological framing; maintain nuanced civil service tone.",
-              "Use constitutional values and practical governance perspective."
-            ]
-          }
-        ]
-      },
-      {
-        unit: "Content Enrichment",
-        topics: [
-          {
-            topic: "Examples, Thinkers and Case References",
-            notes: [
-              "Use brief examples from policy, history, science and society to support arguments.",
-              "Thinker quotes should be minimal and well-integrated, not decorative.",
-              "Create reusable themes: ethics, innovation, inclusion, sustainability, governance."
-            ]
-          }
-        ]
-      }
+    id: "11",
+    title: "11. New / Extra Chapters in Latest Edition",
+    focus: "Advanced enrichment for mains and interview",
+    topics: [
+      { title: "Concept of the Constitution", points: ["Philosophical foundation and constitutional morality lens.", "Use for value-oriented introductions and conclusions."] },
+      { title: "Constitutional Prescription", points: ["Understand text, intent, and institutional design choices.", "Useful for normative evaluation answers."] },
+      { title: "World Constitutions", points: ["Comparative constitutional insights to enrich arguments.", "Use selective comparisons; avoid unnecessary detail."] },
+      { title: "Landmark Judgments and their Impact", points: ["Track doctrine-building judgments and governance impact.", "Prepare issue-wise case compendium for revision."] },
+      { title: "Important Doctrines of Constitutional Interpretation", points: ["Basic Structure, Harmonious Construction, Pith and Substance, etc.", "High utility in judiciary and federalism questions."] },
+      { title: "Law Commission of India", points: ["Advisory legal reform body shaping policy discourse.", "Use as reform reference in legal-governance answers."] },
+      { title: "Bar Council of India", points: ["Professional regulation of legal practice and ethics.", "Know statutory nature and disciplinary role."] },
+      { title: "Delimitation Commission of India", points: ["Constituency boundary rationalization and representation balance.", "Important for electoral reforms context."] },
+      { title: "National Commission for Women", points: ["Institutional mechanism for women-centric rights and policy oversight.", "Use in social justice and governance answers."] },
+      { title: "National Commission for Protection of Child Rights", points: ["Protects child rights under statutory framework.", "Relevant for welfare-governance and social policy."] },
+      { title: "National Commission for Minorities", points: ["Institutional support for minority rights and safeguards.", "Link with constitutional equality and pluralism."] },
+      { title: "Consumer Commissions", points: ["Quasi-judicial consumer dispute resolution architecture.", "Useful in governance and citizen-centric service delivery topics."] }
     ]
   }
 ];
 
 const UPSCNotes = () => {
   const navigate = useNavigate();
-  const [activeSubject, setActiveSubject] = useState(UPSC_NOTES[0].subject);
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) navigate("/auth");
     };
     checkAuth();
   }, [navigate]);
 
-  const selectedSubject = UPSC_NOTES.find((s) => s.subject === activeSubject) || UPSC_NOTES[0];
+  const totalTopics = POLITY_CHAPTERS.reduce((acc, chapter) => acc + chapter.topics.length, 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
-        <div className="flex items-center gap-4 mb-6">
+      <div className="container mx-auto max-w-7xl px-4 py-6">
+        <div className="mb-6 flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">UPSC Notes</h1>
-            <p className="text-muted-foreground">Structured notes by subject, units and subtopics</p>
+            <h1 className="bg-gradient-to-r from-primary to-accent bg-clip-text text-3xl font-bold text-transparent">
+              UPSC Notes - Polity
+            </h1>
+            <p className="text-muted-foreground">
+              Chapter-wise, topic-wise readable notes aligned to your provided structure
+            </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <Card className="lg:col-span-1 h-fit">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-primary" />
-                Subjects
-              </CardTitle>
-              <CardDescription>Complete UPSC coverage</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {UPSC_NOTES.map((subject) => (
-                <button
-                  key={subject.subject}
-                  onClick={() => setActiveSubject(subject.subject)}
-                  className={`w-full text-left rounded-lg border px-3 py-2 transition ${
-                    activeSubject === subject.subject
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:border-primary/40 hover:bg-muted/50"
-                  }`}
-                >
-                  <p className="text-sm font-medium">{subject.subject}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{subject.examFocus}</p>
-                </button>
-              ))}
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Card className="border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5">
+            <CardContent className="flex items-center gap-3 p-4">
+              <Landmark className="h-8 w-8 text-primary" />
+              <div>
+                <p className="text-2xl font-bold">{POLITY_CHAPTERS.length}</p>
+                <p className="text-xs text-muted-foreground">Major Chapters</p>
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="lg:col-span-3">
-            <CardHeader>
-              <div className="flex flex-wrap items-center gap-2">
-                <CardTitle className="text-xl">{selectedSubject.subject}</CardTitle>
-                <Badge variant="secondary">{selectedSubject.examFocus}</Badge>
+          <Card className="border-accent/20 bg-gradient-to-br from-accent/10 to-accent/5">
+            <CardContent className="flex items-center gap-3 p-4">
+              <BookOpen className="h-8 w-8 text-accent" />
+              <div>
+                <p className="text-2xl font-bold">{totalTopics}</p>
+                <p className="text-xs text-muted-foreground">Structured Topics</p>
               </div>
-              <CardDescription>Unit-wise structured notes</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Accordion type="multiple" className="w-full">
-                {selectedSubject.units.map((unit, unitIndex) => (
-                  <AccordionItem key={`${unit.unit}-${unitIndex}`} value={`unit-${unitIndex}`}>
-                    <AccordionTrigger className="text-left text-base">{unit.unit}</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4">
-                        {unit.topics.map((topic, topicIndex) => (
-                          <div key={`${topic.topic}-${topicIndex}`} className="rounded-lg border bg-muted/20 p-4">
-                            <h4 className="font-semibold mb-2">{topic.topic}</h4>
-                            <ul className="space-y-2">
-                              {topic.notes.map((line, lineIndex) => (
-                                <li key={lineIndex} className="text-sm text-muted-foreground leading-relaxed">
-                                  {line}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
+            </CardContent>
+          </Card>
+
+          <Card className="border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-amber-500/5">
+            <CardContent className="flex items-center gap-3 p-4">
+              <Scale className="h-8 w-8 text-orange-500" />
+              <div>
+                <p className="text-sm font-semibold">Mains + Prelims Ready</p>
+                <p className="text-xs text-muted-foreground">Built for revision and answer writing</p>
+              </div>
             </CardContent>
           </Card>
         </div>
+
+        <Card className="mb-6 border-border/60">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Building2 className="h-4 w-4 text-primary" />
+              Chapter Index
+            </CardTitle>
+            <CardDescription>Quick scan of all polity chapters you listed</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {POLITY_CHAPTERS.map((chapter) => (
+                <div key={`index-${chapter.id}`} className="rounded-lg border bg-muted/20 px-3 py-2">
+                  <p className="text-sm font-medium">{chapter.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{chapter.focus}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Detailed Notes</CardTitle>
+            <CardDescription>Open any chapter and revise each topic with short, readable points</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Accordion type="multiple" className="w-full space-y-3">
+              {POLITY_CHAPTERS.map((chapter) => (
+                <AccordionItem
+                  key={chapter.id}
+                  value={`chapter-${chapter.id}`}
+                  className="rounded-xl border bg-gradient-to-r from-card to-muted/20 px-4"
+                >
+                  <AccordionTrigger className="text-left">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold">{chapter.title}</span>
+                      <Badge variant="secondary">{chapter.topics.length} topics</Badge>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <p className="mb-4 text-sm text-muted-foreground">{chapter.focus}</p>
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                      {chapter.topics.map((topic, idx) => (
+                        <Card key={`${chapter.id}-${idx}`} className="border-border/60 bg-card/90">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-sm">{topic.title}</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <ul className="space-y-2">
+                              {topic.points.map((point, pointIndex) => (
+                                <li key={pointIndex} className="text-sm leading-relaxed text-muted-foreground">
+                                  {point}
+                                </li>
+                              ))}
+                            </ul>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
