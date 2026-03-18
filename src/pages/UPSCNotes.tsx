@@ -19,6 +19,259 @@ type Chapter = {
   topics: TopicNote[];
 };
 
+type TopicDeepDive = {
+  concept: string;
+  prelimsFocus: string[];
+  mainsFocus: string[];
+  answerApproach: string[];
+};
+
+const getTopicDeepDive = (chapterTitle: string, topicTitle: string): TopicDeepDive => {
+  const t = topicTitle.toLowerCase();
+  const conceptBase = `${topicTitle} is a high-value area under ${chapterTitle}. Focus on constitutional text, institutional practice, and recent governance relevance so that preparation supports both prelims accuracy and mains analysis.`;
+
+  const defaultDeepDive: TopicDeepDive = {
+    concept: conceptBase,
+    prelimsFocus: [
+      "Revise constitutional Articles/schedules, important definitions, and exceptions.",
+      "Practice statement-based MCQs and eliminate close options using exact constitutional language.",
+      "Map this topic with frequently asked factual traps from previous years."
+    ],
+    mainsFocus: [
+      "Explain constitutional intent first, then discuss current implementation challenges.",
+      "Use a balanced structure: achievements, concerns, reforms, and way forward.",
+      "Where possible, connect with federalism, accountability, and citizen rights."
+    ],
+    answerApproach: [
+      "Start with a precise 1-2 line definition.",
+      "Use subheadings: constitutional basis, issues, reforms.",
+      "Close with a practical and constitutional-value-based conclusion."
+    ]
+  };
+
+  if (t.includes("fundamental rights")) {
+    return {
+      concept:
+        "Fundamental Rights (Part III) are enforceable limitations on state power and a core rights-protection framework. UPSC expects clarity on Article clusters, reasonable restrictions, and evolving judicial interpretation.",
+      prelimsFocus: [
+        "Revise Articles 12-35, especially equality, freedoms, and constitutional remedies.",
+        "Distinguish rights available to citizens vs all persons.",
+        "Track important exceptions, suspensions, and landmark case outcomes."
+      ],
+      mainsFocus: [
+        "Discuss FR as both negative and positive obligations on the state.",
+        "Explain tensions with security, public order, and welfare goals.",
+        "Use recent judgments to show constitutional evolution."
+      ],
+      answerApproach: [
+        "Define scope of rights and constitutional remedies.",
+        "Add issue-reform matrix with examples.",
+        "Conclude with balance between liberty and social justice."
+      ]
+    };
+  }
+
+  if (t.includes("directive principles")) {
+    return {
+      concept:
+        "Directive Principles (Part IV) guide policy toward a welfare state. Though non-justiciable, they shape legislation, social policy, and constitutional interpretation.",
+      prelimsFocus: [
+        "Revise classification: socialist, Gandhian, and liberal-intellectual principles.",
+        "Remember key Articles and amendments affecting DPSP.",
+        "Prepare FR vs DPSP doctrinal evolution in objective format."
+      ],
+      mainsFocus: [
+        "Show how DPSP influences economic and social legislation.",
+        "Discuss implementation gap between constitutional promise and state capacity.",
+        "Use examples from health, education, nutrition, and local governance."
+      ],
+      answerApproach: [
+        "Start with constitutional purpose of Part IV.",
+        "Structure around policy translation and implementation barriers.",
+        "Close with actionable governance reforms."
+      ]
+    };
+  }
+
+  if (t.includes("basic structure")) {
+    return {
+      concept:
+        "Basic Structure Doctrine limits Parliament's amending power and preserves constitutional identity. It is central to separation of powers and constitutional supremacy.",
+      prelimsFocus: [
+        "Revise Kesavananda Bharati and related follow-up judgments.",
+        "Prepare components generally accepted as part of basic structure.",
+        "Distinguish Article 368 power from judicially evolved limits."
+      ],
+      mainsFocus: [
+        "Analyze doctrine as a check against majoritarian overreach.",
+        "Discuss criticism: judicial overreach vs constitutional protection.",
+        "Use contemporary amendment debates to enrich answers."
+      ],
+      answerApproach: [
+        "Define doctrine and constitutional necessity.",
+        "Present both democratic and constitutionalist perspectives.",
+        "Conclude with institutional balance and constitutional continuity."
+      ]
+    };
+  }
+
+  if (t.includes("parliament")) {
+    return {
+      concept:
+        "Parliament is the core representative law-making institution and accountability forum in a parliamentary democracy. Its functioning quality directly affects governance outcomes.",
+      prelimsFocus: [
+        "Revise composition, sessions, quorum, and legislative procedure.",
+        "Differentiate bill types and money bill process.",
+        "Practice committee- and device-based factual questions."
+      ],
+      mainsFocus: [
+        "Discuss declining deliberation, disruptions, and ordinance dependence.",
+        "Evaluate committee scrutiny and executive accountability tools.",
+        "Suggest reforms for productivity, transparency, and debate quality."
+      ],
+      answerApproach: [
+        "Open with constitutional position and democratic role.",
+        "Use evidence-backed challenges and reforms.",
+        "End with institutional strengthening roadmap."
+      ]
+    };
+  }
+
+  if (t.includes("president") || t.includes("governor")) {
+    return {
+      concept:
+        `${topicTitle} is a constitutionally significant office where legal text and political convention interact. UPSC questions usually test discretionary space, constitutional limits, and accountability mechanisms.`,
+      prelimsFocus: [
+        "Revise election/appointment, tenure, powers, and removal process.",
+        "Track veto/pardon/discretionary powers carefully.",
+        "Prepare constitutional articles and recent case references."
+      ],
+      mainsFocus: [
+        "Examine neutrality, federal implications, and constitutional morality.",
+        "Analyze recurring controversies and reform recommendations.",
+        "Use commission reports and judicial guidance where relevant."
+      ],
+      answerApproach: [
+        "State role in constitutional architecture.",
+        "Discuss areas of conflict and procedural safeguards.",
+        "Close with cooperative constitutionalism."
+      ]
+    };
+  }
+
+  if (t.includes("federal") || t.includes("centre-state") || t.includes("inter-state")) {
+    return {
+      concept:
+        "Indian federalism combines constitutional division of powers with cooperative mechanisms. Real-world practice depends on institutions, fiscal design, and political consensus.",
+      prelimsFocus: [
+        "Revise union/state/concurrent list logic and residuary powers.",
+        "Prepare inter-governmental bodies and dispute mechanisms.",
+        "Practice article-based factual distinctions."
+      ],
+      mainsFocus: [
+        "Discuss fiscal federalism, administrative overlap, and policy coordination.",
+        "Use examples from health, disaster management, and taxation.",
+        "Assess cooperative vs competitive federal trends."
+      ],
+      answerApproach: [
+        "Introduce constitutional design first.",
+        "Present current friction points and collaborative pathways.",
+        "Conclude with institutionalized cooperative federalism."
+      ]
+    };
+  }
+
+  if (t.includes("emergency")) {
+    return {
+      concept:
+        "Emergency provisions are exceptional constitutional tools designed to preserve state stability, but they require strict safeguards to prevent misuse.",
+      prelimsFocus: [
+        "Differentiate national, state, and financial emergency triggers and effects.",
+        "Revise parliamentary approval timelines and revocation conditions.",
+        "Track historical usage and key judgments."
+      ],
+      mainsFocus: [
+        "Analyze centralization concerns and federal-democratic impact.",
+        "Discuss constitutional safeguards and institutional checks.",
+        "Use historical lessons to evaluate current relevance."
+      ],
+      answerApproach: [
+        "Define constitutional necessity of emergency powers.",
+        "Balance security needs with constitutional liberty.",
+        "Conclude with rule-bound and transparent use."
+      ]
+    };
+  }
+
+  if (t.includes("election commission") || t.includes("upsc") || t.includes("cag") || t.includes("finance commission")) {
+    return {
+      concept:
+        `${topicTitle} is an integrity institution that supports constitutional governance through neutrality, professional standards, and accountability architecture.`,
+      prelimsFocus: [
+        "Revise constitutional status, appointment, tenure, and removal safeguards.",
+        "Prepare functional domain and reporting relationships.",
+        "Distinguish constitutional powers from practical limitations."
+      ],
+      mainsFocus: [
+        "Evaluate autonomy, capacity, and enforcement effectiveness.",
+        "Use current reform debates and institutional bottlenecks.",
+        "Frame recommendations around transparency and independence."
+      ],
+      answerApproach: [
+        "Start with constitutional mandate.",
+        "Add performance analysis with examples.",
+        "Close with reforms for institutional credibility."
+      ]
+    };
+  }
+
+  if (t.includes("niti aayog") || t.includes("lokpal") || t.includes("cbi") || t.includes("cvc") || t.includes("cic") || t.includes("nhrc")) {
+    return {
+      concept:
+        `${topicTitle} represents a non-constitutional governance institution that fills policy or accountability gaps. UPSC evaluates both legal design and performance outcomes.`,
+      prelimsFocus: [
+        "Prepare statutory/executive origin, mandate, and composition.",
+        "Revise powers, jurisdiction limits, and reporting structure.",
+        "Compare with related institutions to avoid confusion."
+      ],
+      mainsFocus: [
+        "Discuss effectiveness constraints: autonomy, staffing, delays, overlap.",
+        "Analyze institutional relevance in modern governance.",
+        "Suggest legal and administrative strengthening measures."
+      ],
+      answerApproach: [
+        "Define institutional purpose.",
+        "Present function-gap-reform structure.",
+        "Conclude with citizen-centric accountability outcomes."
+      ]
+    };
+  }
+
+  if (t.includes("tribunals") || t.includes("high court") || t.includes("subordinate courts")) {
+    return {
+      concept:
+        `${topicTitle} is critical to India's justice delivery architecture. Questions generally test access, independence, speed, and constitutional compatibility.`,
+      prelimsFocus: [
+        "Revise jurisdiction, hierarchy, and constitutional/statutory basis.",
+        "Understand appointment and service conditions.",
+        "Practice distinctions between constitutional courts and tribunals."
+      ],
+      mainsFocus: [
+        "Discuss pendency, capacity, and procedural reform needs.",
+        "Analyze independence and executive influence concerns.",
+        "Link with rights protection and governance quality."
+      ],
+      answerApproach: [
+        "Begin with institutional role in rule of law.",
+        "Use challenge-solution format.",
+        "Conclude with justice access and trust-building."
+      ]
+    };
+  }
+
+  return defaultDeepDive;
+};
+
 const POLITY_CHAPTERS: Chapter[] = [
   {
     id: "1",
@@ -292,6 +545,48 @@ const UPSCNotes = () => {
                             <CardTitle className="text-sm">{topic.title}</CardTitle>
                           </CardHeader>
                           <CardContent>
+                            {(() => {
+                              const deepDive = getTopicDeepDive(chapter.title, topic.title);
+                              return (
+                                <div className="space-y-3">
+                                  <div className="rounded-md border bg-muted/20 p-3">
+                                    <p className="text-xs font-semibold tracking-wide text-foreground">Detailed Explanation</p>
+                                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{deepDive.concept}</p>
+                                  </div>
+                                  <div>
+                                    <p className="mb-1 text-xs font-semibold tracking-wide text-foreground">Prelims Focus</p>
+                                    <ul className="space-y-1">
+                                      {deepDive.prelimsFocus.map((point, pointIndex) => (
+                                        <li key={`pf-${pointIndex}`} className="text-sm leading-relaxed text-muted-foreground">
+                                          {point}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                  <div>
+                                    <p className="mb-1 text-xs font-semibold tracking-wide text-foreground">Mains Focus</p>
+                                    <ul className="space-y-1">
+                                      {deepDive.mainsFocus.map((point, pointIndex) => (
+                                        <li key={`mf-${pointIndex}`} className="text-sm leading-relaxed text-muted-foreground">
+                                          {point}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                  <div>
+                                    <p className="mb-1 text-xs font-semibold tracking-wide text-foreground">Answer Approach</p>
+                                    <ul className="space-y-1">
+                                      {deepDive.answerApproach.map((point, pointIndex) => (
+                                        <li key={`aa-${pointIndex}`} className="text-sm leading-relaxed text-muted-foreground">
+                                          {point}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            <div className="my-3 border-t" />
                             <ul className="space-y-2">
                               {topic.points.map((point, pointIndex) => (
                                 <li key={pointIndex} className="text-sm leading-relaxed text-muted-foreground">
