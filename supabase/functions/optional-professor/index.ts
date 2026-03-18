@@ -10,8 +10,17 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let mode = "";
+  let subject = "";
+  let topic = "";
+
   try {
-    const { mode, subject, topic, question, answer } = await req.json();
+    const payload = await req.json();
+    mode = payload.mode || "";
+    subject = payload.subject || "";
+    topic = payload.topic || "";
+    const question = payload.question;
+    const answer = payload.answer;
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -265,6 +274,28 @@ Respond in JSON format:
   } catch (error: unknown) {
     console.error("Error in optional-professor:", error);
     const message = error instanceof Error ? error.message : "An error occurred";
+
+    // Keep explanation tab stable even when unexpected runtime errors occur.
+    if (mode === "explain") {
+      return new Response(
+        JSON.stringify({
+          overview: `The explanation service is temporarily unstable. Quick UPSC starter for "${topic || "this topic"}": begin with definition, cover dimensions with sub-headings, add 2 contemporary examples, and end with exam relevance.`,
+          keyPoints: [
+            "Define the concept in 2-3 lines.",
+            "Break topic into dimensions/sub-parts.",
+            "Add examples/case studies.",
+            "Mention one criticism/challenge.",
+            "Conclude with way forward."
+          ],
+          examples: [],
+          upscRelevance: "Frequently useful for conceptual and analytical optional answers.",
+          diagram: "",
+          serviceNotice: message
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

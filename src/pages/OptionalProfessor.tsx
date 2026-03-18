@@ -203,7 +203,20 @@ export default function OptionalProfessor() {
       });
     } catch (error: any) {
       console.error("Error:", error);
-      toast.error(error.message || "Failed to get explanation");
+      setExplanation({
+        overview: `AI service is temporarily unavailable. You can still prepare this topic by writing definition, dimensions, examples, and UPSC relevance in a structured format.`,
+        keyPoints: [
+          "Start with core definition and scope.",
+          "Cover key dimensions under headings.",
+          "Add current examples/case studies.",
+          "Mention critique/challenges.",
+          "Conclude with way forward."
+        ],
+        examples: [],
+        upscRelevance: "Useful for optional answer writing and conceptual questions.",
+        diagram: "",
+      });
+      toast.error(error.message || "Explanation service is temporarily unavailable. Showing fallback guide.");
     } finally {
       setExplainLoading(false);
     }
