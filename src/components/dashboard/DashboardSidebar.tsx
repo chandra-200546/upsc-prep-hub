@@ -36,7 +36,7 @@ const allFeatures = [
   { title: "Current Affairs", url: "/current-affairs", icon: FileText },
   { title: "Study Plan", url: "/study-plan", icon: Calendar },
   { title: "Mains Practice", url: "/mains", icon: Award },
-  { title: "Notes Library", url: "/notes", icon: BookOpen },
+  { title: "Notes", url: "/notes", icon: BookOpen },
   { title: "Map Practice", url: "/map-practice", icon: Map },
   { title: "Mock Interview", url: "/mock-interview", icon: Video },
   { title: "PYQ Engine", url: "/pyq-engine", icon: BarChart3 },
