@@ -76,7 +76,7 @@ const Dashboard = () => {
     { path: "/current-affairs", icon: <FileText className="w-10 h-10" />, title: "Current Affairs", description: "Today's updates" },
     { path: "/study-plan", icon: <Calendar className="w-10 h-10" />, title: "Study Plan", description: "Daily schedule" },
     { path: "/mains", icon: <Award className="w-10 h-10" />, title: "Mains Practice", description: "Practice essay writing" },
-    { path: "/notes", icon: <BookOpen className="w-10 h-10" />, title: "Notes Library", description: "Your study notes" },
+    { path: "/notes", icon: <BookOpen className="w-10 h-10" />, title: "Notes", description: "Structured UPSC notes by subject" },
     { path: "/map-practice", icon: <Map className="w-10 h-10" />, title: "Map Practice", description: "India & World Geography" },
     { path: "/mock-interview", icon: <Video className="w-10 h-10" />, title: "Mock Interview", description: "AI Interview Room" },
     { path: "/pyq-engine", icon: <BarChart3 className="w-10 h-10" />, title: "PYQ Engine", description: "40-Year Analysis & Predictions" },
