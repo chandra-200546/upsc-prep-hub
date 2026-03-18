@@ -18,6 +18,7 @@ import {
   LayoutDashboard, BarChart3, Trophy, Settings, LogOut,
   MessageSquare, Brain, FileText, Calendar, Award,
   BookOpen, Map, Video, GitBranch, Newspaper, GraduationCap, MessageCircle,
+  Mic,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -43,7 +44,7 @@ const allFeatures = [
   { title: "Mind Map", url: "/mind-map", icon: GitBranch },
   { title: "Daily Intel", url: "/daily-intel", icon: Newspaper },
   { title: "Optional Prof.", url: "/optional-professor", icon: GraduationCap },
-  { title: "Voice AI", url: "/voice-ai", icon: MessageCircle },
+  { title: "Voice AI", url: "/voice-ai", icon: Mic },
 ];
 
 export function DashboardSidebar() {
