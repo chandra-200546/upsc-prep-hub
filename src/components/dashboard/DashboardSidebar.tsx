@@ -38,6 +38,7 @@ const allFeatures = [
   { title: "Study Plan", url: "/study-plan", icon: Calendar },
   { title: "Mains Practice", url: "/mains", icon: Award },
   { title: "Notes Library", url: "/notes", icon: BookOpen },
+  { title: "UPSC Notes", url: "/upsc-notes", icon: BookOpen },
   { title: "Map Practice", url: "/map-practice", icon: Map },
   { title: "Mock Interview", url: "/mock-interview", icon: Video },
   { title: "PYQ Engine", url: "/pyq-engine", icon: BarChart3 },

@@ -72,7 +72,8 @@ const Dashboard = () => {
 
   const allFeatures = [
     { path: "/mentor", icon: <MessageSquare className="w-10 h-10" />, title: "AI Mentor", description: "Chat with your personal mentor" },
-    { path: "/notes", icon: <BookOpen className="w-10 h-10" />, title: "Notes Library", description: "Structured UPSC notes by subject and unit" },
+    { path: "/notes", icon: <BookOpen className="w-10 h-10" />, title: "Notes Library", description: "Create and manage your personal notes" },
+    { path: "/upsc-notes", icon: <BookOpen className="w-10 h-10" />, title: "UPSC Notes", description: "Structured subject-wise UPSC notes" },
     { path: "/prelims", icon: <Brain className="w-10 h-10" />, title: "Prelims Quiz", description: "Practice MCQs" },
     { path: "/current-affairs", icon: <FileText className="w-10 h-10" />, title: "Current Affairs", description: "Today's updates" },
     { path: "/study-plan", icon: <Calendar className="w-10 h-10" />, title: "Study Plan", description: "Daily schedule" },
