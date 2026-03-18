@@ -43,6 +43,7 @@ const allFeatures = [
   { title: "Mind Map", url: "/mind-map", icon: GitBranch },
   { title: "Daily Intel", url: "/daily-intel", icon: Newspaper },
   { title: "Optional Prof.", url: "/optional-professor", icon: GraduationCap },
+  { title: "Voice AI", url: "/voice-ai", icon: MessageCircle },
 ];
 
 export function DashboardSidebar() {
