@@ -13,6 +13,35 @@ const XP_REWARDS = {
   DAILY_LOGIN: 5,
 };
 
+const getLocalDateString = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+const parseDateString = (dateStr: string): Date | null => {
+  if (!dateStr) return null;
+  const clean = dateStr.includes("T") ? dateStr.split("T")[0] : dateStr;
+  const parts = clean.split("-");
+  if (parts.length !== 3) return null;
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  if (!y || !m || !d) return null;
+  const parsed = new Date(y, m - 1, d);
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+};
+
+const dayDiff = (fromDateStr: string, toDateStr: string): number | null => {
+  const from = parseDateString(fromDateStr);
+  const to = parseDateString(toDateStr);
+  if (!from || !to) return null;
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  return Math.round((to.getTime() - from.getTime()) / MS_PER_DAY);
+};
+
 export function useGamification() {
   const { user, profile, isLocalMode, refreshProfile } = useAuth();
 
@@ -56,7 +85,7 @@ export function useGamification() {
     if (!user) return;
 
     const today = new Date();
-    const todayStr = today.toISOString().split("T")[0];
+    const todayStr = getLocalDateString(today);
 
     if (isLocalMode) {
       const profilesRaw = localStorage.getItem("upsc_local_profiles");
@@ -68,12 +97,9 @@ export function useGamification() {
       const lastLogin = p.last_login_date;
       if (lastLogin === todayStr) return; // Already logged in today
 
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split("T")[0];
-
       let newStreak = 1;
-      if (lastLogin === yesterdayStr) {
+      const diff = dayDiff(lastLogin || "", todayStr);
+      if (diff === 1) {
         newStreak = (p.current_streak || 0) + 1;
       }
 
@@ -103,12 +129,9 @@ export function useGamification() {
       const lastLogin = data.last_login_date;
       if (lastLogin === todayStr) return; // Already updated today
 
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split("T")[0];
-
       let newStreak = 1;
-      if (lastLogin === yesterdayStr) {
+      const diff = dayDiff(lastLogin || "", todayStr);
+      if (diff === 1) {
         newStreak = (data.current_streak || 0) + 1;
       }
 
