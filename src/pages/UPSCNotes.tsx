@@ -17,10 +17,17 @@ type Slide = {
   visualLines: string[];
 };
 
+type QuizCheckpoint = {
+  afterSlide: number;
+  question: string;
+  acceptableAnswers: string[];
+};
+
 type Deck = {
   topicTitle: string;
   chapterTitle: string;
   slides: Slide[];
+  quizzes?: QuizCheckpoint[];
   sources?: string[];
 };
 
@@ -32,17 +39,17 @@ type Subject = {
 };
 
 const SUBJECTS: Subject[] = [
-  { id: "polity", name: "Polity", examFocus: "GS Paper II + Prelims", description: "AI generated PPT-style notes from topic input" },
-  { id: "history", name: "History", examFocus: "GS Paper I + Prelims", description: "Coming next in same format" },
-  { id: "geography", name: "Geography", examFocus: "GS Paper I + Prelims", description: "Coming next in same format" },
-  { id: "economy", name: "Economy", examFocus: "GS Paper III + Prelims", description: "Coming next in same format" },
-  { id: "environment", name: "Environment & Ecology", examFocus: "GS Paper III + Prelims", description: "Coming next in same format" },
-  { id: "science-tech", name: "Science & Tech", examFocus: "GS Paper III + Prelims", description: "Coming next in same format" },
-  { id: "ethics", name: "Ethics", examFocus: "GS Paper IV", description: "Coming next in same format" },
-  { id: "current-affairs", name: "Current Affairs", examFocus: "GS I/II/III + Essay + Interview", description: "Coming next in same format" }
+  { id: "polity", name: "Polity", examFocus: "GS Paper II + Prelims", description: "AI generated PPT-style notes + checkpoints" },
+  { id: "history", name: "History", examFocus: "GS Paper I + Prelims", description: "AI generated PPT-style notes + checkpoints" },
+  { id: "geography", name: "Geography", examFocus: "GS Paper I + Prelims", description: "AI generated PPT-style notes + checkpoints" },
+  { id: "economy", name: "Economy", examFocus: "GS Paper III + Prelims", description: "AI generated PPT-style notes + checkpoints" },
+  { id: "environment", name: "Environment & Ecology", examFocus: "GS Paper III + Prelims", description: "AI generated PPT-style notes + checkpoints" },
+  { id: "science-tech", name: "Science & Tech", examFocus: "GS Paper III + Prelims", description: "AI generated PPT-style notes + checkpoints" },
+  { id: "ethics", name: "Ethics", examFocus: "GS Paper IV", description: "AI generated PPT-style notes + checkpoints" },
+  { id: "current-affairs", name: "Current Affairs", examFocus: "GS I/II/III + Essay + Interview", description: "AI generated PPT-style notes + checkpoints" }
 ];
 
-const REFERENCE_SOURCE = "Laxmikanth Indian Polity 8th Edition (project reference copy)";
+const REFERENCE_SOURCE = "AI deck generation with in-between revision checkpoints";
 
 const extractJson = (raw: string) => {
   const trimmed = raw.trim();
@@ -64,6 +71,8 @@ const UPSCNotes = () => {
   const [loading, setLoading] = useState(false);
   const [activeDeck, setActiveDeck] = useState<Deck | null>(null);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [checkpointAnswer, setCheckpointAnswer] = useState("");
+  const [checkpointPassed, setCheckpointPassed] = useState<number[]>([]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -82,6 +91,7 @@ const UPSCNotes = () => {
     if (activeDeck) {
       setActiveDeck(null);
       setSlideIndex(0);
+      setCheckpointAnswer("");
       return;
     }
     if (selectedSubjectId) {
@@ -91,15 +101,18 @@ const UPSCNotes = () => {
     navigate("/dashboard");
   };
 
-  const generatePolitySlides = async () => {
+  const generateTopicSlides = async () => {
     if (!topicInput.trim()) return;
+    if (!selectedSubjectId) return;
     setLoading(true);
     setActiveDeck(null);
     setSlideIndex(0);
+    setCheckpointPassed([]);
+    setCheckpointAnswer("");
 
     try {
       const { data, error } = await supabase.functions.invoke("upsc-notes-slides", {
-        body: { subject: "polity", topic: topicInput.trim() }
+        body: { subject: selectedSubjectId, topic: topicInput.trim() }
       });
 
       if (error) throw error;
@@ -111,8 +124,9 @@ const UPSCNotes = () => {
 
       setActiveDeck({
         topicTitle: parsed.topicTitle || topicInput.trim(),
-        chapterTitle: parsed.chapterTitle || "Polity",
+        chapterTitle: parsed.chapterTitle || selectedSubject?.name || "UPSC",
         slides: parsed.slides,
+        quizzes: Array.isArray(parsed.quizzes) ? parsed.quizzes : [],
         sources: Array.isArray(parsed.sources) ? parsed.sources : []
       });
     } catch (err: any) {
@@ -128,6 +142,28 @@ const UPSCNotes = () => {
 
   const activeSlide = activeDeck ? activeDeck.slides[slideIndex] : null;
   const progress = activeDeck ? ((slideIndex + 1) / activeDeck.slides.length) * 100 : 0;
+  const currentCheckpoint = activeDeck?.quizzes?.find((quiz) => quiz.afterSlide === slideIndex + 1) || null;
+  const isCheckpointPassed = currentCheckpoint ? checkpointPassed.includes(currentCheckpoint.afterSlide) : true;
+
+  const checkCheckpointAnswer = () => {
+    if (!currentCheckpoint) return true;
+    const answer = checkpointAnswer.trim().toLowerCase();
+    const ok = currentCheckpoint.acceptableAnswers.some((a) => answer.includes(a.toLowerCase()));
+    if (!ok) {
+      toast({
+        title: "Try again",
+        description: "Revise the previous slides and answer the checkpoint correctly to continue.",
+        variant: "destructive"
+      });
+      return false;
+    }
+    setCheckpointPassed((prev) => (prev.includes(currentCheckpoint.afterSlide) ? prev : [...prev, currentCheckpoint.afterSlide]));
+    toast({
+      title: "Correct",
+      description: "Great. Moving to next slide block."
+    });
+    return true;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
@@ -181,46 +217,36 @@ const UPSCNotes = () => {
             <CardHeader>
               <CardTitle>{selectedSubject.name} Topic Generator</CardTitle>
               <CardDescription>
-                {selectedSubject.id === "polity"
-                  ? "Enter any polity topic. Slides will be generated in complete structured format."
-                  : "This subject is not enabled yet. We can enable it next in same generator style."}
+                Enter any specific topic. AI will generate 10-15 PPT-style slides and ask checkpoint questions after every 3 slides.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {selectedSubject.id === "polity" ? (
-                <>
-                  <Input
-                    value={topicInput}
-                    onChange={(e) => setTopicInput(e.target.value)}
-                    placeholder="Enter topic (example: Fundamental Rights, Parliament, Governor, Emergency Provisions)"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button onClick={generatePolitySlides} disabled={loading || !topicInput.trim()}>
-                      {loading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Generating Slides...
-                        </>
-                      ) : (
-                        "Generate PPT Style Notes"
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setTopicInput("");
-                        setSelectedSubjectId(null);
-                      }}
-                    >
-                      Back to Subjects
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <Button variant="outline" onClick={() => setSelectedSubjectId(null)}>
+              <Input
+                value={topicInput}
+                onChange={(e) => setTopicInput(e.target.value)}
+                placeholder={`Enter topic in ${selectedSubject.name} (example: Fundamental Rights, Monsoon, Inflation, Biodiversity)`}
+              />
+              <div className="flex items-center gap-2">
+                <Button onClick={generateTopicSlides} disabled={loading || !topicInput.trim()}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating Slides...
+                    </>
+                  ) : (
+                    "Generate PPT Style Notes"
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setTopicInput("");
+                    setSelectedSubjectId(null);
+                  }}
+                >
                   Back to Subjects
                 </Button>
-              )}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -289,6 +315,25 @@ const UPSCNotes = () => {
                   </CardContent>
                 </Card>
               </div>
+              {currentCheckpoint && !isCheckpointPassed && (
+                <Card className="border-primary/30 bg-primary/5">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Checkpoint Quiz</CardTitle>
+                    <CardDescription>Answer this to continue after slide {currentCheckpoint.afterSlide}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm font-medium">{currentCheckpoint.question}</p>
+                    <Input
+                      value={checkpointAnswer}
+                      onChange={(e) => setCheckpointAnswer(e.target.value)}
+                      placeholder="Type your answer"
+                    />
+                    <Button onClick={checkCheckpointAnswer} disabled={!checkpointAnswer.trim()}>
+                      Submit Answer
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Button variant="outline" onClick={() => setSlideIndex((p) => Math.max(0, p - 1))} disabled={slideIndex === 0}>
                   <ChevronLeft className="mr-1 h-4 w-4" />
@@ -299,7 +344,20 @@ const UPSCNotes = () => {
                     New Topic
                   </Button>
                   {slideIndex < activeDeck.slides.length - 1 ? (
-                    <Button onClick={() => setSlideIndex((p) => Math.min(activeDeck.slides.length - 1, p + 1))}>
+                    <Button
+                      onClick={() => {
+                        if (currentCheckpoint && !isCheckpointPassed) {
+                          toast({
+                            title: "Checkpoint pending",
+                            description: "Answer the checkpoint question first.",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        setCheckpointAnswer("");
+                        setSlideIndex((p) => Math.min(activeDeck.slides.length - 1, p + 1));
+                      }}
+                    >
                       Next Slide
                       <ChevronRight className="ml-1 h-4 w-4" />
                     </Button>
