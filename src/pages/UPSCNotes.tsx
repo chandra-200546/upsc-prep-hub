@@ -19,6 +19,18 @@ type Slide = {
   visualLines: string[];
 };
 type Deck = { topicTitle: string; chapterTitle: string; slides: Slide[] };
+type TopicProfile = {
+  fundamentals: string[];
+  legalAnchor: string;
+  processFlow: string[];
+  advancedIssues: string[];
+  prelimsFocus: string[];
+  mainsFocus: string[];
+  commonMistakes: string[];
+  mnemonic: string;
+  example: string;
+  comparison: string[];
+};
 
 const makeTopics = (items: string[]): Topic[] => items.map((title) => ({ title }));
 
@@ -49,14 +61,126 @@ const SUBJECTS: Subject[] = [
 
 const REFERENCE_SOURCE = "Laxmikanth Indian Polity 8th Edition (project reference copy)";
 
-const buildDeck = (chapterTitle: string, topicTitle: string): Slide[] => {
+const TOPIC_PROFILES: Record<string, Partial<TopicProfile>> = {
+  "Fundamental Rights": {
+    legalAnchor: "Articles 12-35, with major interpretation through Supreme Court judgments.",
+    fundamentals: ["Nature and scope of enforceable rights", "Citizen vs person rights", "Reasonable restrictions framework"],
+    processFlow: ["Identify right", "Check state action", "Apply restriction test", "Constitutional remedy"],
+    advancedIssues: ["Rights-security balance", "Expansion through judicial interpretation", "Horizontal rights debates"],
+    prelimsFocus: ["Article clusters", "Exceptions and suspension", "Citizen-only rights"],
+    mainsFocus: ["Rights vs welfare-state tension", "Doctrine-based analysis", "Balanced reform approach"],
+    commonMistakes: ["Mixing DPSP with FR", "Ignoring Article 32/226 remedies"],
+    mnemonic: "E-F-P-R-C-R",
+    comparison: ["FR (justiciable) vs DPSP (non-justiciable)", "Negative liberty vs positive obligations"],
+    example: "Article 21 expansion into dignity, livelihood, and procedural fairness."
+  },
+  "Directive Principles of State Policy": {
+    legalAnchor: "Articles 36-51 under Part IV.",
+    fundamentals: ["Welfare-state objectives", "Non-justiciable but governance-guiding", "Policy orientation role"],
+    processFlow: ["Constitutional directive", "Legislative translation", "Administrative implementation", "Outcome review"],
+    advancedIssues: ["Implementation gap due to state capacity", "FR-DPSP harmony in jurisprudence"],
+    prelimsFocus: ["Classification and article placement", "DPSP-related amendments"],
+    mainsFocus: ["Social justice outcomes", "Policy-performance evaluation"],
+    commonMistakes: ["Treating DPSP as unenforceable and therefore irrelevant"],
+    mnemonic: "SGL = Socialist, Gandhian, Liberal-intellectual",
+    comparison: ["FR protects liberty; DPSP drives welfare policy"],
+    example: "Public health and education policy frameworks reflect DPSP orientation."
+  },
+  President: {
+    legalAnchor: "Articles 52-62; powers include veto, ordinance, and pardon framework.",
+    fundamentals: ["Constitutional head", "Election and tenure", "Aid and advice principle"],
+    processFlow: ["Cabinet advice", "Presidential action", "Parliamentary oversight", "Judicial review where applicable"],
+    advancedIssues: ["Discretionary gray zones", "Ordinance controversy", "Pardon power debates"],
+    prelimsFocus: ["Electoral college composition", "Veto types", "Emergency roles"],
+    mainsFocus: ["Conventions vs constitutional text", "Role in coalition and crisis moments"],
+    commonMistakes: ["Treating President as purely ceremonial in all contexts"],
+    mnemonic: "EVOP = Election, Veto, Ordinance, Pardon",
+    comparison: ["Nominal head vs real executive"],
+    example: "Ordinance route examined for urgency and legislative bypass concerns."
+  },
+  Parliament: {
+    legalAnchor: "Articles 79 onwards, rules of procedure, constitutional financial control.",
+    fundamentals: ["Bicameral lawmaking", "Executive accountability", "Budgetary control"],
+    processFlow: ["Bill introduction", "Debate/committee", "Passage", "Assent/implementation"],
+    advancedIssues: ["Deliberation quality decline", "Committee bypass concerns", "Money bill misuse debates"],
+    prelimsFocus: ["Joint sitting", "Money bill features", "Session devices"],
+    mainsFocus: ["Institutional reform for scrutiny and productivity"],
+    commonMistakes: ["Confusing ordinary bill and money bill pathways"],
+    mnemonic: "LACB = Legislation, Accountability, Control of Budget",
+    comparison: ["Lok Sabha primacy vs Rajya Sabha federal function"],
+    example: "Committee stage strengthens technical scrutiny of complex bills."
+  },
+  Governor: {
+    legalAnchor: "Articles 153-162, 163, 200.",
+    fundamentals: ["State constitutional head", "Aid and advice model", "Limited discretionary powers"],
+    processFlow: ["State cabinet advice", "Governor action", "Possible reservation/reference", "Judicial scrutiny"],
+    advancedIssues: ["Federal friction", "Delay in assent", "Constitutional convention issues"],
+    prelimsFocus: ["Appointment and tenure", "Bill reservation powers"],
+    mainsFocus: ["Constitutional morality and cooperative federalism"],
+    commonMistakes: ["Assuming unrestricted discretion"],
+    mnemonic: "AAR = Advice, Assent, Reservation",
+    comparison: ["Governor role vs President role in constitutional design"],
+    example: "Bill reservation for President often triggers federal debate."
+  },
+  "Panchayati Raj": {
+    legalAnchor: "Part IX, 73rd Constitutional Amendment.",
+    fundamentals: ["3-tier rural structure", "Gram Sabha centrality", "Devolution principles"],
+    processFlow: ["Plan at local level", "Funds allocation", "Implementation", "Social audit"],
+    advancedIssues: ["Funds-functions-functionaries gap", "Capacity and training limitations"],
+    prelimsFocus: ["Constitutional features and exceptions"],
+    mainsFocus: ["Deepening grassroots democracy"],
+    commonMistakes: ["Ignoring state-specific devolution variation"],
+    mnemonic: "3F = Funds, Functions, Functionaries",
+    comparison: ["Panchayats vs Municipal bodies"],
+    example: "Local water and sanitation planning anchored in Gram Sabha process."
+  },
+  "Election Commission": {
+    legalAnchor: "Article 324 with statutory electoral framework.",
+    fundamentals: ["Election conduct authority", "Level playing field", "Model code oversight"],
+    processFlow: ["Schedule announcement", "Nomination/scrutiny", "Polling", "Counting and certification"],
+    advancedIssues: ["Autonomy concerns", "Campaign finance transparency", "Digital misinformation controls"],
+    prelimsFocus: ["Constitutional basis and powers"],
+    mainsFocus: ["Electoral reforms and institutional strengthening"],
+    commonMistakes: ["Assuming unlimited punitive power under MCC"],
+    mnemonic: "SNPC = Schedule, Nomination, Polling, Counting",
+    comparison: ["Constitutional authority vs statutory limitations"],
+    example: "Enforcement consistency is key for voter trust."
+  }
+};
+
+const getTopicProfile = (topicTitle: string, chapterTitle: string): TopicProfile => {
   const memo = topicTitle.split(" ").map((w) => w[0]).join("");
+  const partial = TOPIC_PROFILES[topicTitle] || {};
+  return {
+    fundamentals: partial.fundamentals || [
+      `${topicTitle} definition and scope`,
+      `${chapterTitle} context and relevance`,
+      "Core conceptual pillars for UPSC understanding"
+    ],
+    legalAnchor: partial.legalAnchor || "Constitutional/statutory basis should be linked while answering this topic.",
+    processFlow: partial.processFlow || ["Concept foundation", "Institutional role", "Operational pathway", "Review and accountability"],
+    advancedIssues: partial.advancedIssues || [
+      "Design strengths and structural limitations",
+      "Implementation and governance bottlenecks",
+      "Reform pathway with constitutional balance"
+    ],
+    prelimsFocus: partial.prelimsFocus || ["Definition precision", "Article/body matching", "Statement-based elimination"],
+    mainsFocus: partial.mainsFocus || ["Intro-body-conclusion with constitutional anchor", "Issue-analysis-reform structure"],
+    commonMistakes: partial.commonMistakes || ["One-sided answers", "No constitutional anchor", "Missing balanced conclusion"],
+    mnemonic: partial.mnemonic || `${memo} Framework`,
+    example: partial.example || `${topicTitle} is frequently applied in governance and constitutional discussions.`,
+    comparison: partial.comparison || ["Core concept vs related concept", "Constitutional text vs practical operation"]
+  };
+};
+
+const buildDeck = (chapterTitle: string, topicTitle: string): Slide[] => {
+  const profile = getTopicProfile(topicTitle, chapterTitle);
   return [
     {
       heading: "Slide 1 - Introduction",
       bullets: [`Topic: ${topicTitle}`, `Chapter: ${chapterTitle}`, "Foundation to advanced flow"],
-      detailedExplanation: `${topicTitle} ni beginner nundi advanced varaku complete ga cover cheyyadaniki structured sequence use chestham. This gives full conceptual clarity for UPSC.`,
-      example: `${topicTitle} is repeatedly used in constitutional and governance analysis questions.`,
+      detailedExplanation: `${topicTitle} ni beginner nundi advanced varaku structured ga cover chestham. This helps with prelims clarity and mains depth.`,
+      example: profile.example,
       visualTitle: "Entry Flowchart",
       visualLines: ["Topic", "-> Definition", "-> Constitutional Anchor", "-> Relevance"]
     },
@@ -70,48 +194,64 @@ const buildDeck = (chapterTitle: string, topicTitle: string): Slide[] => {
     },
     {
       heading: "Slide 3 - Core Concepts",
-      bullets: ["Definition", "Components", "Operational logic"],
-      detailedExplanation: `${topicTitle} concept ni 3 parts lo clear ga break chestham: meaning, structure, process.`,
-      example: `Answer skeleton: define -> explain structure -> show governance output.`,
+      bullets: profile.fundamentals,
+      detailedExplanation: `${topicTitle} concept ni clear ga break chesi, exact conceptual vocabulary tho build chestham.`,
+      example: "Answer skeleton: define -> classify -> explain.",
       visualTitle: "Concept Map",
       visualLines: ["Definition", "Structure", "Process", "Outcome"]
     },
     {
-      heading: "Slide 4 - Intermediate to Advanced",
-      bullets: ["Institutional mechanics", "Constitutional checks", "Reform dimensions"],
-      detailedExplanation: `${topicTitle} advanced understanding means strengths, limitations, and reform pathways ni constitutional lens lo evaluate cheyyadam.`,
-      example: `Balanced mains line: constitutional intent vs implementation gap.`,
+      heading: "Slide 4 - Constitutional / Legal Anchor",
+      bullets: ["Primary constitutional basis", "Statutory supplements", "Interpretive significance"],
+      detailedExplanation: profile.legalAnchor,
+      example: "In mains answers, always mention constitutional anchor in the first half.",
+      visualTitle: "Legal Anchor Table",
+      visualLines: ["Provision", "Scope", "Practical Effect", "UPSC Relevance"]
+    },
+    {
+      heading: "Slide 5 - Process and Institutional Mechanics",
+      bullets: profile.processFlow,
+      detailedExplanation: `${topicTitle} practical operation ni step-wise ga ardham chesukunte application questions easy avutayi.`,
+      example: "Map each step with the responsible institution.",
+      visualTitle: "Operational Flowchart",
+      visualLines: profile.processFlow.map((s, i) => `${i + 1}. ${s}`)
+    },
+    {
+      heading: "Slide 6 - Intermediate to Advanced Analysis",
+      bullets: profile.advancedIssues,
+      detailedExplanation: `${topicTitle} lo critical evaluation points ni strengths-limitations-reforms pattern lo rayadam scoring approach.`,
+      example: "Balanced mains line: constitutional intent vs implementation gap.",
       visualTitle: "Issue-Reform Matrix",
       visualLines: ["Strength", "Limitation", "Impact", "Reform"]
     },
     {
-      heading: "Slide 5 - Visual Comparison",
-      bullets: ["Compare related concepts", "Table-based revision", "High-retention differentiation"],
-      detailedExplanation: `Similar concepts ni table format lo pettadam valla confusion thaggutundi and answer clarity perugutundi.`,
-      example: `Table format: Feature | Concept A | Concept B`,
+      heading: "Slide 7 - Comparison and Visual Representation",
+      bullets: profile.comparison,
+      detailedExplanation: `Similar concepts madhya difference table build chesthe revision speed and retention improve avutayi.`,
+      example: "Table format: Feature | Concept A | Concept B",
       visualTitle: "Comparison Table",
-      visualLines: ["Feature | Side A | Side B", "Basis | ... | ...", "Scope | ... | ...", "Limit | ... | ..."]
+      visualLines: ["Feature | Side A | Side B", "Constitutional Base | ... | ...", "Scope | ... | ...", "Limitations | ... | ..."]
     },
     {
-      heading: "Slide 6 - Memory Tricks and Mistakes",
-      bullets: [`Mnemonic: ${memo} Framework`, "Common mistakes", "Correct handling"],
-      detailedExplanation: `Fast revision kosam mnemonic use cheyyandi. Common mistakes lo article confusion and one-sided conclusions untayi.`,
-      example: `Correction model: exact constitutional anchor + balanced evaluation.`,
+      heading: "Slide 8 - Memory Tricks and Common Mistakes",
+      bullets: [`Mnemonic: ${profile.mnemonic}`, ...profile.commonMistakes],
+      detailedExplanation: "Mnemonic + mistake-alert approach improves quick revision and prevents avoidable errors in exam hall.",
+      example: "Correction model: constitutional anchor + evidence + balanced conclusion.",
       visualTitle: "Retention Block",
-      visualLines: ["Mnemonic", "Mistake Alert", "Correct Pattern"]
+      visualLines: ["Mnemonic", "Mistake Alert", "Correct Pattern", "Final Recall"]
     },
     {
-      heading: "Slide 7 - Exam-Oriented Questions",
+      heading: "Slide 9 - Exam-Oriented Questions",
       bullets: ["Prelims style check", "Mains 10/15 marker", "Interview prompt"],
-      detailedExplanation: `${topicTitle} ni exam framing lo practice chesthe response quality and speed rendu improve avutayi.`,
+      detailedExplanation: `${topicTitle} ni prelims-fact, mains-analysis, interview-application mode lo practice chesthe output quality improve avutundi.`,
       example: `Mains sample: Critically examine ${topicTitle} in constitutional governance.`,
       visualTitle: "Question Ladder",
       visualLines: ["Prelims fact", "Mains analysis", "Interview application"]
     },
     {
-      heading: "Slide 8 - Summary and Quick Revision",
-      bullets: ["Key points", "One-page recall", "Answer writing formula"],
-      detailedExplanation: `Final recall format: Intro (2 lines) -> Body (3 subheadings) -> Balanced conclusion (1 line).`,
+      heading: "Slide 10 - Summary and Quick Revision",
+      bullets: ["Key points", ...profile.prelimsFocus.slice(0, 2), ...profile.mainsFocus.slice(0, 2)],
+      detailedExplanation: "Final recall format: Intro (2 lines) -> Body (3 subheadings) -> Balanced conclusion (1 line).",
       example: `Final formula: Define -> Explain -> Analyze -> Reform -> Conclude.`,
       visualTitle: "Revision Flow",
       visualLines: ["30s recall", "2 min structure", "5 min writing"]
