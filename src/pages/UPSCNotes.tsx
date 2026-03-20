@@ -522,7 +522,17 @@ const UPSCNotes = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
       <div className="container mx-auto max-w-7xl px-4 py-6">
         <div className="mb-6 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              if (selectedSubjectId) {
+                setSelectedSubjectId(null);
+                return;
+              }
+              navigate("/dashboard");
+            }}
+          >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
