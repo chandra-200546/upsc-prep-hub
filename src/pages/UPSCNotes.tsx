@@ -221,39 +221,52 @@ const UPSCNotes = () => {
         parsed = JSON.parse(extractJson(txt));
       } catch {
         try {
-          const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
-          const res = await fetch(CHAT_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({
-              messages: [{ role: "user", content: prompt }],
-              chatType: "mentor",
-            }),
-          });
-          if (!res.ok) throw new Error("AI fallback failed");
-          const reader = res.body?.getReader();
-          const decoder = new TextDecoder();
-          while (reader) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const chunk = decoder.decode(value);
-            const lines = chunk.split("\n").filter((l) => l.trim());
-            for (const line of lines) {
-              if (!line.startsWith("data: ")) continue;
-              const d = line.slice(6);
-              if (d === "[DONE]") continue;
-              try {
-                const p = JSON.parse(d);
-                const c = p.choices?.[0]?.delta?.content;
-                if (c) txt += c;
-              } catch {
-                // ignore chunk parse errors
+          // Lovable AI fallback path via existing ai-chat edge function
+          const callLovable = async () => {
+            const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
+            const res = await fetch(CHAT_URL, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify({
+                messages: [{ role: "user", content: prompt }],
+                chatType: "mentor",
+              }),
+            });
+            if (!res.ok) throw new Error("Lovable AI fallback failed");
+            const reader = res.body?.getReader();
+            const decoder = new TextDecoder();
+            let output = "";
+            while (reader) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const chunk = decoder.decode(value);
+              const lines = chunk.split("\n").filter((l) => l.trim());
+              for (const line of lines) {
+                if (!line.startsWith("data: ")) continue;
+                const d = line.slice(6);
+                if (d === "[DONE]") continue;
+                try {
+                  const p = JSON.parse(d);
+                  const c = p.choices?.[0]?.delta?.content;
+                  if (c) output += c;
+                } catch {
+                  // ignore chunk parse errors
+                }
               }
             }
+            return output;
+          };
+
+          try {
+            txt = await callLovable();
+          } catch {
+            // retry once for transient network/edge hiccups
+            txt = await callLovable();
           }
+
           try {
             parsed = JSON.parse(extractJson(txt));
           } catch {
