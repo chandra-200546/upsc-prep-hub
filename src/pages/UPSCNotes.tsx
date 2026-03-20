@@ -54,6 +54,7 @@ const extractJson = (raw: string) => {
 
 const lk = (u: string) => `upsc_smart_notes_${u}`;
 const rk = (u: string) => `upsc_smart_notes_resume_${u}`;
+const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || "";
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyCptUUsOPzqeQ2HTKAF_LcX9V42wmHC-nM";
 
 const normalizeDeck = (input: any, topic: string, subjectName: string): Deck => {
@@ -194,8 +195,43 @@ const UPSCNotes = () => {
     try {
       let txt = "";
       let parsed: any = null;
+      let openAiError = "";
       let geminiError = "";
       try {
+        if (!OPENAI_API_KEY) throw new Error("OpenAI key missing");
+        const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            temperature: 0.2,
+            messages: [
+              { role: "system", content: "Return only valid JSON for UPSC smart notes schema." },
+              { role: "user", content: prompt },
+            ],
+          }),
+        });
+        if (!openaiRes.ok) {
+          const errText = await openaiRes.text();
+          openAiError = errText || String(openaiRes.status);
+          throw new Error(`OpenAI failed: ${errText || openaiRes.status}`);
+        }
+        const openaiData = await openaiRes.json();
+        txt = openaiData?.choices?.[0]?.message?.content || "";
+        if (!txt) throw new Error("OpenAI returned empty content");
+        parsed = JSON.parse(extractJson(txt));
+      } catch {
+        // continue to Gemini
+      }
+      try {
+        if (parsed) {
+          setDeck(normalizeDeck(parsed, topic.trim(), subject.name));
+          setView("study");
+          return;
+        }
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
           {
@@ -271,6 +307,12 @@ const UPSCNotes = () => {
             parsed = JSON.parse(extractJson(txt));
           } catch {
             parsed = buildDeckFromAiText(subject.name, topic.trim(), txt);
+          }
+          if (openAiError) {
+            toast({
+              title: "OpenAI unavailable",
+              description: "Using alternate AI provider for generation.",
+            });
           }
           if (geminiError) {
             toast({
