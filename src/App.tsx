@@ -54,8 +54,9 @@ const App = () => (
             <Route path="/current-affairs" element={<CurrentAffairs />} />
             <Route path="/study-plan" element={<StudyPlan />} />
             <Route path="/mains" element={<Mains />} />
-            <Route path="/notes" element={<NotesLibrary />} />
+            <Route path="/notes" element={<UPSCNotes />} />
             <Route path="/upsc-notes" element={<UPSCNotes />} />
+            <Route path="/notes-library" element={<NotesLibrary />} />
             <Route path="/map-practice" element={<MapPractice />} />
             <Route path="/mock-interview" element={<MockInterview />} />
             <Route path="/pyq-engine" element={<PYQEngine />} />
