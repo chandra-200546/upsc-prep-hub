@@ -54,7 +54,7 @@ const extractJson = (raw: string) => {
 
 const lk = (u: string) => `upsc_smart_notes_${u}`;
 const rk = (u: string) => `upsc_smart_notes_resume_${u}`;
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyAKKBF97-LEF-oLM6l3JWFINFUdJH_m5Qw";
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyCptUUsOPzqeQ2HTKAF_LcX9V42wmHC-nM";
 
 const normalizeDeck = (input: any, topic: string, subjectName: string): Deck => {
   const slidesRaw = Array.isArray(input?.slides) ? input.slides : [];
