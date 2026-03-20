@@ -47,6 +47,8 @@ const SUBJECTS: Subject[] = [
   { id: "current-affairs", name: "Current Affairs", examFocus: "GS I/II/III + Essay + Interview", description: "Will be added in same style", chapters: [] }
 ];
 
+const REFERENCE_SOURCE = "Laxmikanth Indian Polity 8th Edition (project reference copy)";
+
 const buildDeck = (chapterTitle: string, topicTitle: string): Slide[] => {
   const memo = topicTitle.split(" ").map((w) => w[0]).join("");
   return [
@@ -168,6 +170,16 @@ const UPSCNotes = () => {
             <p className="text-muted-foreground">Hardcoded visual slides for instant learning</p>
           </div>
         </div>
+
+        <Card className="mb-6 border-primary/20 bg-gradient-to-r from-primary/10 to-accent/10">
+          <CardContent className="flex items-center justify-between gap-3 p-4">
+            <div>
+              <p className="text-sm font-semibold">Reference Source</p>
+              <p className="text-xs text-muted-foreground">{REFERENCE_SOURCE}</p>
+            </div>
+            <Badge variant="secondary">Stored in /references</Badge>
+          </CardContent>
+        </Card>
 
         {!selectedSubject && (
           <Card className="mb-6">
