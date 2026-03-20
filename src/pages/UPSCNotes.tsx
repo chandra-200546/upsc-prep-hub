@@ -217,8 +217,8 @@ const UPSCNotes = () => {
           } catch {
             parsed = buildDeckFromAiText(subject.name, topic.trim(), txt);
           }
-        } catch {
-          throw new Error("OpenAI generation failed. Please check API key/billing and retry.");
+        } catch (fallbackError: any) {
+          throw new Error(fallbackError?.message || "OpenAI generation failed.");
         }
       }
       setDeck(normalizeDeck(parsed, topic.trim(), subject.name));

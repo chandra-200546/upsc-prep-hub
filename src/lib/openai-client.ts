@@ -60,8 +60,18 @@ export const streamOpenAIText = async ({
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || "OpenAI request failed");
+    const raw = await response.text();
+    let message = raw || "OpenAI request failed";
+    try {
+      const parsed = JSON.parse(raw);
+      message =
+        parsed?.error?.message ||
+        parsed?.message ||
+        message;
+    } catch {
+      // keep raw message
+    }
+    throw new Error(`OpenAI ${response.status}: ${message}`);
   }
 
   const reader = response.body?.getReader();
