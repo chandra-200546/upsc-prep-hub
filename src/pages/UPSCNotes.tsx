@@ -136,26 +136,68 @@ const UPSCNotes = () => {
     setLoading(true); setDeck(null); setSlideIndex(0); setPassed([]); setAns(""); setMcq(""); setFeedback(null);
     const prompt = `Create UPSC Smart Notes JSON.\nSubject: ${subject.name}\nTopic: ${topic.trim()}\nSchema: {"topicTitle":"","chapterTitle":"","slides":[{"slideNumber":1,"topicName":"","subtopicTitle":"","structuredExplanation":"","points":[""],"keyTakeaway":""}],"checkpointQuestions":[{"afterSlide":3,"type":"mcq or short","question":"","options":[""],"correctAnswer":"","acceptableAnswers":[""],"explanation":""}],"practiceQuestions":[{"questionText":"","difficulty":"Easy or Medium or Hard","type":"Prelims or Mains or Analytical","answer":"","explanation":"","keyPoints":[""]}],"revisionSummary":[""]}\nRules: 15-20 slides, checkpoint after each 3 slides, exactly 10 practice questions, UPSC prelims+mains quality.`;
     try {
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
+      let txt = "";
+      try {
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.25,
+                responseMimeType: "application/json",
+              },
+            }),
+          },
+        );
+        if (!geminiRes.ok) {
+          const errText = await geminiRes.text();
+          throw new Error(`Gemini failed: ${errText || geminiRes.status}`);
+        }
+        const geminiData = await geminiRes.json();
+        txt = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        if (!txt) throw new Error("Gemini returned empty content");
+      } catch {
+        const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
+        const res = await fetch(CHAT_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.25,
-              responseMimeType: "application/json",
-            },
+            messages: [{ role: "user", content: prompt }],
+            chatType: "mentor",
           }),
-        },
-      );
-      if (!geminiRes.ok) throw new Error("AI generation failed");
-      const geminiData = await geminiRes.json();
-      const txt = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!txt) throw new Error("AI generation failed");
+        });
+        if (!res.ok) throw new Error("AI fallback failed");
+        const reader = res.body?.getReader();
+        const decoder = new TextDecoder();
+        while (reader) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n").filter((l) => l.trim());
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const d = line.slice(6);
+            if (d === "[DONE]") continue;
+            try {
+              const p = JSON.parse(d);
+              const c = p.choices?.[0]?.delta?.content;
+              if (c) txt += c;
+            } catch {
+              // ignore chunk parse errors
+            }
+          }
+        }
+      }
+
       const parsed = JSON.parse(extractJson(txt));
-      setDeck(normalizeDeck(parsed, topic.trim(), subject.name)); setView("study");
+      setDeck(normalizeDeck(parsed, topic.trim(), subject.name));
+      setView("study");
     } catch (e: any) {
       toast({ title: "Generation failed", description: e?.message || "Could not generate.", variant: "destructive" });
     } finally { setLoading(false); }
