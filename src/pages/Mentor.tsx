@@ -9,6 +9,7 @@ import { ArrowLeft, Send, Loader2, Mic } from "lucide-react";
 import { useVoiceSynthesis } from "@/hooks/use-voice-synthesis";
 import { VoiceControls, AutoPlayToggle } from "@/components/VoiceControls";
 import { isWithinUpscScope, UPSC_REFUSAL_TEXT } from "@/lib/upscScope";
+import { streamOpenAIText } from "@/lib/openai-client";
 
 type Message = {
   role: "user" | "assistant";
@@ -106,64 +107,34 @@ const Mentor = () => {
         return;
       }
 
-      // Call AI
-      const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
-      const response = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          messages: [...messages, userMessage],
-          chatType: "mentor",
-          mentorPersonality: profile?.mentor_personality || "friendly",
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to get response");
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
       let assistantMessage = "";
+      const systemPrompt = `You are an AI Chatbot designed ONLY for UPSC aspirants.
+Answer only UPSC syllabus topics. If outside UPSC, reply exactly:
+"Sorry Aspirant, I focus only on UPSC-related topics. Let's stay on track! 📘"
+Use clear UPSC structure with intro, points, and short conclusion.`;
 
-      while (reader) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n").filter((line) => line.trim() !== "");
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            if (data === "[DONE]") continue;
-
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                assistantMessage += content;
-                setMessages((prev) => {
-                  const newMessages = [...prev];
-                  const lastMessage = newMessages[newMessages.length - 1];
-                  if (lastMessage?.role === "assistant") {
-                    lastMessage.content = assistantMessage;
-                  } else {
-                    newMessages.push({ role: "assistant", content: assistantMessage });
-                  }
-                  return newMessages;
-                });
-              }
-            } catch (e) {
-              // Ignore parse errors
+      await streamOpenAIText({
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...[...messages, userMessage].map((m) => ({
+            role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
+            content: m.content,
+          })),
+        ],
+        onDelta: (content) => {
+          assistantMessage += content;
+          setMessages((prev) => {
+            const newMessages = [...prev];
+            const lastMessage = newMessages[newMessages.length - 1];
+            if (lastMessage?.role === "assistant") {
+              lastMessage.content = assistantMessage;
+            } else {
+              newMessages.push({ role: "assistant", content: assistantMessage });
             }
-          }
-        }
-      }
+            return newMessages;
+          });
+        },
+      });
 
       // Save assistant message
       await supabase.from("chat_messages").insert({

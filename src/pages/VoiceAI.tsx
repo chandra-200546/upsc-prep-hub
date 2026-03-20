@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Mic, MicOff, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { isWithinUpscScope, UPSC_REFUSAL_TEXT } from "@/lib/upscScope";
+import { streamOpenAIText } from "@/lib/openai-client";
 
 type Message = {
   role: "user" | "assistant";
@@ -162,53 +163,25 @@ const VoiceAI = () => {
         return;
       }
 
-      const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
-      const response = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          messages: [...messages, userMessage],
-          chatType: "voice-assistant",
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to get response");
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
       let assistantMessage = "";
+      const systemPrompt = `You are a voice UPSC mentor. Answer only UPSC syllabus topics.
+If outside UPSC, reply exactly:
+"Sorry Aspirant, I focus only on UPSC-related topics. Let's stay on track! 📘"
+Keep spoken responses concise and structured.`;
 
-      while (reader) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n").filter((line) => line.trim() !== "");
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            if (data === "[DONE]") continue;
-
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                assistantMessage += content;
-                setCurrentResponse(assistantMessage);
-              }
-            } catch (e) {
-              // Ignore parse errors
-            }
-          }
-        }
-      }
+      await streamOpenAIText({
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...[...messages, userMessage].map((m) => ({
+            role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
+            content: m.content,
+          })),
+        ],
+        onDelta: (content) => {
+          assistantMessage += content;
+          setCurrentResponse(assistantMessage);
+        },
+      });
 
       // Clean the response
       const cleanResponse = assistantMessage

@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Video, VideoOff, Mic, MicOff, Play, Square, MessageSquare } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import interviewerAvatar from "@/assets/interviewer-avatar.jpg";
+import { streamOpenAIText } from "@/lib/openai-client";
 
 type Message = {
   role: "interviewer" | "candidate";
@@ -137,42 +138,9 @@ const MockInterview = () => {
       content: m.content,
     }));
 
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({
-        messages: [{ role: "system", content: UPSC_SYSTEM_PROMPT }, ...aiMessages],
-        chatType: "voice-assistant",
-      }),
+    return streamOpenAIText({
+      messages: [{ role: "system", content: UPSC_SYSTEM_PROMPT }, ...aiMessages],
     });
-
-    if (!response.ok) throw new Error("AI response failed");
-
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("No response body");
-
-    let fullText = "";
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      for (const line of chunk.split("\n")) {
-        if (!line.startsWith("data: ")) continue;
-        const data = line.slice(6).trim();
-        if (data === "[DONE]") continue;
-        try {
-          const parsed = JSON.parse(data);
-          const content = parsed.choices?.[0]?.delta?.content;
-          if (content) fullText += content;
-        } catch {}
-      }
-    }
-    return fullText;
   }, []);
 
   const requestPermissions = async () => {

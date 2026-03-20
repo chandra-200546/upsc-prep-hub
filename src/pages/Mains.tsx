@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Send, Loader2, BookOpen, Upload, Image as ImageIcon, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { streamOpenAIText } from "@/lib/openai-client";
 
 interface DailyQuestion {
   id: string;
@@ -259,55 +260,21 @@ Since you cannot see the image, provide general feedback on what makes a good UP
 Encourage them to practice more and mention that detailed evaluation requires text input.
 Use plain text only and avoid markdown symbols.`;
 
-      // Stream the evaluation
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            messages: [{ role: "user", content: evaluationPrompt }],
-            chatType: "mains_evaluation",
-          }),
-        }
-      );
-
-      if (!response.ok) throw new Error("Failed to get evaluation");
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
       let accumulatedFeedback = "";
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n");
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6);
-              if (data === "[DONE]") continue;
-
-              try {
-                const parsed = JSON.parse(data);
-                const content = parsed.choices?.[0]?.delta?.content;
-                if (content) {
-                  accumulatedFeedback += content;
-                  setFeedback(accumulatedFeedback);
-                }
-              } catch (e) {
-                // Skip invalid JSON
-              }
-            }
-          }
-        }
-      }
+      await streamOpenAIText({
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a strict but supportive UPSC mains evaluator. Return plain text only in requested format.",
+          },
+          { role: "user", content: evaluationPrompt },
+        ],
+        onDelta: (content) => {
+          accumulatedFeedback += content;
+          setFeedback(accumulatedFeedback);
+        },
+      });
 
       if (insertedSubmission?.id) {
         const extractedMarks = submitMode === "text" ? extractTotalMarks(accumulatedFeedback) : null;

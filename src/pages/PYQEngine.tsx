@@ -24,6 +24,7 @@ import {
   Zap,
   BookOpen,
 } from "lucide-react";
+import { streamOpenAIText } from "@/lib/openai-client";
 
 type ExamType = "prelims" | "mains" | "optional" | "essay";
 type AnalysisSection = "trends" | "predictions" | "strategy" | "practice";
@@ -414,48 +415,17 @@ Areas for Improvement: 2-3 points in one paragraph
 Specific Suggestions: 3-4 actionable suggestions in one paragraph
 Model Answer: 150-200 word model answer in simple UPSC language`;
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: evaluationPrompt }],
-          chatType: "mains_evaluation",
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to evaluate answer");
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
       let accumulated = "";
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n");
-
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const data = line.slice(6);
-            if (data === "[DONE]") continue;
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                accumulated += content;
-                setWritingFeedback(accumulated);
-              }
-            } catch {
-              // Skip invalid chunk
-            }
-          }
-        }
-      }
+      await streamOpenAIText({
+        messages: [
+          { role: "system", content: "You are a UPSC evaluator. Return plain text in requested format only." },
+          { role: "user", content: evaluationPrompt },
+        ],
+        onDelta: (content) => {
+          accumulated += content;
+          setWritingFeedback(accumulated);
+        },
+      });
 
       const totalMarks = extractTotalMarks(accumulated);
       await awardXP(XP_REWARDS.MAINS_SUBMISSION, "PYQ descriptive answer submitted!");

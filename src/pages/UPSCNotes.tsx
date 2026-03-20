@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, Loader2, Search, Trash2 } from "lucide-react";
+import { streamOpenAIText } from "@/lib/openai-client";
 
 type Subject = { id: string; name: string; description: string; examFocus: string };
 type Slide = { slideNumber: number; topicName: string; subtopicTitle: string; structuredExplanation: string; points: string[]; keyTakeaway: string };
@@ -222,52 +223,14 @@ const UPSCNotes = () => {
         if (!txt) throw new Error("OpenAI returned empty content");
         parsed = JSON.parse(extractJson(txt));
       } catch {
-        // fallback to backend ai-chat (also OpenAI-backed)
+        // fallback to direct OpenAI streaming
         try {
-          const callAiChat = async () => {
-            const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
-            const res = await fetch(CHAT_URL, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-              },
-              body: JSON.stringify({
-                messages: [{ role: "user", content: prompt }],
-                chatType: "mentor",
-              }),
-            });
-            if (!res.ok) throw new Error("AI fallback failed");
-            const reader = res.body?.getReader();
-            const decoder = new TextDecoder();
-            let output = "";
-            while (reader) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              const chunk = decoder.decode(value);
-              const lines = chunk.split("\n").filter((l) => l.trim());
-              for (const line of lines) {
-                if (!line.startsWith("data: ")) continue;
-                const d = line.slice(6);
-                if (d === "[DONE]") continue;
-                try {
-                  const p = JSON.parse(d);
-                  const c = p.choices?.[0]?.delta?.content;
-                  if (c) output += c;
-                } catch {
-                  // ignore chunk parse errors
-                }
-              }
-            }
-            return output;
-          };
-
-          try {
-            txt = await callAiChat();
-          } catch {
-            // retry once for transient network/edge hiccups
-            txt = await callAiChat();
-          }
+          txt = await streamOpenAIText({
+            messages: [
+              { role: "system", content: "Return only valid JSON for UPSC smart notes schema." },
+              { role: "user", content: prompt },
+            ],
+          });
 
           try {
             parsed = JSON.parse(extractJson(txt));
@@ -277,7 +240,7 @@ const UPSCNotes = () => {
           if (openAiError) {
             toast({
               title: "OpenAI unavailable",
-              description: "Using backend AI fallback for generation.",
+              description: "Using streaming OpenAI fallback for generation.",
             });
           }
         } catch {
