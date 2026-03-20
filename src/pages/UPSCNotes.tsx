@@ -111,13 +111,79 @@ const UPSCNotes = () => {
     setCheckpointAnswer("");
 
     try {
-      const { data, error } = await supabase.functions.invoke("upsc-notes-slides", {
-        body: { subject: selectedSubjectId, topic: topicInput.trim() }
+      const notesPrompt = `Generate UPSC notes in strict JSON only.
+Subject: ${selectedSubject?.name || selectedSubjectId}
+Topic: ${topicInput.trim()}
+
+Return this exact schema:
+{
+  "topicTitle": "string",
+  "chapterTitle": "string",
+  "slides": [
+    {
+      "heading": "string",
+      "bullets": ["string"],
+      "detailedExplanation": "string",
+      "example": "string",
+      "visualTitle": "string",
+      "visualLines": ["string"]
+    }
+  ],
+  "quizzes": [
+    {
+      "afterSlide": 3,
+      "question": "string",
+      "acceptableAnswers": ["string"]
+    }
+  ],
+  "sources": ["string"]
+}
+
+Rules:
+- 10 to 15 slides only
+- UPSC exam-focused
+- Quiz checkpoints after every 3 slides`;
+
+      const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
+      const response = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: notesPrompt }],
+          chatType: "mentor",
+        }),
       });
+      if (!response.ok) {
+        const err = await response.json().catch(() => null);
+        throw new Error(err?.error || "Failed to generate notes");
+      }
 
-      if (error) throw error;
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let assistantMessage = "";
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n").filter((line) => line.trim() !== "");
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6);
+          if (payload === "[DONE]") continue;
+          try {
+            const parsedLine = JSON.parse(payload);
+            const content = parsedLine.choices?.[0]?.delta?.content;
+            if (content) assistantMessage += content;
+          } catch {
+            // ignore streaming parse chunk errors
+          }
+        }
+      }
 
-      const parsed = typeof data === "string" ? JSON.parse(extractJson(data)) : data;
+      const parsed = JSON.parse(extractJson(assistantMessage));
       if (!parsed?.slides || !Array.isArray(parsed.slides) || parsed.slides.length === 0) {
         throw new Error("No slides generated");
       }
