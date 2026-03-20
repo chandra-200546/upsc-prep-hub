@@ -5,7 +5,19 @@ export type OpenAIMessage = {
   content: string;
 };
 
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || "";
+const getOpenAIKey = () => {
+  const envKey = import.meta.env.VITE_OPENAI_API_KEY || "";
+  if (envKey) return envKey;
+
+  try {
+    const local = window.localStorage.getItem("OPENAI_API_KEY") || "";
+    if (local) return local;
+  } catch {
+    // ignore storage read errors
+  }
+
+  return "";
+};
 
 export const streamOpenAIText = async ({
   messages,
@@ -16,7 +28,20 @@ export const streamOpenAIText = async ({
   onDelta?: (delta: string) => void;
   model?: string;
 }) => {
-  if (!OPENAI_API_KEY) {
+  let apiKey = getOpenAIKey();
+  if (!apiKey && typeof window !== "undefined") {
+    const entered = window.prompt("Enter OpenAI API Key to continue AI features:");
+    if (entered && entered.trim()) {
+      apiKey = entered.trim();
+      try {
+        window.localStorage.setItem("OPENAI_API_KEY", apiKey);
+      } catch {
+        // ignore storage errors
+      }
+    }
+  }
+
+  if (!apiKey) {
     throw new Error("OpenAI API key is not configured");
   }
 
@@ -24,7 +49,7 @@ export const streamOpenAIText = async ({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model,
