@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, Loader2, Search, Trash2 } from "lucide-react";
-import { streamOpenAIText } from "@/lib/openai-client";
+import { streamGeminiText } from "@/lib/openai-client";
 
 type Subject = { id: string; name: string; description: string; examFocus: string };
 type Slide = { slideNumber: number; topicName: string; subtopicTitle: string; structuredExplanation: string; points: string[]; keyTakeaway: string };
@@ -195,7 +195,7 @@ const UPSCNotes = () => {
       let txt = "";
       let parsed: any = null;
       try {
-        txt = await streamOpenAIText({
+        txt = await streamGeminiText({
           messages: [
             { role: "system", content: "Return only valid JSON for UPSC smart notes schema." },
             { role: "user", content: prompt },
@@ -203,9 +203,9 @@ const UPSCNotes = () => {
         });
         parsed = JSON.parse(extractJson(txt));
       } catch {
-        // fallback to direct OpenAI streaming
+        // fallback to direct Gemini streaming
         try {
-          txt = await streamOpenAIText({
+          txt = await streamGeminiText({
             messages: [
               { role: "system", content: "Return only valid JSON for UPSC smart notes schema." },
               { role: "user", content: prompt },
@@ -218,7 +218,7 @@ const UPSCNotes = () => {
             parsed = buildDeckFromAiText(subject.name, topic.trim(), txt);
           }
         } catch (fallbackError: any) {
-          throw new Error(fallbackError?.message || "OpenAI generation failed.");
+          throw new Error(fallbackError?.message || "Gemini generation failed.");
         }
       }
       setDeck(normalizeDeck(parsed, topic.trim(), subject.name));

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Send, Loader2, BookOpen, Upload, Image as ImageIcon, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { streamOpenAIText } from "@/lib/openai-client";
+import { streamGeminiText } from "@/lib/openai-client";
 
 interface DailyQuestion {
   id: string;
@@ -261,7 +261,7 @@ Encourage them to practice more and mention that detailed evaluation requires te
 Use plain text only and avoid markdown symbols.`;
 
       let accumulatedFeedback = "";
-      await streamOpenAIText({
+      await streamGeminiText({
         messages: [
           {
             role: "system",

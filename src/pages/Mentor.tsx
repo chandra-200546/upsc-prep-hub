@@ -9,7 +9,7 @@ import { ArrowLeft, Send, Loader2, Mic } from "lucide-react";
 import { useVoiceSynthesis } from "@/hooks/use-voice-synthesis";
 import { VoiceControls, AutoPlayToggle } from "@/components/VoiceControls";
 import { isWithinUpscScope, UPSC_REFUSAL_TEXT } from "@/lib/upscScope";
-import { streamOpenAIText } from "@/lib/openai-client";
+import { streamGeminiText } from "@/lib/openai-client";
 
 type Message = {
   role: "user" | "assistant";
@@ -113,7 +113,7 @@ Answer only UPSC syllabus topics. If outside UPSC, reply exactly:
 "Sorry Aspirant, I focus only on UPSC-related topics. Let's stay on track! 📘"
 Use clear UPSC structure with intro, points, and short conclusion.`;
 
-      await streamOpenAIText({
+      await streamGeminiText({
         messages: [
           { role: "system", content: systemPrompt },
           ...[...messages, userMessage].map((m) => ({

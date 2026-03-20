@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Mic, MicOff, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { isWithinUpscScope, UPSC_REFUSAL_TEXT } from "@/lib/upscScope";
-import { streamOpenAIText } from "@/lib/openai-client";
+import { streamGeminiText } from "@/lib/openai-client";
 
 type Message = {
   role: "user" | "assistant";
@@ -169,7 +169,7 @@ If outside UPSC, reply exactly:
 "Sorry Aspirant, I focus only on UPSC-related topics. Let's stay on track! 📘"
 Keep spoken responses concise and structured.`;
 
-      await streamOpenAIText({
+      await streamGeminiText({
         messages: [
           { role: "system", content: systemPrompt },
           ...[...messages, userMessage].map((m) => ({

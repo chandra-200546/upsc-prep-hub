@@ -1,16 +1,16 @@
 type ChatRole = "system" | "user" | "assistant";
 
-export type OpenAIMessage = {
+export type GeminiMessage = {
   role: ChatRole;
   content: string;
 };
 
-const getOpenAIKey = () => {
-  const envKey = import.meta.env.VITE_OPENAI_API_KEY || "";
+const getGeminiKey = () => {
+  const envKey = import.meta.env.VITE_GEMINI_API_KEY || "";
   if (envKey) return envKey;
 
   try {
-    const local = window.localStorage.getItem("OPENAI_API_KEY") || "";
+    const local = window.localStorage.getItem("GEMINI_API_KEY") || "";
     if (local) return local;
   } catch {
     // ignore storage read errors
@@ -19,22 +19,22 @@ const getOpenAIKey = () => {
   return "";
 };
 
-export const streamOpenAIText = async ({
+export const streamGeminiText = async ({
   messages,
   onDelta,
-  model = "gpt-4o-mini",
+  model = "gemini-2.0-flash",
 }: {
-  messages: OpenAIMessage[];
+  messages: GeminiMessage[];
   onDelta?: (delta: string) => void;
   model?: string;
 }) => {
-  let apiKey = getOpenAIKey();
+  let apiKey = getGeminiKey();
   if (!apiKey && typeof window !== "undefined") {
-    const entered = window.prompt("Enter OpenAI API Key to continue AI features:");
+    const entered = window.prompt("Enter Gemini API Key to continue AI features:");
     if (entered && entered.trim()) {
       apiKey = entered.trim();
       try {
-        window.localStorage.setItem("OPENAI_API_KEY", apiKey);
+        window.localStorage.setItem("GEMINI_API_KEY", apiKey);
       } catch {
         // ignore storage errors
       }
@@ -42,26 +42,32 @@ export const streamOpenAIText = async ({
   }
 
   if (!apiKey) {
-    throw new Error("OpenAI API key is not configured");
+    throw new Error("Gemini API key is not configured");
   }
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const systemMessage = messages.find((m) => m.role === "system")?.content || "";
+  const conversation = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
+    .join("\n\n");
+  const fullPrompt = `${systemMessage}\n\n${conversation}`.trim();
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model,
-      messages,
-      stream: true,
-      temperature: 0.2,
+      contents: [{ parts: [{ text: fullPrompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+      },
     }),
   });
 
   if (!response.ok) {
     const raw = await response.text();
-    let message = raw || "OpenAI request failed";
+    let message = raw || "Gemini request failed";
     try {
       const parsed = JSON.parse(raw);
       message =
@@ -71,39 +77,13 @@ export const streamOpenAIText = async ({
     } catch {
       // keep raw message
     }
-    throw new Error(`OpenAI ${response.status}: ${message}`);
+    throw new Error(`Gemini ${response.status}: ${message}`);
   }
 
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("No response stream");
-
-  const decoder = new TextDecoder();
-  let fullText = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    const chunk = decoder.decode(value, { stream: true });
-    const lines = chunk.split("\n");
-
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      const data = line.slice(6).trim();
-      if (!data || data === "[DONE]") continue;
-
-      try {
-        const parsed = JSON.parse(data);
-        const delta = parsed?.choices?.[0]?.delta?.content;
-        if (delta) {
-          fullText += delta;
-          onDelta?.(delta);
-        }
-      } catch {
-        // Ignore transient partial SSE lines
-      }
-    }
-  }
+  const parsed = await response.json();
+  const fullText = parsed?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || "").join("") || "";
+  if (!fullText) throw new Error("Gemini returned empty response");
+  onDelta?.(fullText);
 
   return fullText;
 };

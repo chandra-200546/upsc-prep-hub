@@ -49,9 +49,9 @@ serve(async (req) => {
       });
     }
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "OPENAI_API_KEY is not configured" }), {
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      return new Response(JSON.stringify({ error: "GEMINI_API_KEY is not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -101,14 +101,14 @@ Output schema:
 Topic: ${topic.trim()}
 Create complete notes slides with checkpoints.`;
 
-    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+    const GeminiRes = await fetch("https://generativelanguage.googleapis.com/v1beta/Gemini/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${GEMINI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gemini-2.0-flash",
         temperature: 0.3,
         messages: [
           { role: "system", content: systemInstruction },
@@ -117,19 +117,19 @@ Create complete notes slides with checkpoints.`;
       }),
     });
 
-    if (!openaiRes.ok) {
-      const errorText = await openaiRes.text();
-      console.error("OpenAI error:", openaiRes.status, errorText);
-      return new Response(JSON.stringify({ error: "Failed to generate slides from OpenAI" }), {
+    if (!GeminiRes.ok) {
+      const errorText = await GeminiRes.text();
+      console.error("Gemini error:", GeminiRes.status, errorText);
+      return new Response(JSON.stringify({ error: "Failed to generate slides from Gemini" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const openaiData = await openaiRes.json();
-    const rawText = openaiData?.choices?.[0]?.message?.content;
+    const GeminiData = await GeminiRes.json();
+    const rawText = GeminiData?.choices?.[0]?.message?.content;
     if (!rawText) {
-      return new Response(JSON.stringify({ error: "OpenAI returned empty response" }), {
+      return new Response(JSON.stringify({ error: "Gemini returned empty response" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -149,7 +149,7 @@ Create complete notes slides with checkpoints.`;
         chapterTitle: parsed.chapterTitle || subject,
         slides: parsed.slides.slice(0, 15),
         quizzes: Array.isArray(parsed.quizzes) ? parsed.quizzes : [],
-        sources: Array.isArray(parsed.sources) ? parsed.sources : ["OpenAI generated UPSC study deck"],
+        sources: Array.isArray(parsed.sources) ? parsed.sources : ["Gemini generated UPSC study deck"],
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

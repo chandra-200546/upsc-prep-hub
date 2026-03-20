@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Video, VideoOff, Mic, MicOff, Play, Square, MessageSquare } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import interviewerAvatar from "@/assets/interviewer-avatar.jpg";
-import { streamOpenAIText } from "@/lib/openai-client";
+import { streamGeminiText } from "@/lib/openai-client";
 
 type Message = {
   role: "interviewer" | "candidate";
@@ -138,7 +138,7 @@ const MockInterview = () => {
       content: m.content,
     }));
 
-    return streamOpenAIText({
+    return streamGeminiText({
       messages: [{ role: "system", content: UPSC_SYSTEM_PROMPT }, ...aiMessages],
     });
   }, []);

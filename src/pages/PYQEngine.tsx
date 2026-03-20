@@ -24,7 +24,7 @@ import {
   Zap,
   BookOpen,
 } from "lucide-react";
-import { streamOpenAIText } from "@/lib/openai-client";
+import { streamGeminiText } from "@/lib/openai-client";
 
 type ExamType = "prelims" | "mains" | "optional" | "essay";
 type AnalysisSection = "trends" | "predictions" | "strategy" | "practice";
@@ -416,7 +416,7 @@ Specific Suggestions: 3-4 actionable suggestions in one paragraph
 Model Answer: 150-200 word model answer in simple UPSC language`;
 
       let accumulated = "";
-      await streamOpenAIText({
+      await streamGeminiText({
         messages: [
           { role: "system", content: "You are a UPSC evaluator. Return plain text in requested format only." },
           { role: "user", content: evaluationPrompt },

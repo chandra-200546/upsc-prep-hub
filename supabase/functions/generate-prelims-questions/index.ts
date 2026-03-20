@@ -39,9 +39,9 @@ serve(async (req) => {
   try {
     const { level = 1, count = 5, subject, excludeQuestions = [] } = await req.json();
     
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not configured');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY is not configured');
     }
 
     const selectedSubject = subject || UPSC_SUBJECTS[Math.floor(Math.random() * UPSC_SUBJECTS.length)];
@@ -115,10 +115,10 @@ You must respond with a valid JSON array of questions in this exact format:
 
       console.log(`Generating questions for ${selectedSubject} at Level ${level}, attempt ${attempt}`);
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/Gemini/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Authorization': `Bearer ${GEMINI_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

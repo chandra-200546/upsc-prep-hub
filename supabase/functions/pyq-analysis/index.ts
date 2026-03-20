@@ -13,10 +13,10 @@ serve(async (req) => {
 
   try {
     const { examType, analysisType, subject, level = 1, count = 20 } = await req.json();
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     
-    if (!OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY is not configured");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     const examDescriptions: Record<string, string> = {
@@ -84,14 +84,14 @@ Rules:
 3. Keep original PYQ wording/options as close as possible.
 4. No markdown, no extra text, JSON only.`;
 
-      const focusedResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+      const focusedResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/Gemini/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          Authorization: `Bearer ${GEMINI_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: "gemini-2.0-flash",
           messages: [
             { role: "system", content: "You are an expert UPSC analyst. Always respond with valid JSON only." },
             { role: "user", content: practicePrompt }
@@ -191,14 +191,14 @@ IMPORTANT: Return ONLY valid JSON, no markdown or additional text.`;
 
     console.log("Generating PYQ analysis for:", examType);
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/Gemini/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${GEMINI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gemini-2.0-flash",
         messages: [
           { role: "system", content: "You are an expert UPSC analyst. Always respond with valid JSON only." },
           { role: "user", content: prompt }
@@ -267,14 +267,14 @@ Exam type: ${examType}
 Keep response compact. Use 12 PYQs for prelims or 8 PYQs for other exam types.
 No markdown.`;
 
-      const fallbackResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+      const fallbackResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/Gemini/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          Authorization: `Bearer ${GEMINI_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: "gemini-2.0-flash",
           messages: [
             { role: "system", content: "You are an expert UPSC analyst. Always respond with valid JSON only." },
             { role: "user", content: fallbackPrompt }
