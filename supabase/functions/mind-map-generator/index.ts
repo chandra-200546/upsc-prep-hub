@@ -12,10 +12,10 @@ serve(async (req) => {
 
   try {
     const { topic } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("OPENAI_API_KEY");
 
     if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+      throw new Error("AI_API_KEY is not configured (set GEMINI_API_KEY or OPENAI_API_KEY)");
     }
 
     const systemPrompt = `You are a UPSC expert mind map generator. Create concise, visually-optimized mind maps.
@@ -47,14 +47,14 @@ CRITICAL RULES:
 - Be UPSC-specific and exam-relevant
 - Use simple, memorable phrases`;
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/Gemini/chat/completions", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${GEMINI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "gemini-2.0-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Create a concise UPSC mind map for: "${topic}". Keep labels SHORT (2-4 words).` }

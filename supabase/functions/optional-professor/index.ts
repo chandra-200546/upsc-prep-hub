@@ -22,9 +22,9 @@ serve(async (req) => {
     const question = payload.question;
     const answer = payload.answer;
     
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("OPENAI_API_KEY");
     if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+      throw new Error("AI_API_KEY is not configured (set GEMINI_API_KEY or OPENAI_API_KEY)");
     }
 
     let systemPrompt = "";
@@ -133,7 +133,7 @@ Respond in JSON format:
 
     console.log(`Processing ${mode} request for ${subject}`);
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/Gemini/chat/completions", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${GEMINI_API_KEY}`,

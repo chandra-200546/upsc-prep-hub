@@ -49,9 +49,9 @@ serve(async (req) => {
       });
     }
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("OPENAI_API_KEY");
     if (!GEMINI_API_KEY) {
-      return new Response(JSON.stringify({ error: "GEMINI_API_KEY is not configured" }), {
+      return new Response(JSON.stringify({ error: "AI_API_KEY is not configured (set GEMINI_API_KEY or OPENAI_API_KEY)" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -101,7 +101,7 @@ Output schema:
 Topic: ${topic.trim()}
 Create complete notes slides with checkpoints.`;
 
-    const GeminiRes = await fetch("https://generativelanguage.googleapis.com/v1beta/Gemini/chat/completions", {
+    const GeminiRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
