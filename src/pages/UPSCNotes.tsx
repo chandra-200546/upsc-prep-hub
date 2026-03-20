@@ -5,51 +5,42 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Presentation } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Loader2, Search, Trash2 } from "lucide-react";
 
-type Slide = {
-  heading: string;
-  bullets: string[];
-  detailedExplanation: string;
-  example: string;
-  visualTitle: string;
-  visualLines: string[];
-};
-
-type QuizCheckpoint = {
-  afterSlide: number;
-  question: string;
-  acceptableAnswers: string[];
-};
-
-type Deck = {
-  topicTitle: string;
-  chapterTitle: string;
-  slides: Slide[];
-  quizzes?: QuizCheckpoint[];
-  sources?: string[];
-};
-
-type Subject = {
-  id: string;
-  name: string;
-  examFocus: string;
-  description: string;
-};
+type Subject = { id: string; name: string; description: string; examFocus: string };
+type Slide = { slideNumber: number; topicName: string; subtopicTitle: string; structuredExplanation: string; points: string[]; keyTakeaway: string };
+type CheckpointQuestion = { afterSlide: number; type: "mcq" | "short"; question: string; options?: string[]; correctAnswer: string; acceptableAnswers?: string[]; explanation: string };
+type PracticeQuestion = { questionText: string; difficulty: "Easy" | "Medium" | "Hard"; type: "Prelims" | "Mains" | "Analytical"; answer: string; explanation: string; keyPoints: string[] };
+type Deck = { topicTitle: string; chapterTitle: string; slides: Slide[]; checkpointQuestions: CheckpointQuestion[]; practiceQuestions: PracticeQuestion[]; revisionSummary: string[]; generatedAt: string };
+type SavedNote = { id: string; subjectId: string; subjectName: string; topic: string; slidesCount: number; savedAt: string; deck: Deck; currentSlide: number; passedCheckpoints: number[]; source: "db" | "local" };
+type ViewMode = "subjects" | "topic" | "study" | "practice" | "saved";
 
 const SUBJECTS: Subject[] = [
-  { id: "polity", name: "Polity", examFocus: "GS Paper II + Prelims", description: "AI generated PPT-style notes + checkpoints" },
-  { id: "history", name: "History", examFocus: "GS Paper I + Prelims", description: "AI generated PPT-style notes + checkpoints" },
-  { id: "geography", name: "Geography", examFocus: "GS Paper I + Prelims", description: "AI generated PPT-style notes + checkpoints" },
-  { id: "economy", name: "Economy", examFocus: "GS Paper III + Prelims", description: "AI generated PPT-style notes + checkpoints" },
-  { id: "environment", name: "Environment & Ecology", examFocus: "GS Paper III + Prelims", description: "AI generated PPT-style notes + checkpoints" },
-  { id: "science-tech", name: "Science & Tech", examFocus: "GS Paper III + Prelims", description: "AI generated PPT-style notes + checkpoints" },
-  { id: "ethics", name: "Ethics", examFocus: "GS Paper IV", description: "AI generated PPT-style notes + checkpoints" },
-  { id: "current-affairs", name: "Current Affairs", examFocus: "GS I/II/III + Essay + Interview", description: "AI generated PPT-style notes + checkpoints" }
+  { id: "history", name: "History", examFocus: "GS I + Prelims", description: "Ancient to Modern trends and continuity." },
+  { id: "geography", name: "Geography", examFocus: "GS I + Prelims", description: "Physical, Indian, and world geography." },
+  { id: "indian-polity", name: "Indian Polity", examFocus: "GS II + Prelims", description: "Constitution, governance, institutions." },
+  { id: "economy", name: "Economy", examFocus: "GS III + Prelims", description: "Macro, policy, sectors, and reforms." },
+  { id: "environment-ecology", name: "Environment & Ecology", examFocus: "GS III + Prelims", description: "Ecology, climate, biodiversity, conventions." },
+  { id: "science-tech", name: "Science & Technology", examFocus: "GS III + Prelims", description: "UPSC-relevant technologies and applications." },
+  { id: "art-culture", name: "Art & Culture", examFocus: "GS I + Prelims", description: "Architecture, literature, dances, schools." },
+  { id: "international-relations", name: "International Relations", examFocus: "GS II", description: "India and global strategic affairs." },
+  { id: "ethics", name: "Ethics", examFocus: "GS IV", description: "Ethics concepts, thinkers, and case framing." },
+  { id: "social-issues", name: "Social Issues", examFocus: "GS I/II", description: "Inclusion, justice, and welfare dimensions." },
+  { id: "internal-security", name: "Internal Security", examFocus: "GS III", description: "Security challenges and policy responses." },
+  { id: "disaster-management", name: "Disaster Management", examFocus: "GS III", description: "Risk, response, and resilience governance." },
+  { id: "agriculture", name: "Agriculture", examFocus: "GS III", description: "Agri economy, technology, and reforms." },
+  { id: "ancient-history", name: "Ancient History", examFocus: "GS I + Prelims", description: "Sources, dynasties, and culture." },
+  { id: "medieval-history", name: "Medieval History", examFocus: "GS I + Prelims", description: "State formation, society, culture." },
+  { id: "modern-history", name: "Modern History", examFocus: "GS I + Prelims", description: "Colonial policy and freedom struggle." },
+  { id: "world-history", name: "World History", examFocus: "GS I", description: "Revolutions, wars, and global transitions." },
+  { id: "physical-geography", name: "Physical Geography", examFocus: "GS I + Prelims", description: "Geomorphology, climatology, oceanography." },
+  { id: "indian-geography", name: "Indian Geography", examFocus: "GS I + Prelims", description: "Resources, regions, and location dynamics." },
+  { id: "current-affairs", name: "Current Affairs", examFocus: "GS I/II/III + Essay", description: "Issue-wise analytical current updates." },
+  { id: "csat", name: "CSAT", examFocus: "Prelims Paper II", description: "Reasoning, numeracy, and comprehension." },
+  { id: "essay", name: "Essay", examFocus: "Mains Essay", description: "Theme development and balanced arguments." },
+  { id: "optional-placeholder", name: "Optional Subject", examFocus: "Optional Papers", description: "Placeholder for optional modules." },
 ];
-
-const REFERENCE_SOURCE = "AI deck generation with in-between revision checkpoints";
 
 const extractJson = (raw: string) => {
   const trimmed = raw.trim();
@@ -58,384 +49,198 @@ const extractJson = (raw: string) => {
   if (fenced?.[1]) return fenced[1].trim();
   const first = trimmed.indexOf("{");
   const last = trimmed.lastIndexOf("}");
-  if (first >= 0 && last > first) return trimmed.slice(first, last + 1);
-  return trimmed;
+  return first >= 0 && last > first ? trimmed.slice(first, last + 1) : trimmed;
+};
+
+const lk = (u: string) => `upsc_smart_notes_${u}`;
+const rk = (u: string) => `upsc_smart_notes_resume_${u}`;
+
+const normalizeDeck = (input: any, topic: string, subjectName: string): Deck => {
+  const slidesRaw = Array.isArray(input?.slides) ? input.slides : [];
+  const slides = slidesRaw.slice(0, 20).map((s: any, i: number) => ({
+    slideNumber: i + 1,
+    topicName: s?.topicName || topic,
+    subtopicTitle: s?.subtopicTitle || s?.heading || `Slide ${i + 1}`,
+    structuredExplanation: s?.structuredExplanation || s?.detailedExplanation || "",
+    points: Array.isArray(s?.points) ? s.points : Array.isArray(s?.bullets) ? s.bullets : [],
+    keyTakeaway: s?.keyTakeaway || "Revise with Prelims and Mains lens.",
+  }));
+  const filledSlides = slides.length >= 15 ? slides : [...slides, ...Array.from({ length: 15 - slides.length }).map((_, i) => ({ slideNumber: slides.length + i + 1, topicName: topic, subtopicTitle: `Depth ${i + 1}`, structuredExplanation: `Additional depth for ${topic}.`, points: ["Concept linkage", "UPSC framing", "Example/Case"], keyTakeaway: "Use this for quick revision." }))];
+  const checkpointsRaw = Array.isArray(input?.checkpointQuestions) ? input.checkpointQuestions : [];
+  const checkpointQuestions = checkpointsRaw.length > 0
+    ? checkpointsRaw.map((q: any, i: number) => ({ afterSlide: Number(q?.afterSlide) || (i + 1) * 3, type: q?.type === "mcq" ? "mcq" : "short", question: q?.question || `Checkpoint ${i + 1}`, options: Array.isArray(q?.options) ? q.options : undefined, correctAnswer: q?.correctAnswer || "", acceptableAnswers: Array.isArray(q?.acceptableAnswers) ? q.acceptableAnswers : [], explanation: q?.explanation || "Review and retry." }))
+    : Array.from({ length: Math.floor(filledSlides.length / 3) }).map((_, i) => ({ afterSlide: (i + 1) * 3, type: "short" as const, question: `Summarize slides ${(i + 1) * 3 - 2} to ${(i + 1) * 3}.`, correctAnswer: "concept", acceptableAnswers: ["concept", "definition", "feature"], explanation: "Checkpoint ensures retention." }));
+  const practiceRaw = Array.isArray(input?.practiceQuestions) ? input.practiceQuestions : [];
+  const practiceQuestions = practiceRaw.length >= 10
+    ? practiceRaw.slice(0, 10).map((q: any) => ({ questionText: q?.questionText || q?.question || "", difficulty: q?.difficulty === "Easy" || q?.difficulty === "Hard" ? q.difficulty : "Medium", type: q?.type === "Mains" || q?.type === "Analytical" ? q.type : "Prelims", answer: q?.answer || "", explanation: q?.explanation || "", keyPoints: Array.isArray(q?.keyPoints) ? q.keyPoints : [] }))
+    : Array.from({ length: 10 }).map((_, i) => ({ questionText: `Practice Q${i + 1} on ${topic}`, difficulty: i < 3 ? "Easy" : i < 7 ? "Medium" : "Hard", type: i < 4 ? "Prelims" : i < 8 ? "Mains" : "Analytical", answer: "Model answer: concept + relevance + way forward.", explanation: "Use structured answer writing.", keyPoints: ["Definition", "Body points", "Conclusion"] }));
+  return { topicTitle: input?.topicTitle || topic, chapterTitle: input?.chapterTitle || subjectName, slides: filledSlides, checkpointQuestions, practiceQuestions, revisionSummary: Array.isArray(input?.revisionSummary) ? input.revisionSummary : ["Revise definitions.", "Map prelims with mains.", "Add examples and case references."], generatedAt: new Date().toISOString() };
 };
 
 const UPSCNotes = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [topicInput, setTopicInput] = useState("");
+  const [userId, setUserId] = useState("");
+  const [view, setView] = useState<ViewMode>("subjects");
+  const [subjectId, setSubjectId] = useState<string | null>(null);
+  const [topic, setTopic] = useState("");
   const [loading, setLoading] = useState(false);
-  const [activeDeck, setActiveDeck] = useState<Deck | null>(null);
+  const [deck, setDeck] = useState<Deck | null>(null);
   const [slideIndex, setSlideIndex] = useState(0);
-  const [checkpointAnswer, setCheckpointAnswer] = useState("");
-  const [checkpointPassed, setCheckpointPassed] = useState<number[]>([]);
+  const [passed, setPassed] = useState<number[]>([]);
+  const [ans, setAns] = useState("");
+  const [mcq, setMcq] = useState("");
+  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const [saved, setSaved] = useState<SavedNote[]>([]);
+  const [q, setQ] = useState("");
+
+  const subject = useMemo(() => SUBJECTS.find((s) => s.id === subjectId) || null, [subjectId]);
+  const slide = deck?.slides[slideIndex] || null;
+  const cp = deck?.checkpointQuestions.find((x) => x.afterSlide === slideIndex + 1) || null;
+  const cpPassed = cp ? passed.includes(cp.afterSlide) : true;
+  const progress = deck ? Math.round(((slideIndex + 1) / deck.slides.length) * 100) : 0;
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) navigate("/auth");
+      if (!user) return navigate("/auth");
+      setUserId(user.id);
+      await loadSaved(user.id);
+      const resumeRaw = localStorage.getItem(rk(user.id));
+      if (!resumeRaw) return;
+      try {
+        const r = JSON.parse(resumeRaw);
+        if (r?.deck?.slides?.length) { setSubjectId(r.subjectId); setTopic(r.topic); setDeck(r.deck); setSlideIndex(r.slideIndex || 0); setPassed(r.passed || []); setView("study"); }
+      } catch {}
     };
-    checkAuth();
+    init();
   }, [navigate]);
 
-  const selectedSubject = useMemo(
-    () => SUBJECTS.find((s) => s.id === selectedSubjectId) || null,
-    [selectedSubjectId]
-  );
-
-  const goBack = () => {
-    if (activeDeck) {
-      setActiveDeck(null);
-      setSlideIndex(0);
-      setCheckpointAnswer("");
-      return;
-    }
-    if (selectedSubjectId) {
-      setSelectedSubjectId(null);
-      return;
-    }
-    navigate("/dashboard");
-  };
-
-  const generateTopicSlides = async () => {
-    if (!topicInput.trim()) return;
-    if (!selectedSubjectId) return;
-    setLoading(true);
-    setActiveDeck(null);
-    setSlideIndex(0);
-    setCheckpointPassed([]);
-    setCheckpointAnswer("");
-
+  const loadSaved = async (uid: string) => {
+    const local = (() => { try { return JSON.parse(localStorage.getItem(lk(uid)) || "[]"); } catch { return []; } })();
     try {
-      const notesPrompt = `Generate UPSC notes in strict JSON only.
-Subject: ${selectedSubject?.name || selectedSubjectId}
-Topic: ${topicInput.trim()}
+      const db = supabase as any;
+      const { data, error } = await db.from("upsc_smart_notes").select("*").eq("user_id", uid).order("created_at", { ascending: false });
+      if (error) throw error;
+      const dbMapped: SavedNote[] = (data || []).map((r: any) => ({ id: r.id, subjectId: r.subject_id, subjectName: r.subject_name, topic: r.topic, slidesCount: r.slides_count || r.deck_json?.slides?.length || 0, savedAt: r.created_at, deck: r.deck_json, currentSlide: r.current_slide || 0, passedCheckpoints: r.passed_checkpoints || [], source: "db" }));
+      setSaved([...dbMapped, ...local.filter((x: SavedNote) => !dbMapped.some((d) => d.id === x.id))]);
+    } catch { setSaved(local); }
+  };
 
-Return this exact schema:
-{
-  "topicTitle": "string",
-  "chapterTitle": "string",
-  "slides": [
-    {
-      "heading": "string",
-      "bullets": ["string"],
-      "detailedExplanation": "string",
-      "example": "string",
-      "visualTitle": "string",
-      "visualLines": ["string"]
-    }
-  ],
-  "quizzes": [
-    {
-      "afterSlide": 3,
-      "question": "string",
-      "acceptableAnswers": ["string"]
-    }
-  ],
-  "sources": ["string"]
-}
+  const persistLocal = (notes: SavedNote[]) => { if (userId) localStorage.setItem(lk(userId), JSON.stringify(notes.filter((n) => n.source === "local"))); };
+  const saveResume = () => { if (deck && userId) localStorage.setItem(rk(userId), JSON.stringify({ subjectId, topic, deck, slideIndex, passed })); toast({ title: "Progress saved", description: "Resume later from same module." }); };
 
-Rules:
-- 10 to 15 slides only
-- UPSC exam-focused
-- Quiz checkpoints after every 3 slides`;
-
+  const generate = async () => {
+    if (!subject || !topic.trim()) return;
+    setLoading(true); setDeck(null); setSlideIndex(0); setPassed([]); setAns(""); setMcq(""); setFeedback(null);
+    const prompt = `Create UPSC Smart Notes JSON.\nSubject: ${subject.name}\nTopic: ${topic.trim()}\nSchema: {"topicTitle":"","chapterTitle":"","slides":[{"slideNumber":1,"topicName":"","subtopicTitle":"","structuredExplanation":"","points":[""],"keyTakeaway":""}],"checkpointQuestions":[{"afterSlide":3,"type":"mcq or short","question":"","options":[""],"correctAnswer":"","acceptableAnswers":[""],"explanation":""}],"practiceQuestions":[{"questionText":"","difficulty":"Easy or Medium or Hard","type":"Prelims or Mains or Analytical","answer":"","explanation":"","keyPoints":[""]}],"revisionSummary":[""]}\nRules: 15-20 slides, checkpoint after each 3 slides, exactly 10 practice questions, UPSC prelims+mains quality.`;
+    try {
       const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
-      const response = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: notesPrompt }],
-          chatType: "mentor",
-        }),
-      });
-      if (!response.ok) {
-        const err = await response.json().catch(() => null);
-        throw new Error(err?.error || "Failed to generate notes");
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let assistantMessage = "";
-      while (reader) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n").filter((line) => line.trim() !== "");
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const payload = line.slice(6);
-          if (payload === "[DONE]") continue;
-          try {
-            const parsedLine = JSON.parse(payload);
-            const content = parsedLine.choices?.[0]?.delta?.content;
-            if (content) assistantMessage += content;
-          } catch {
-            // ignore streaming parse chunk errors
-          }
-        }
-      }
-
-      const parsed = JSON.parse(extractJson(assistantMessage));
-      if (!parsed?.slides || !Array.isArray(parsed.slides) || parsed.slides.length === 0) {
-        throw new Error("No slides generated");
-      }
-
-      setActiveDeck({
-        topicTitle: parsed.topicTitle || topicInput.trim(),
-        chapterTitle: parsed.chapterTitle || selectedSubject?.name || "UPSC",
-        slides: parsed.slides,
-        quizzes: Array.isArray(parsed.quizzes) ? parsed.quizzes : [],
-        sources: Array.isArray(parsed.sources) ? parsed.sources : []
-      });
-    } catch (err: any) {
-      toast({
-        title: "Generation failed",
-        description: err?.message || "Could not generate slides",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
+      const res = await fetch(CHAT_URL, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` }, body: JSON.stringify({ messages: [{ role: "user", content: prompt }], chatType: "mentor" }) });
+      if (!res.ok) throw new Error("AI generation failed");
+      const reader = res.body?.getReader(); const decoder = new TextDecoder(); let txt = "";
+      while (reader) { const { done, value } = await reader.read(); if (done) break; const chunk = decoder.decode(value); const lines = chunk.split("\n").filter((l) => l.trim()); for (const line of lines) { if (!line.startsWith("data: ")) continue; const d = line.slice(6); if (d === "[DONE]") continue; try { const p = JSON.parse(d); const c = p.choices?.[0]?.delta?.content; if (c) txt += c; } catch {} } }
+      const parsed = JSON.parse(extractJson(txt));
+      setDeck(normalizeDeck(parsed, topic.trim(), subject.name)); setView("study");
+    } catch (e: any) {
+      toast({ title: "Generation failed", description: e?.message || "Could not generate.", variant: "destructive" });
+    } finally { setLoading(false); }
   };
 
-  const activeSlide = activeDeck ? activeDeck.slides[slideIndex] : null;
-  const progress = activeDeck ? ((slideIndex + 1) / activeDeck.slides.length) * 100 : 0;
-  const currentCheckpoint = activeDeck?.quizzes?.find((quiz) => quiz.afterSlide === slideIndex + 1) || null;
-  const isCheckpointPassed = currentCheckpoint ? checkpointPassed.includes(currentCheckpoint.afterSlide) : true;
-
-  const checkCheckpointAnswer = () => {
-    if (!currentCheckpoint) return true;
-    const answer = checkpointAnswer.trim().toLowerCase();
-    const ok = currentCheckpoint.acceptableAnswers.some((a) => answer.includes(a.toLowerCase()));
-    if (!ok) {
-      toast({
-        title: "Try again",
-        description: "Revise the previous slides and answer the checkpoint correctly to continue.",
-        variant: "destructive"
-      });
-      return false;
-    }
-    setCheckpointPassed((prev) => (prev.includes(currentCheckpoint.afterSlide) ? prev : [...prev, currentCheckpoint.afterSlide]));
-    toast({
-      title: "Correct",
-      description: "Great. Moving to next slide block."
-    });
-    return true;
+  const validateCheckpoint = () => {
+    if (!cp) return true;
+    const answer = cp.type === "mcq" ? mcq : ans;
+    const norm = answer.trim().toLowerCase();
+    const accepted = [cp.correctAnswer, ...(cp.acceptableAnswers || [])].map((x) => (x || "").toLowerCase()).filter(Boolean);
+    const ok = accepted.some((x) => norm.includes(x) || x.includes(norm));
+    if (ok) { setPassed((p) => (p.includes(cp.afterSlide) ? p : [...p, cp.afterSlide])); setFeedback({ ok: true, text: "Correct. Next block unlocked." }); return true; }
+    setFeedback({ ok: false, text: `Wrong. Correct: ${cp.correctAnswer}. ${cp.explanation}` }); return false;
   };
+
+  const next = () => {
+    if (!deck) return;
+    if (cp && !cpPassed) return toast({ title: "Checkpoint pending", description: "Answer correctly to continue.", variant: "destructive" });
+    if (slideIndex < deck.slides.length - 1) { setSlideIndex((n) => n + 1); setAns(""); setMcq(""); setFeedback(null); } else setView("practice");
+  };
+
+  const saveNote = async () => {
+    if (!deck || !subject || !userId) return;
+    const id = crypto.randomUUID();
+    const note: SavedNote = { id, subjectId: subject.id, subjectName: subject.name, topic: deck.topicTitle, slidesCount: deck.slides.length, savedAt: new Date().toISOString(), deck, currentSlide: slideIndex, passedCheckpoints: passed, source: "local" };
+    let dbOk = false;
+    try {
+      const db = supabase as any;
+      const { error } = await db.from("upsc_smart_notes").insert({ id, user_id: userId, subject_id: note.subjectId, subject_name: note.subjectName, topic: note.topic, slides_count: note.slidesCount, deck_json: note.deck, current_slide: note.currentSlide, passed_checkpoints: note.passedCheckpoints });
+      if (!error) dbOk = true;
+    } catch {}
+    const merged = [{ ...note, source: dbOk ? "db" : "local" }, ...saved];
+    setSaved(merged); persistLocal(merged);
+    toast({ title: "Saved", description: dbOk ? "Saved to cloud notes." : "Saved locally." });
+  };
+
+  const remove = async (note: SavedNote) => {
+    if (note.source === "db") {
+      try { const db = supabase as any; await db.from("upsc_smart_notes").delete().eq("id", note.id); } catch {}
+    }
+    const nextNotes = saved.filter((n) => n.id !== note.id);
+    setSaved(nextNotes); persistLocal(nextNotes);
+  };
+
+  const open = (n: SavedNote) => { setSubjectId(n.subjectId); setTopic(n.topic); setDeck(n.deck); setSlideIndex(n.currentSlide || 0); setPassed(n.passedCheckpoints || []); setView("study"); };
+  const dl = (n: SavedNote) => {
+    const out: string[] = [`# ${n.subjectName} - ${n.topic}`, `Saved: ${new Date(n.savedAt).toLocaleString()}`, "", "## Slides"];
+    n.deck.slides.forEach((s) => { out.push(`### Slide ${s.slideNumber}: ${s.subtopicTitle}`); out.push(s.structuredExplanation); s.points.forEach((p) => out.push(`- ${p}`)); out.push(`Key Takeaway: ${s.keyTakeaway}`, ""); });
+    out.push("## Checkpoints");
+    n.deck.checkpointQuestions.forEach((x, i) => { out.push(`${i + 1}. After slide ${x.afterSlide}: ${x.question}`); out.push(`Answer: ${x.correctAnswer}`); out.push(`Explanation: ${x.explanation}`, ""); });
+    out.push("## Practice");
+    n.deck.practiceQuestions.forEach((x, i) => { out.push(`${i + 1}. [${x.type}] (${x.difficulty}) ${x.questionText}`); out.push(`Answer: ${x.answer}`); out.push(`Explanation: ${x.explanation}`); if (x.keyPoints.length) out.push(`Key Points: ${x.keyPoints.join(", ")}`); out.push(""); });
+    const blob = new Blob([out.join("\n")], { type: "text/markdown;charset=utf-8;" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `${n.subjectName}-${n.topic}-upsc-smart-notes.md`.replace(/\s+/g, "-"); a.click(); URL.revokeObjectURL(url);
+  };
+
+  const filtered = saved.filter((n) => { const t = q.toLowerCase().trim(); return !t || n.topic.toLowerCase().includes(t) || n.subjectName.toLowerCase().includes(t); });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
       <div className="container mx-auto max-w-7xl px-4 py-6">
-        <div className="mb-6 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={goBack}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="bg-gradient-to-r from-primary to-accent bg-clip-text text-3xl font-bold text-transparent">UPSC Notes</h1>
-            <p className="text-muted-foreground">Topic input -> instant PPT style slide generation</p>
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => (view === "subjects" ? navigate("/dashboard") : setView("subjects"))}><ArrowLeft className="h-5 w-5" /></Button>
+            <div><h1 className="text-3xl font-bold text-primary">UPSC Smart Notes Module</h1><p className="text-sm text-muted-foreground">AI slides + checkpoints + practice + My Notes storage</p></div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant={view === "subjects" ? "default" : "outline"} onClick={() => setView("subjects")}>Subjects</Button>
+            <Button variant={view === "saved" ? "default" : "outline"} onClick={() => setView("saved")}>My Notes</Button>
           </div>
         </div>
 
-        <Card className="mb-6 border-primary/20 bg-gradient-to-r from-primary/10 to-accent/10">
-          <CardContent className="flex items-center justify-between gap-3 p-4">
-            <div>
-              <p className="text-sm font-semibold">Reference Source</p>
-              <p className="text-xs text-muted-foreground">{REFERENCE_SOURCE}</p>
-            </div>
-            <Badge variant="secondary">Stored in /references</Badge>
-          </CardContent>
-        </Card>
-
-        {!selectedSubject && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Select Subject</CardTitle>
-              <CardDescription>First choose subject, then generate topic slides</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {SUBJECTS.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setSelectedSubjectId(s.id)}
-                    className="rounded-xl border bg-card p-4 text-left transition hover:border-primary/40 hover:bg-muted/20"
-                  >
-                    <p className="font-semibold">{s.name}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{s.examFocus}</p>
-                    <p className="mt-2 text-sm text-muted-foreground">{s.description}</p>
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+        {view === "subjects" && (
+          <Card><CardHeader><CardTitle>Subject Selection</CardTitle><CardDescription>Select a subject and open topic input.</CardDescription></CardHeader><CardContent><div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{SUBJECTS.map((s) => <Card key={s.id} className="border-primary/20"><CardHeader><CardTitle className="text-lg">{s.name}</CardTitle><CardDescription>{s.examFocus}</CardDescription></CardHeader><CardContent className="space-y-3"><p className="text-sm text-muted-foreground">{s.description}</p><Button className="w-full" onClick={() => { setSubjectId(s.id); setView("topic"); }}>Open Subject</Button></CardContent></Card>)}</div></CardContent></Card>
         )}
 
-        {selectedSubject && !activeDeck && (
-          <Card>
-            <CardHeader>
-              <CardTitle>{selectedSubject.name} Topic Generator</CardTitle>
-              <CardDescription>
-                Enter any specific topic. AI will generate 10-15 PPT-style slides and ask checkpoint questions after every 3 slides.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Input
-                value={topicInput}
-                onChange={(e) => setTopicInput(e.target.value)}
-                placeholder={`Enter topic in ${selectedSubject.name} (example: Fundamental Rights, Monsoon, Inflation, Biodiversity)`}
-              />
-              <div className="flex items-center gap-2">
-                <Button onClick={generateTopicSlides} disabled={loading || !topicInput.trim()}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating Slides...
-                    </>
-                  ) : (
-                    "Generate PPT Style Notes"
-                  )}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setTopicInput("");
-                    setSelectedSubjectId(null);
-                  }}
-                >
-                  Back to Subjects
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        {view === "topic" && subject && (
+          <Card><CardHeader><CardTitle>{subject.name} Topic Input</CardTitle><CardDescription>Enter specific topic and generate 15-20 slides.</CardDescription></CardHeader><CardContent className="space-y-4"><Input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Example: Fundamental Rights, Governor, Monsoon in India" /><div className="flex gap-2"><Button onClick={generate} disabled={loading || !topic.trim()}>{loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating...</> : "Generate Smart Slides"}</Button><Button variant="outline" onClick={() => setView("subjects")}>Back</Button></div></CardContent></Card>
         )}
 
-        {activeDeck && activeSlide && (
-          <Card className="border-primary/20">
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <CardTitle className="text-xl">{activeDeck.topicTitle}</CardTitle>
-                  <CardDescription>{activeDeck.chapterTitle}</CardDescription>
-                </div>
-                <Badge variant="outline">Slide {slideIndex + 1} / {activeDeck.slides.length}</Badge>
-              </div>
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
-              </div>
-            </CardHeader>
+        {view === "study" && deck && slide && (
+          <Card className="border-primary/30">
+            <CardHeader><div className="flex items-center justify-between"><div><CardTitle>{deck.topicTitle}</CardTitle><CardDescription>{deck.chapterTitle}</CardDescription></div><Badge variant="outline">Slide {slideIndex + 1}/{deck.slides.length}</Badge></div><div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary" style={{ width: `${progress}%` }} /></div><div className="flex justify-between text-xs text-muted-foreground"><span>{progress}% complete</span><span>{passed.length}/{deck.checkpointQuestions.length} checkpoints</span></div></CardHeader>
             <CardContent className="space-y-4">
-              {activeDeck.sources && activeDeck.sources.length > 0 && (
-                <Card className="border-border/60">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">RAG Sources Used</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {activeDeck.sources.map((source, idx) => (
-                        <Badge key={`${source}-${idx}`} variant="secondary">
-                          {source}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+              <div className="rounded-lg border bg-primary/5 p-4"><p className="text-xs font-semibold text-primary">SLIDE {slide.slideNumber}</p><h3 className="text-lg font-bold">{slide.subtopicTitle}</h3><p className="mt-2 text-sm text-muted-foreground">{slide.structuredExplanation}</p></div>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2"><Card><CardHeader className="pb-2"><CardTitle className="text-base">Point-wise Notes</CardTitle></CardHeader><CardContent><ul className="space-y-2">{slide.points.map((p, i) => <li key={`${slide.slideNumber}-${i}`} className="text-sm text-muted-foreground">{i + 1}. {p}</li>)}</ul></CardContent></Card><Card><CardHeader className="pb-2"><CardTitle className="text-base">Key Takeaway</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground">{slide.keyTakeaway}</p></CardContent></Card></div>
+              {cp && !cpPassed && (
+                <Card className="border-warning/30 bg-warning/5"><CardHeader className="pb-2"><CardTitle className="text-base">Checkpoint Question</CardTitle><CardDescription>Must answer correctly to unlock next block.</CardDescription></CardHeader><CardContent className="space-y-3"><p className="text-sm font-medium">{cp.question}</p>{cp.type === "mcq" && cp.options?.length ? <div className="space-y-2">{cp.options.map((o) => <button key={o} onClick={() => setMcq(o)} className={`w-full rounded-md border p-2 text-left text-sm ${mcq === o ? "border-primary bg-primary/10" : "border-border"}`}>{o}</button>)}</div> : <Input value={ans} onChange={(e) => setAns(e.target.value)} placeholder="Type short answer" />}<Button onClick={validateCheckpoint} disabled={cp.type === "mcq" ? !mcq : !ans.trim()}>Submit</Button>{feedback && <p className={`text-sm ${feedback.ok ? "text-green-600" : "text-red-600"}`}>{feedback.text}</p>}</CardContent></Card>
               )}
-
-              <div className="rounded-xl border bg-gradient-to-r from-primary/10 via-accent/10 to-background p-4">
-                <p className="text-xs font-semibold tracking-wide text-primary">SLIDE TITLE</p>
-                <h3 className="mt-1 text-lg font-bold">{activeSlide.heading}</h3>
-              </div>
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Card>
-                  <CardHeader className="pb-2"><CardTitle className="text-base">Bullet Points</CardTitle></CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2">
-                      {activeSlide.bullets.map((b, i) => <li key={i} className="text-sm leading-relaxed text-muted-foreground">{b}</li>)}
-                    </ul>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2"><CardTitle className="text-base">Detailed Explanation</CardTitle></CardHeader>
-                  <CardContent><p className="text-sm leading-relaxed text-muted-foreground">{activeSlide.detailedExplanation}</p></CardContent>
-                </Card>
-              </div>
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Card>
-                  <CardHeader className="pb-2"><CardTitle className="text-base">Example</CardTitle></CardHeader>
-                  <CardContent><p className="text-sm leading-relaxed text-muted-foreground">{activeSlide.example}</p></CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2"><CardTitle className="text-base">{activeSlide.visualTitle}</CardTitle></CardHeader>
-                  <CardContent>
-                    <div className="rounded-md border bg-muted/20 p-3">
-                      {activeSlide.visualLines.map((v, i) => <p key={i} className="text-sm leading-relaxed text-muted-foreground">{v}</p>)}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-              {currentCheckpoint && !isCheckpointPassed && (
-                <Card className="border-primary/30 bg-primary/5">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Checkpoint Quiz</CardTitle>
-                    <CardDescription>Answer this to continue after slide {currentCheckpoint.afterSlide}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-sm font-medium">{currentCheckpoint.question}</p>
-                    <Input
-                      value={checkpointAnswer}
-                      onChange={(e) => setCheckpointAnswer(e.target.value)}
-                      placeholder="Type your answer"
-                    />
-                    <Button onClick={checkCheckpointAnswer} disabled={!checkpointAnswer.trim()}>
-                      Submit Answer
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <Button variant="outline" onClick={() => setSlideIndex((p) => Math.max(0, p - 1))} disabled={slideIndex === 0}>
-                  <ChevronLeft className="mr-1 h-4 w-4" />
-                  Previous Slide
-                </Button>
-                <div className="flex gap-2">
-                  <Button variant="ghost" onClick={() => { setActiveDeck(null); setSlideIndex(0); }}>
-                    New Topic
-                  </Button>
-                  {slideIndex < activeDeck.slides.length - 1 ? (
-                    <Button
-                      onClick={() => {
-                        if (currentCheckpoint && !isCheckpointPassed) {
-                          toast({
-                            title: "Checkpoint pending",
-                            description: "Answer the checkpoint question first.",
-                            variant: "destructive"
-                          });
-                          return;
-                        }
-                        setCheckpointAnswer("");
-                        setSlideIndex((p) => Math.min(activeDeck.slides.length - 1, p + 1));
-                      }}
-                    >
-                      Next Slide
-                      <ChevronRight className="ml-1 h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <Button onClick={() => { setActiveDeck(null); setSlideIndex(0); }}>
-                      Finish
-                    </Button>
-                  )}
-                </div>
-              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2"><Button variant="outline" onClick={() => setSlideIndex((n) => Math.max(0, n - 1))} disabled={slideIndex === 0}><ChevronLeft className="mr-1 h-4 w-4" />Previous</Button><div className="flex gap-2"><Button variant="outline" onClick={saveResume}>Resume Later</Button><Button variant="outline" onClick={saveNote}>Save to My Notes</Button><Button onClick={next}>{slideIndex === deck.slides.length - 1 ? "Go to Practice" : "Next"}<ChevronRight className="ml-1 h-4 w-4" /></Button></div></div>
             </CardContent>
           </Card>
+        )}
+
+        {view === "practice" && deck && (
+          <Card><CardHeader><CardTitle>End-of-Topic Practice (10 Questions)</CardTitle><CardDescription>Prelims + Mains + Analytical mix for {deck.topicTitle}</CardDescription></CardHeader><CardContent className="space-y-4">{deck.practiceQuestions.map((x, i) => <Card key={`pq-${i}`} className="border-border/60"><CardHeader className="pb-2"><CardTitle className="text-base">Q{i + 1}. {x.questionText}</CardTitle><CardDescription><Badge variant="secondary" className="mr-2">{x.type}</Badge><Badge variant="outline">{x.difficulty}</Badge></CardDescription></CardHeader><CardContent className="space-y-2"><p className="text-sm"><span className="font-semibold">Answer: </span>{x.answer}</p><p className="text-sm text-muted-foreground"><span className="font-semibold text-foreground">Explanation: </span>{x.explanation}</p>{x.keyPoints.length > 0 && <ul className="list-disc pl-5 text-sm text-muted-foreground">{x.keyPoints.map((k, ki) => <li key={`k-${i}-${ki}`}>{k}</li>)}</ul>}</CardContent></Card>)}<Card className="border-primary/30"><CardHeader><CardTitle className="text-base">Revision Summary</CardTitle></CardHeader><CardContent><ul className="list-disc pl-5 text-sm text-muted-foreground">{deck.revisionSummary.map((r, i) => <li key={`r-${i}`}>{r}</li>)}</ul></CardContent></Card><div className="flex gap-2"><Button onClick={saveNote}>Save to My Notes</Button><Button variant="outline" onClick={() => setView("saved")}>Open My Notes</Button><Button variant="outline" onClick={() => setView("subjects")}>Start New Topic</Button></div></CardContent></Card>
+        )}
+
+        {view === "saved" && (
+          <Card><CardHeader><CardTitle>My Notes</CardTitle><CardDescription>Search, open, download, delete saved notes.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="relative"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by subject or topic..." /></div>{filtered.length === 0 ? <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No saved notes found.</CardContent></Card> : <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">{filtered.map((n) => <Card key={n.id}><CardContent className="p-4"><div className="flex items-start justify-between gap-2"><div><p className="font-semibold">{n.topic}</p><p className="text-xs text-muted-foreground">{n.subjectName}</p><p className="text-xs text-muted-foreground">{n.slidesCount} slides | {new Date(n.savedAt).toLocaleString()}</p></div><Badge variant={n.source === "db" ? "secondary" : "outline"}>{n.source === "db" ? "Cloud" : "Local"}</Badge></div><div className="mt-3 flex gap-2"><Button size="sm" onClick={() => open(n)}>Open</Button><Button size="sm" variant="outline" onClick={() => dl(n)}><Download className="mr-1 h-3 w-3" />Download</Button><Button size="sm" variant="destructive" onClick={() => remove(n)}><Trash2 className="mr-1 h-3 w-3" />Delete</Button></div></CardContent></Card>)}</div>}</CardContent></Card>
         )}
       </div>
     </div>
@@ -443,3 +248,5 @@ Rules:
 };
 
 export default UPSCNotes;
+
+
