@@ -39,9 +39,9 @@ serve(async (req) => {
   try {
     const { level = 1, count = 5, subject, excludeQuestions = [] } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not configured');
     }
 
     const selectedSubject = subject || UPSC_SUBJECTS[Math.floor(Math.random() * UPSC_SUBJECTS.length)];
@@ -115,10 +115,10 @@ You must respond with a valid JSON array of questions in this exact format:
 
       console.log(`Generating questions for ${selectedSubject} at Level ${level}, attempt ${attempt}`);
 
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -232,3 +232,4 @@ You must respond with a valid JSON array of questions in this exact format:
     });
   }
 });
+

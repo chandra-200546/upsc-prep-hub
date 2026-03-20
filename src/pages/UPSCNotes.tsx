@@ -55,7 +55,6 @@ const extractJson = (raw: string) => {
 const lk = (u: string) => `upsc_smart_notes_${u}`;
 const rk = (u: string) => `upsc_smart_notes_resume_${u}`;
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || "";
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyCptUUsOPzqeQ2HTKAF_LcX9V42wmHC-nM";
 
 const normalizeDeck = (input: any, topic: string, subjectName: string): Deck => {
   const slidesRaw = Array.isArray(input?.slides) ? input.slides : [];
@@ -196,7 +195,6 @@ const UPSCNotes = () => {
       let txt = "";
       let parsed: any = null;
       let openAiError = "";
-      let geminiError = "";
       try {
         if (!OPENAI_API_KEY) throw new Error("OpenAI key missing");
         const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -224,41 +222,9 @@ const UPSCNotes = () => {
         if (!txt) throw new Error("OpenAI returned empty content");
         parsed = JSON.parse(extractJson(txt));
       } catch {
-        // continue to Gemini
-      }
-      try {
-        if (parsed) {
-          setDeck(normalizeDeck(parsed, topic.trim(), subject.name));
-          setView("study");
-          return;
-        }
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: {
-                temperature: 0.25,
-                responseMimeType: "application/json",
-              },
-            }),
-          },
-        );
-        if (!geminiRes.ok) {
-          const errText = await geminiRes.text();
-          geminiError = errText || String(geminiRes.status);
-          throw new Error(`Gemini failed: ${errText || geminiRes.status}`);
-        }
-        const geminiData = await geminiRes.json();
-        txt = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (!txt) throw new Error("Gemini returned empty content");
-        parsed = JSON.parse(extractJson(txt));
-      } catch {
+        // fallback to backend ai-chat (also OpenAI-backed)
         try {
-          // Lovable AI fallback path via existing ai-chat edge function
-          const callLovable = async () => {
+          const callAiChat = async () => {
             const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
             const res = await fetch(CHAT_URL, {
               method: "POST",
@@ -271,7 +237,7 @@ const UPSCNotes = () => {
                 chatType: "mentor",
               }),
             });
-            if (!res.ok) throw new Error("Lovable AI fallback failed");
+            if (!res.ok) throw new Error("AI fallback failed");
             const reader = res.body?.getReader();
             const decoder = new TextDecoder();
             let output = "";
@@ -297,10 +263,10 @@ const UPSCNotes = () => {
           };
 
           try {
-            txt = await callLovable();
+            txt = await callAiChat();
           } catch {
             // retry once for transient network/edge hiccups
-            txt = await callLovable();
+            txt = await callAiChat();
           }
 
           try {
@@ -311,17 +277,11 @@ const UPSCNotes = () => {
           if (openAiError) {
             toast({
               title: "OpenAI unavailable",
-              description: "Using alternate AI provider for generation.",
-            });
-          }
-          if (geminiError) {
-            toast({
-              title: "Gemini quota issue",
-              description: "Generated using AI Mentor backend because Gemini quota is exhausted.",
+              description: "Using backend AI fallback for generation.",
             });
           }
         } catch {
-          throw new Error("Both AI providers are unavailable. Please check Gemini quota/billing and retry.");
+          throw new Error("OpenAI generation failed. Please check API key/billing and retry.");
         }
       }
       setDeck(normalizeDeck(parsed, topic.trim(), subject.name));
