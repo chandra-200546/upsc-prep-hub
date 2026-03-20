@@ -217,7 +217,7 @@ const Mentor = () => {
           <Card className="p-6 text-center bg-gradient-card border-0">
             <h2 className="text-xl font-bold mb-2">Hi {profile?.name}! 👋</h2>
             <p className="text-muted-foreground">
-              I'm your personal UPSC mentor. Ask me anything about your studies, planning, or motivation!
+              I'm your UPSC mentor. Ask only UPSC syllabus topics like Polity, History, Geography, Economy, Environment, Ethics, Science and Tech, and Current Affairs.
             </p>
           </Card>
         )}
@@ -279,7 +279,7 @@ const Mentor = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-            placeholder="Type your message..."
+            placeholder="Ask a UPSC-related doubt..."
             className="flex-1 rounded-xl"
             disabled={loading}
           />

@@ -238,7 +238,7 @@ const VoiceAI = () => {
           <h1 className="font-bold flex items-center gap-2">
             🎙️ Voice AI Assistant
           </h1>
-          <p className="text-xs text-muted-foreground">Ask anything by voice</p>
+          <p className="text-xs text-muted-foreground">UPSC syllabus voice mentor</p>
         </div>
       </header>
 
@@ -247,9 +247,9 @@ const VoiceAI = () => {
         {messages.length === 0 && !transcript && (
           <Card className="p-6 text-center bg-gradient-to-br from-primary/10 to-accent/10 border-0">
             <div className="text-4xl mb-3">🎤</div>
-            <h2 className="text-xl font-bold mb-2">Talk to AI</h2>
+            <h2 className="text-xl font-bold mb-2">Talk to UPSC Mentor</h2>
             <p className="text-muted-foreground text-sm mb-4">
-              Ask me anything! Try:
+              Ask only UPSC syllabus questions. Try:
             </p>
             <div className="space-y-2 text-sm text-muted-foreground">
               <p>"Explain Article 21 like a story"</p>
@@ -307,7 +307,7 @@ const VoiceAI = () => {
             ) : loading ? (
               <span className="text-warning">💭 Thinking...</span>
             ) : (
-              <span>Tap the mic to speak</span>
+              <span>Tap the mic to ask a UPSC question</span>
             )}
           </div>
 
