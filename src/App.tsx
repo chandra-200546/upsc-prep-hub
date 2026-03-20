@@ -19,7 +19,7 @@ import CurrentAffairs from "./pages/CurrentAffairs";
 import StudyPlan from "./pages/StudyPlan";
 import Mains from "./pages/Mains";
 import NotesLibrary from "./pages/NotesLibrary";
-import UPSCNotes from "./pages/UPSCNotes";
+import NotesEmpty from "./pages/NotesEmpty";
 import MapPractice from "./pages/MapPractice";
 import MockInterview from "./pages/MockInterview";
 import PYQEngine from "./pages/PYQEngine";
@@ -54,8 +54,8 @@ const App = () => (
             <Route path="/current-affairs" element={<CurrentAffairs />} />
             <Route path="/study-plan" element={<StudyPlan />} />
             <Route path="/mains" element={<Mains />} />
-            <Route path="/notes" element={<UPSCNotes />} />
-            <Route path="/upsc-notes" element={<UPSCNotes />} />
+            <Route path="/notes" element={<NotesEmpty />} />
+            <Route path="/upsc-notes" element={<NotesEmpty />} />
             <Route path="/notes-library" element={<NotesLibrary />} />
             <Route path="/map-practice" element={<MapPractice />} />
             <Route path="/mock-interview" element={<MockInterview />} />
