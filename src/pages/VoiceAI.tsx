@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Mic, MicOff, Volume2, VolumeX, Loader2 } from "lucide-react";
+import { isWithinUpscScope, UPSC_REFUSAL_TEXT } from "@/lib/upscScope";
 
 type Message = {
   role: "user" | "assistant";
@@ -155,6 +156,12 @@ const VoiceAI = () => {
     setCurrentResponse("");
 
     try {
+      if (!isWithinUpscScope(userText)) {
+        setMessages((prev) => [...prev, { role: "assistant", content: UPSC_REFUSAL_TEXT }]);
+        speakText(UPSC_REFUSAL_TEXT);
+        return;
+      }
+
       const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
       const response = await fetch(CHAT_URL, {
         method: "POST",

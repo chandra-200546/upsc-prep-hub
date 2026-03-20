@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Send, Loader2, Mic } from "lucide-react";
 import { useVoiceSynthesis } from "@/hooks/use-voice-synthesis";
 import { VoiceControls, AutoPlayToggle } from "@/components/VoiceControls";
+import { isWithinUpscScope, UPSC_REFUSAL_TEXT } from "@/lib/upscScope";
 
 type Message = {
   role: "user" | "assistant";
@@ -92,6 +93,18 @@ const Mentor = () => {
         role: "user",
         content: input,
       });
+
+      if (!isWithinUpscScope(input)) {
+        const assistantMessage = UPSC_REFUSAL_TEXT;
+        setMessages((prev) => [...prev, { role: "assistant", content: assistantMessage }]);
+        await supabase.from("chat_messages").insert({
+          user_id: user.id,
+          chat_type: "mentor",
+          role: "assistant",
+          content: assistantMessage,
+        });
+        return;
+      }
 
       // Call AI
       const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
