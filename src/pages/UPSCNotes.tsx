@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,14 @@ type Chapter = {
   title: string;
   focus: string;
   topics: TopicNote[];
+};
+
+type SubjectNotes = {
+  id: string;
+  name: string;
+  examFocus: string;
+  description: string;
+  chapters: Chapter[];
 };
 
 type TopicDeepDive = {
@@ -433,8 +441,68 @@ const POLITY_CHAPTERS: Chapter[] = [
   }
 ];
 
+const SUBJECT_NOTES: SubjectNotes[] = [
+  {
+    id: "polity",
+    name: "Polity",
+    examFocus: "GS Paper II + Prelims",
+    description: "Complete Constitutional and Governance coverage",
+    chapters: POLITY_CHAPTERS,
+  },
+  {
+    id: "history",
+    name: "History",
+    examFocus: "GS Paper I + Prelims",
+    description: "Ancient, Medieval, Modern (adding detailed notes next)",
+    chapters: [],
+  },
+  {
+    id: "geography",
+    name: "Geography",
+    examFocus: "GS Paper I + Prelims",
+    description: "Physical + Indian Geography (adding detailed notes next)",
+    chapters: [],
+  },
+  {
+    id: "economy",
+    name: "Economy",
+    examFocus: "GS Paper III + Prelims",
+    description: "Macro + Development (adding detailed notes next)",
+    chapters: [],
+  },
+  {
+    id: "environment",
+    name: "Environment & Ecology",
+    examFocus: "GS Paper III + Prelims",
+    description: "Ecology + Climate (adding detailed notes next)",
+    chapters: [],
+  },
+  {
+    id: "science-tech",
+    name: "Science & Tech",
+    examFocus: "GS Paper III + Prelims",
+    description: "Emerging Tech + Applications (adding detailed notes next)",
+    chapters: [],
+  },
+  {
+    id: "ethics",
+    name: "Ethics",
+    examFocus: "GS Paper IV",
+    description: "Ethics + Case Studies (adding detailed notes next)",
+    chapters: [],
+  },
+  {
+    id: "current-affairs",
+    name: "Current Affairs",
+    examFocus: "GS I/II/III + Essay + Interview",
+    description: "UPSC-linked dynamic topics (adding detailed notes next)",
+    chapters: [],
+  },
+];
+
 const UPSCNotes = () => {
   const navigate = useNavigate();
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -446,7 +514,9 @@ const UPSCNotes = () => {
     checkAuth();
   }, [navigate]);
 
-  const totalTopics = POLITY_CHAPTERS.reduce((acc, chapter) => acc + chapter.topics.length, 0);
+  const selectedSubject = SUBJECT_NOTES.find((s) => s.id === selectedSubjectId) || null;
+  const selectedChapters = selectedSubject?.chapters || [];
+  const totalTopics = selectedChapters.reduce((acc, chapter) => acc + chapter.topics.length, 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
@@ -456,21 +526,55 @@ const UPSCNotes = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="bg-gradient-to-r from-primary to-accent bg-clip-text text-3xl font-bold text-transparent">
-              UPSC Notes - Polity
-            </h1>
+            <h1 className="bg-gradient-to-r from-primary to-accent bg-clip-text text-3xl font-bold text-transparent">UPSC Notes</h1>
             <p className="text-muted-foreground">
-              Chapter-wise, topic-wise readable notes aligned to your provided structure
+              Subject-wise structured notes for UPSC preparation
             </p>
           </div>
         </div>
+
+        {!selectedSubject && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Select Subject</CardTitle>
+              <CardDescription>Choose a subject first, then view chapter-wise notes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {SUBJECT_NOTES.map((subject) => (
+                  <button
+                    key={subject.id}
+                    onClick={() => setSelectedSubjectId(subject.id)}
+                    className="rounded-xl border bg-card p-4 text-left transition hover:border-primary/50 hover:bg-muted/30"
+                  >
+                    <p className="font-semibold">{subject.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{subject.examFocus}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">{subject.description}</p>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {selectedSubject && (
+          <>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold">{selectedSubject.name} Notes</h2>
+                <p className="text-sm text-muted-foreground">{selectedSubject.examFocus}</p>
+              </div>
+              <Button variant="outline" onClick={() => setSelectedSubjectId(null)}>
+                Back to Subjects
+              </Button>
+            </div>
 
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
           <Card className="border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5">
             <CardContent className="flex items-center gap-3 p-4">
               <Landmark className="h-8 w-8 text-primary" />
               <div>
-                <p className="text-2xl font-bold">{POLITY_CHAPTERS.length}</p>
+                <p className="text-2xl font-bold">{selectedChapters.length}</p>
                 <p className="text-xs text-muted-foreground">Major Chapters</p>
               </div>
             </CardContent>
@@ -497,17 +601,28 @@ const UPSCNotes = () => {
           </Card>
         </div>
 
+        {selectedChapters.length === 0 ? (
+          <Card>
+            <CardContent className="py-10 text-center">
+              <p className="text-lg font-semibold">Detailed notes for {selectedSubject.name} are coming next.</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Polity is fully available now. We can build this subject in the same structure next.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
         <Card className="mb-6 border-border/60">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Building2 className="h-4 w-4 text-primary" />
               Chapter Index
             </CardTitle>
-            <CardDescription>Quick scan of all polity chapters you listed</CardDescription>
+            <CardDescription>Quick scan of all {selectedSubject.name.toLowerCase()} chapters</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {POLITY_CHAPTERS.map((chapter) => (
+              {selectedChapters.map((chapter) => (
                 <div key={`index-${chapter.id}`} className="rounded-lg border bg-muted/20 px-3 py-2">
                   <p className="text-sm font-medium">{chapter.title}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{chapter.focus}</p>
@@ -524,7 +639,7 @@ const UPSCNotes = () => {
           </CardHeader>
           <CardContent>
             <Accordion type="multiple" className="w-full space-y-3">
-              {POLITY_CHAPTERS.map((chapter) => (
+              {selectedChapters.map((chapter) => (
                 <AccordionItem
                   key={chapter.id}
                   value={`chapter-${chapter.id}`}
@@ -604,6 +719,10 @@ const UPSCNotes = () => {
             </Accordion>
           </CardContent>
         </Card>
+          </>
+        )}
+          </>
+        )}
       </div>
     </div>
   );
