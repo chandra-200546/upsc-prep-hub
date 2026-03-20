@@ -6,6 +6,58 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const UPSC_REFUSAL_TEXT = "Sorry Aspirant, I focus only on UPSC-related topics. Let's stay on track! 📘";
+
+const createSSETextResponse = (text: string) => {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      const chunk = `data: ${JSON.stringify({
+        choices: [{ delta: { content: text } }],
+      })}\n\n`;
+      controller.enqueue(encoder.encode(chunk));
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+  });
+};
+
+const isWithinUpscScope = (input: string): boolean => {
+  const text = input.toLowerCase();
+  const hasConstitutionArticlePattern = /\barticle\s*\d{1,3}\b/.test(text);
+  const hasGsPaperPattern = /\bgs\s*[- ]?(1|2|3|4)\b/.test(text);
+
+  const upscKeywords = [
+    "upsc", "ias", "ips", "ifos", "civil services", "prelims", "mains", "gs", "essay", "interview",
+    "polity", "constitution", "parliament", "federal", "fundamental rights", "dpsp", "governor", "president",
+    "history", "ancient", "medieval", "modern history", "freedom struggle",
+    "geography", "monsoon", "climate", "soil", "plate tectonics", "river system",
+    "economy", "gdp", "inflation", "fiscal", "monetary", "budget", "banking", "frbm",
+    "environment", "ecology", "biodiversity", "conservation", "climate change",
+    "science and technology", "science & tech", "space", "biotechnology", "cyber security",
+    "ethics", "integrity", "aptitude", "case study",
+    "current affairs", "international relations", "foreign policy", "governance", "social justice",
+    "ncert", "laxmikanth", "spectrum"
+  ];
+
+  const explicitlyOutOfScopeKeywords = [
+    "python", "javascript", "java", "c++", "coding", "programming", "debug", "algorithm",
+    "movie", "cinema", "series", "song", "music", "celebrity",
+    "relationship", "dating", "breakup", "marriage advice", "career advice outside upsc",
+    "gaming", "cricket score", "football score"
+  ];
+
+  if (explicitlyOutOfScopeKeywords.some((k) => text.includes(k))) {
+    return false;
+  }
+
+  return hasConstitutionArticlePattern || hasGsPaperPattern || upscKeywords.some((k) => text.includes(k));
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -17,6 +69,11 @@ serve(async (req) => {
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
+    }
+
+    const lastUserMessage = [...(messages || [])].reverse().find((m: { role: string; content: string }) => m.role === "user")?.content || "";
+    if (!isWithinUpscScope(lastUserMessage)) {
+      return createSSETextResponse(UPSC_REFUSAL_TEXT);
     }
 
     const upscInstructionPrompt = `You are an AI Chatbot designed ONLY for UPSC (Union Public Service Commission) aspirants.
@@ -70,6 +127,8 @@ EXTRA:
 
 FINAL RULE:
 - Never go beyond UPSC syllabus even if user insists.
+- If the query is outside UPSC syllabus, respond ONLY with:
+"Sorry Aspirant, I focus only on UPSC-related topics. Let's stay on track! 📘"
 `;
 
     // Apply same UPSC behavior for both Mentor and Voice AI modes
