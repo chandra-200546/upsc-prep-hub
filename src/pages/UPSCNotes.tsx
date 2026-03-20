@@ -78,54 +78,46 @@ const normalizeDeck = (input: any, topic: string, subjectName: string): Deck => 
   return { topicTitle: input?.topicTitle || topic, chapterTitle: input?.chapterTitle || subjectName, slides: filledSlides, checkpointQuestions, practiceQuestions, revisionSummary: Array.isArray(input?.revisionSummary) ? input.revisionSummary : ["Revise definitions.", "Map prelims with mains.", "Add examples and case references."], generatedAt: new Date().toISOString() };
 };
 
-const buildOfflineDeck = (subjectName: string, topic: string) => {
-  const slideTitles = [
-    "Topic Introduction",
-    "Background and Definition",
-    "Core Concept",
-    "Features and Classification",
-    "Constitutional / Legal / Factual Anchors",
-    "Examples and Relevance",
-    "Significance for India",
-    "Issues and Challenges",
-    "Government Steps and Reforms",
-    "Prelims-Oriented Facts",
-    "Mains Angle",
-    "Interlinkages",
-    "Keywords and Value Addition",
-    "Revision Summary",
-    "Conclusion",
-  ];
+const buildDeckFromAiText = (subjectName: string, topic: string, aiText: string) => {
+  const cleaned = aiText
+    .replace(/\*\*/g, "")
+    .replace(/[_`#>-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const parts = cleaned
+    .split(/(?<=[.!?])\s+/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 30);
 
-  const slides = slideTitles.map((title, idx) => ({
-    slideNumber: idx + 1,
-    topicName: topic,
-    subtopicTitle: title,
-    structuredExplanation: `${title} of ${topic} in ${subjectName} with UPSC-ready framing.`,
-    points: [
-      `${topic}: concept clarity for prelims elimination.`,
-      `${topic}: analytical framing for mains answer writing.`,
-      `${topic}: one relevant example/current linkage.`,
-    ],
-    keyTakeaway: `Revise ${title.toLowerCase()} in 2-3 points before exam.`,
-  }));
+  const slides = Array.from({ length: 15 }).map((_, i) => {
+    const base = parts[i % Math.max(1, parts.length)] || `${topic} concept in ${subjectName}.`;
+    const next = parts[(i + 1) % Math.max(1, parts.length)] || base;
+    return {
+      slideNumber: i + 1,
+      topicName: topic,
+      subtopicTitle: `AI Notes Slide ${i + 1}`,
+      structuredExplanation: base,
+      points: [base, next, `${topic} exam linkage for Prelims + Mains.`],
+      keyTakeaway: `Revision takeaway ${i + 1}: ${topic} - core conceptual clarity.`,
+    };
+  });
 
-  const checkpointQuestions = [3, 6, 9, 12, 15].map((afterSlide, i) => ({
+  const checkpointQuestions = [3, 6, 9, 12, 15].map((afterSlide, idx) => ({
     afterSlide,
     type: "short" as const,
-    question: `Checkpoint ${i + 1}: Summarize key points from slides ${afterSlide - 2} to ${afterSlide} on ${topic}.`,
-    correctAnswer: "concept",
+    question: `Checkpoint ${idx + 1}: What is the core idea from slides ${afterSlide - 2} to ${afterSlide}?`,
+    correctAnswer: "core concept",
     acceptableAnswers: ["concept", "feature", "significance", "challenge"],
-    explanation: "Focus on definition, one example, and one exam-useful point.",
+    explanation: "Mention definition, one key point, and one exam-useful linkage.",
   }));
 
   const practiceQuestions = Array.from({ length: 10 }).map((_, i) => ({
-    questionText: `Practice Q${i + 1} on ${topic} (${subjectName})`,
+    questionText: `Practice Q${i + 1}: ${topic} (${subjectName})`,
     difficulty: i < 3 ? ("Easy" as const) : i < 7 ? ("Medium" as const) : ("Hard" as const),
     type: i < 4 ? ("Prelims" as const) : i < 8 ? ("Mains" as const) : ("Analytical" as const),
-    answer: "Model answer should include definition, structured body, and balanced conclusion.",
-    explanation: "Use intro-body-conclusion and add one current/example linkage.",
-    keyPoints: ["Definition", "Core points", "Example/data", "Way forward"],
+    answer: "Answer using intro, structured body points, and balanced conclusion.",
+    explanation: "Highlight constitutional/factual anchors and one current linkage.",
+    keyPoints: ["Definition", "Core dimension", "Example", "Way forward"],
   }));
 
   return {
@@ -135,9 +127,9 @@ const buildOfflineDeck = (subjectName: string, topic: string) => {
     checkpointQuestions,
     practiceQuestions,
     revisionSummary: [
-      `Revise ${topic} in one-page notes.`,
-      "Separate prelims facts from mains arguments.",
-      "Use constitutional/data/examples wherever possible.",
+      `Revise ${topic} using 5-point summary.`,
+      "Separate prelims facts and mains analysis.",
+      "Write one practice answer for retention.",
     ],
   };
 };
@@ -202,6 +194,7 @@ const UPSCNotes = () => {
     try {
       let txt = "";
       let parsed: any = null;
+      let geminiError = "";
       try {
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -219,6 +212,7 @@ const UPSCNotes = () => {
         );
         if (!geminiRes.ok) {
           const errText = await geminiRes.text();
+          geminiError = errText || String(geminiRes.status);
           throw new Error(`Gemini failed: ${errText || geminiRes.status}`);
         }
         const geminiData = await geminiRes.json();
@@ -260,13 +254,19 @@ const UPSCNotes = () => {
               }
             }
           }
-          parsed = JSON.parse(extractJson(txt));
+          try {
+            parsed = JSON.parse(extractJson(txt));
+          } catch {
+            parsed = buildDeckFromAiText(subject.name, topic.trim(), txt);
+          }
+          if (geminiError) {
+            toast({
+              title: "Gemini quota issue",
+              description: "Generated using AI Mentor backend because Gemini quota is exhausted.",
+            });
+          }
         } catch {
-          parsed = buildOfflineDeck(subject.name, topic.trim());
-          toast({
-            title: "Using offline generator",
-            description: "Network AI failed. Generated smart notes using built-in UPSC template.",
-          });
+          throw new Error("Both AI providers are unavailable. Please check Gemini quota/billing and retry.");
         }
       }
       setDeck(normalizeDeck(parsed, topic.trim(), subject.name));
