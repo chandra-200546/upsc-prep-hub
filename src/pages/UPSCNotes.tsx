@@ -78,6 +78,70 @@ const normalizeDeck = (input: any, topic: string, subjectName: string): Deck => 
   return { topicTitle: input?.topicTitle || topic, chapterTitle: input?.chapterTitle || subjectName, slides: filledSlides, checkpointQuestions, practiceQuestions, revisionSummary: Array.isArray(input?.revisionSummary) ? input.revisionSummary : ["Revise definitions.", "Map prelims with mains.", "Add examples and case references."], generatedAt: new Date().toISOString() };
 };
 
+const buildOfflineDeck = (subjectName: string, topic: string) => {
+  const slideTitles = [
+    "Topic Introduction",
+    "Background and Definition",
+    "Core Concept",
+    "Features and Classification",
+    "Constitutional / Legal / Factual Anchors",
+    "Examples and Relevance",
+    "Significance for India",
+    "Issues and Challenges",
+    "Government Steps and Reforms",
+    "Prelims-Oriented Facts",
+    "Mains Angle",
+    "Interlinkages",
+    "Keywords and Value Addition",
+    "Revision Summary",
+    "Conclusion",
+  ];
+
+  const slides = slideTitles.map((title, idx) => ({
+    slideNumber: idx + 1,
+    topicName: topic,
+    subtopicTitle: title,
+    structuredExplanation: `${title} of ${topic} in ${subjectName} with UPSC-ready framing.`,
+    points: [
+      `${topic}: concept clarity for prelims elimination.`,
+      `${topic}: analytical framing for mains answer writing.`,
+      `${topic}: one relevant example/current linkage.`,
+    ],
+    keyTakeaway: `Revise ${title.toLowerCase()} in 2-3 points before exam.`,
+  }));
+
+  const checkpointQuestions = [3, 6, 9, 12, 15].map((afterSlide, i) => ({
+    afterSlide,
+    type: "short" as const,
+    question: `Checkpoint ${i + 1}: Summarize key points from slides ${afterSlide - 2} to ${afterSlide} on ${topic}.`,
+    correctAnswer: "concept",
+    acceptableAnswers: ["concept", "feature", "significance", "challenge"],
+    explanation: "Focus on definition, one example, and one exam-useful point.",
+  }));
+
+  const practiceQuestions = Array.from({ length: 10 }).map((_, i) => ({
+    questionText: `Practice Q${i + 1} on ${topic} (${subjectName})`,
+    difficulty: i < 3 ? ("Easy" as const) : i < 7 ? ("Medium" as const) : ("Hard" as const),
+    type: i < 4 ? ("Prelims" as const) : i < 8 ? ("Mains" as const) : ("Analytical" as const),
+    answer: "Model answer should include definition, structured body, and balanced conclusion.",
+    explanation: "Use intro-body-conclusion and add one current/example linkage.",
+    keyPoints: ["Definition", "Core points", "Example/data", "Way forward"],
+  }));
+
+  return {
+    topicTitle: topic,
+    chapterTitle: subjectName,
+    slides,
+    checkpointQuestions,
+    practiceQuestions,
+    revisionSummary: [
+      `Revise ${topic} in one-page notes.`,
+      "Separate prelims facts from mains arguments.",
+      "Use constitutional/data/examples wherever possible.",
+    ],
+  };
+};
+
 const UPSCNotes = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -137,6 +201,7 @@ const UPSCNotes = () => {
     const prompt = `Create UPSC Smart Notes JSON.\nSubject: ${subject.name}\nTopic: ${topic.trim()}\nSchema: {"topicTitle":"","chapterTitle":"","slides":[{"slideNumber":1,"topicName":"","subtopicTitle":"","structuredExplanation":"","points":[""],"keyTakeaway":""}],"checkpointQuestions":[{"afterSlide":3,"type":"mcq or short","question":"","options":[""],"correctAnswer":"","acceptableAnswers":[""],"explanation":""}],"practiceQuestions":[{"questionText":"","difficulty":"Easy or Medium or Hard","type":"Prelims or Mains or Analytical","answer":"","explanation":"","keyPoints":[""]}],"revisionSummary":[""]}\nRules: 15-20 slides, checkpoint after each 3 slides, exactly 10 practice questions, UPSC prelims+mains quality.`;
     try {
       let txt = "";
+      let parsed: any = null;
       try {
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -159,43 +224,51 @@ const UPSCNotes = () => {
         const geminiData = await geminiRes.json();
         txt = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
         if (!txt) throw new Error("Gemini returned empty content");
+        parsed = JSON.parse(extractJson(txt));
       } catch {
-        const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
-        const res = await fetch(CHAT_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            messages: [{ role: "user", content: prompt }],
-            chatType: "mentor",
-          }),
-        });
-        if (!res.ok) throw new Error("AI fallback failed");
-        const reader = res.body?.getReader();
-        const decoder = new TextDecoder();
-        while (reader) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n").filter((l) => l.trim());
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const d = line.slice(6);
-            if (d === "[DONE]") continue;
-            try {
-              const p = JSON.parse(d);
-              const c = p.choices?.[0]?.delta?.content;
-              if (c) txt += c;
-            } catch {
-              // ignore chunk parse errors
+        try {
+          const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
+          const res = await fetch(CHAT_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({
+              messages: [{ role: "user", content: prompt }],
+              chatType: "mentor",
+            }),
+          });
+          if (!res.ok) throw new Error("AI fallback failed");
+          const reader = res.body?.getReader();
+          const decoder = new TextDecoder();
+          while (reader) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value);
+            const lines = chunk.split("\n").filter((l) => l.trim());
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const d = line.slice(6);
+              if (d === "[DONE]") continue;
+              try {
+                const p = JSON.parse(d);
+                const c = p.choices?.[0]?.delta?.content;
+                if (c) txt += c;
+              } catch {
+                // ignore chunk parse errors
+              }
             }
           }
+          parsed = JSON.parse(extractJson(txt));
+        } catch {
+          parsed = buildOfflineDeck(subject.name, topic.trim());
+          toast({
+            title: "Using offline generator",
+            description: "Network AI failed. Generated smart notes using built-in UPSC template.",
+          });
         }
       }
-
-      const parsed = JSON.parse(extractJson(txt));
       setDeck(normalizeDeck(parsed, topic.trim(), subject.name));
       setView("study");
     } catch (e: any) {
