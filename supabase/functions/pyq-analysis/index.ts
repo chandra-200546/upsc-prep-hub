@@ -91,7 +91,7 @@ Rules:
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "gemini-2.5-flash",
           messages: [
             { role: "system", content: "You are an expert UPSC analyst. Always respond with valid JSON only." },
             { role: "user", content: practicePrompt }
