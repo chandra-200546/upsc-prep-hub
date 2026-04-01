@@ -107,9 +107,14 @@ const Prelims = () => {
       } else {
         throw new Error('No questions generated');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating questions:', error);
-      toast.error('Failed to generate questions. Please try again.');
+      const msg = error?.message || '';
+      if (msg.includes('Rate limit') || msg.includes('429')) {
+        toast.error('AI is busy. Please wait 30 seconds and try again.');
+      } else {
+        toast.error('Failed to generate questions. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
