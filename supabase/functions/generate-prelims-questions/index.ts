@@ -76,6 +76,7 @@ serve(async (req) => {
       // Add delay between retry attempts to avoid rate limiting
       if (attempt > 1) {
         await new Promise(resolve => setTimeout(resolve, 3000));
+      }
       const remaining = count - collectedQuestions.length;
       const requestedCount = Math.min(remaining + 2, count + 2);
       const exclusionPreview = [...excludedSet].slice(0, 30);
