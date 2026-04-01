@@ -54,14 +54,14 @@ Rules:
 
     console.log(`Calling Lovable AI gateway for map questions (${mapType}, level ${level})...`);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Authorization": `Bearer ${GEMINI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "gemini-2.0-flash",
         messages: [
           { role: "system", content: "You are a geography quiz generator. Always return valid JSON arrays only, no markdown formatting." },
           { role: "user", content: prompt }
