@@ -267,10 +267,10 @@ Exam type: ${examType}
 Keep response compact. Use 12 PYQs for prelims or 8 PYQs for other exam types.
 No markdown.`;
 
-      const fallbackResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const fallbackResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${GEMINI_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
