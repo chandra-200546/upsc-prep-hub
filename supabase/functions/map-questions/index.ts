@@ -61,7 +61,7 @@ Rules:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash",
         messages: [
           { role: "system", content: "You are a geography quiz generator. Always return valid JSON arrays only, no markdown formatting." },
           { role: "user", content: prompt }

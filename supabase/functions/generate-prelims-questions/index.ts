@@ -126,7 +126,7 @@ You must respond with a valid JSON array of questions in this exact format:
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gemini-2.0-flash',
+          model: 'gemini-2.5-flash',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }
