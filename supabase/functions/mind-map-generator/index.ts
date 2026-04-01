@@ -54,7 +54,7 @@ CRITICAL RULES:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Create a concise UPSC mind map for: "${topic}". Keep labels SHORT (2-4 words).` }

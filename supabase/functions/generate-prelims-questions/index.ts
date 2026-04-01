@@ -73,6 +73,10 @@ serve(async (req) => {
     const maxAttempts = 3;
 
     for (let attempt = 1; attempt <= maxAttempts && collectedQuestions.length < count; attempt++) {
+      // Add delay between retry attempts to avoid rate limiting
+      if (attempt > 1) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
       const remaining = count - collectedQuestions.length;
       const requestedCount = Math.min(remaining + 2, count + 2);
       const exclusionPreview = [...excludedSet].slice(0, 30);
@@ -122,7 +126,7 @@ You must respond with a valid JSON array of questions in this exact format:
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gemini-2.0-flash',
+          model: 'gemini-2.5-flash',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }
