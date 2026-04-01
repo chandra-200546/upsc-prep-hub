@@ -84,10 +84,10 @@ Rules:
 3. Keep original PYQ wording/options as close as possible.
 4. No markdown, no extra text, JSON only.`;
 
-      const focusedResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const focusedResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${GEMINI_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
