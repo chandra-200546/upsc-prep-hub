@@ -2,54 +2,101 @@ type AnyRow = Record<string, any>;
 type Result<T = any> = Promise<{ data: T; error: any }>;
 
 const BACKEND_BASE_URL = (import.meta.env.VITE_BACKEND_URL || "http://localhost:8787").replace(/\/$/, "");
-const defaultUserId = "local-user-1";
+const SESSION_KEY = "upsc_backend_session";
 
-const nowIso = () => new Date().toISOString();
-const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+let currentSession: any = null;
+const listeners = new Set<(event: string, session: any) => void>();
 
-const profileDefaults = {
-  id: defaultUserId,
-  name: "Aspirant",
-  email: "aspirant@local.app",
-  target_year: 2027,
-  optional_subject: "Public Administration",
-  mentor_personality: "friendly",
-  total_xp: 0,
-  level: 1,
-  current_streak: 1,
-  last_login_date: nowIso().slice(0, 10),
-  profile_photo_url: "",
-  created_at: nowIso(),
+const emitAuth = (event: string, session: any) => {
+  listeners.forEach((cb) => cb(event, session));
 };
 
-const db = new Map<string, AnyRow[]>();
-db.set("profiles", [profileDefaults]);
-db.set("chat_messages", []);
-db.set("prelims_attempts", []);
-db.set("mains_submissions", []);
-db.set("mind_maps", []);
-db.set("study_plans", []);
-db.set("upsc_smart_notes", []);
-
-let currentSession: any = {
-  access_token: "local-access-token",
-  refresh_token: "local-refresh-token",
-  user: { id: defaultUserId, email: profileDefaults.email },
+const storeSession = (session: any | null) => {
+  currentSession = session;
+  if (session?.access_token) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  } else {
+    localStorage.removeItem(SESSION_KEY);
+  }
 };
 
-const getTable = (name: string) => {
-  if (!db.has(name)) db.set(name, []);
-  return db.get(name)!;
+const loadStoredSession = () => {
+  if (currentSession) return currentSession;
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?.access_token) currentSession = parsed;
+    return currentSession;
+  } catch {
+    return null;
+  }
 };
+
+const authHeaders = () => {
+  const token = currentSession?.access_token || loadStoredSession()?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+const apiPost = async (path: string, body: unknown, extraHeaders?: Record<string, string>) => {
+  try {
+    const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+        ...(extraHeaders || {}),
+      },
+      body: JSON.stringify(body ?? {}),
+    });
+    const raw = await response.text();
+    const data = raw ? JSON.parse(raw) : null;
+    if (!response.ok) return { data: null, error: data || { message: `Request failed: ${path}` } };
+    return { data, error: null };
+  } catch (error: any) {
+    return { data: null, error: { message: error?.message || "Network error" } };
+  }
+};
+
+const apiGet = async (path: string) => {
+  try {
+    const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+    });
+    const raw = await response.text();
+    const data = raw ? JSON.parse(raw) : null;
+    if (!response.ok) return { data: null, error: data || { message: `Request failed: ${path}` } };
+    return { data, error: null };
+  } catch (error: any) {
+    return { data: null, error: { message: error?.message || "Network error" } };
+  }
+};
+
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const base64 = result.includes(",") ? result.split(",")[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
 
 class QueryBuilder {
   private table: string;
-  private filters: Array<{ col: string; value: any }> = [];
+  private filters: Array<{ col: string; value: any; op?: "eq" | "gte" | "lte" }> = [];
   private sort: { col: string; ascending: boolean } | null = null;
   private take: number | null = null;
-  private action: "select" | "insert" | "update" | "delete" = "select";
-  private inserted: AnyRow[] = [];
+  private action: "select" | "insert" | "upsert" | "update" | "delete" = "select";
+  private rows: AnyRow[] = [];
   private patch: AnyRow = {};
+  private selectedColumns = "*";
   private singleMode: "none" | "single" | "maybeSingle" = "none";
 
   constructor(table: string) {
@@ -57,42 +104,28 @@ class QueryBuilder {
   }
 
   select(_columns = "*") {
-    this.action = "select";
+    this.selectedColumns = _columns;
+    if (this.action === "select") {
+      this.action = "select";
+    }
     return this;
   }
 
   insert(payload: AnyRow | AnyRow[]) {
     this.action = "insert";
-    const list = Array.isArray(payload) ? payload : [payload];
-    const tableRows = getTable(this.table);
-    this.inserted = list.map((row) => {
-      const next = { id: row.id || uid(), created_at: row.created_at || nowIso(), ...row };
-      tableRows.push(next);
-      return next;
-    });
+    this.rows = Array.isArray(payload) ? payload : [payload];
     return this;
   }
 
   upsert(payload: AnyRow | AnyRow[]) {
-    const list = Array.isArray(payload) ? payload : [payload];
-    const tableRows = getTable(this.table);
-    this.action = "insert";
-    this.inserted = list.map((row) => {
-      const existingIdx = tableRows.findIndex((r) => r.id === row.id);
-      if (existingIdx >= 0) {
-        tableRows[existingIdx] = { ...tableRows[existingIdx], ...row, updated_at: nowIso() };
-        return tableRows[existingIdx];
-      }
-      const next = { id: row.id || uid(), created_at: row.created_at || nowIso(), ...row };
-      tableRows.push(next);
-      return next;
-    });
+    this.action = "upsert";
+    this.rows = Array.isArray(payload) ? payload : [payload];
     return this;
   }
 
   update(values: AnyRow) {
     this.action = "update";
-    this.patch = values;
+    this.patch = values || {};
     return this;
   }
 
@@ -102,7 +135,17 @@ class QueryBuilder {
   }
 
   eq(col: string, value: any) {
-    this.filters.push({ col, value });
+    this.filters.push({ col, value, op: "eq" });
+    return this;
+  }
+
+  gte(col: string, value: any) {
+    this.filters.push({ col, value, op: "gte" });
+    return this;
+  }
+
+  lte(col: string, value: any) {
+    this.filters.push({ col, value, op: "lte" });
     return this;
   }
 
@@ -130,78 +173,67 @@ class QueryBuilder {
     this.exec().then(resolve).catch(reject);
   }
 
-  private filteredRows() {
-    let rows = [...getTable(this.table)];
-    for (const f of this.filters) {
-      rows = rows.filter((r) => r[f.col] === f.value);
+  private finish(data: any, error: any) {
+    if (error) return { data: null, error };
+    if (this.singleMode === "single" || this.singleMode === "maybeSingle") {
+      return { data: Array.isArray(data) ? data[0] ?? null : data ?? null, error: null };
     }
-    if (this.sort) {
-      rows.sort((a, b) => {
-        const av = a[this.sort!.col];
-        const bv = b[this.sort!.col];
-        if (av === bv) return 0;
-        if (this.sort!.ascending) return av > bv ? 1 : -1;
-        return av < bv ? 1 : -1;
-      });
-    }
-    if (this.take !== null) rows = rows.slice(0, this.take);
-    return rows;
+    return { data: Array.isArray(data) ? data : data ?? [], error: null };
   }
 
   private async exec(): Result<any> {
-    try {
-      const tableRows = getTable(this.table);
-      let data: any = null;
-
-      if (this.action === "insert") {
-        data = this.inserted;
-      } else if (this.action === "update") {
-        const rows = this.filteredRows();
-        for (const row of rows) Object.assign(row, this.patch, { updated_at: nowIso() });
-        data = rows;
-      } else if (this.action === "delete") {
-        const rows = this.filteredRows();
-        const ids = new Set(rows.map((r) => r.id));
-        const remaining = tableRows.filter((r) => !ids.has(r.id));
-        db.set(this.table, remaining);
-        data = rows;
-      } else {
-        data = this.filteredRows();
-      }
-
-      if (this.singleMode === "single") {
-        return { data: data?.[0] ?? null, error: null };
-      }
-      if (this.singleMode === "maybeSingle") {
-        return { data: data?.[0] ?? null, error: null };
-      }
-      return { data: data ?? [], error: null };
-    } catch (error) {
-      return { data: null, error };
+    if (this.action === "select") {
+      const { data, error } = await apiPost("/functions/v1/db/select", {
+        table: this.table,
+        columns: this.selectedColumns,
+        filters: this.filters,
+        order: this.sort,
+        limit: this.take,
+      });
+      return this.finish(data?.data, error || data?.error);
     }
+
+    if (this.action === "insert") {
+      const { data, error } = await apiPost("/functions/v1/db/insert", {
+        table: this.table,
+        columns: this.selectedColumns,
+        rows: this.rows,
+      });
+      return this.finish(data?.data, error || data?.error);
+    }
+
+    if (this.action === "upsert") {
+      const { data, error } = await apiPost("/functions/v1/db/upsert", {
+        table: this.table,
+        columns: this.selectedColumns,
+        rows: this.rows,
+      });
+      return this.finish(data?.data, error || data?.error);
+    }
+
+    if (this.action === "update") {
+      const { data, error } = await apiPost("/functions/v1/db/update", {
+        table: this.table,
+        columns: this.selectedColumns,
+        patch: this.patch,
+        filters: this.filters,
+      });
+      return this.finish(data?.data, error || data?.error);
+    }
+
+    const { data, error } = await apiPost("/functions/v1/db/delete", {
+      table: this.table,
+      columns: this.selectedColumns,
+      filters: this.filters,
+    });
+    return this.finish(data?.data, error || data?.error);
   }
 }
 
 const invokeFunction = async (name: string, args?: { body?: unknown; headers?: Record<string, string> }) => {
-  try {
-    const response = await fetch(`${BACKEND_BASE_URL}/functions/v1/${name}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(args?.headers || {}),
-      },
-      body: JSON.stringify(args?.body ?? {}),
-    });
-
-    const raw = await response.text();
-    const data = raw ? JSON.parse(raw) : null;
-    if (!response.ok) {
-      return { data: null, error: data || { message: `Function ${name} failed` } };
-    }
-    return { data, error: null };
-  } catch (error: any) {
-    return { data: null, error: { message: error?.message || "Network error" } };
-  }
+  const { data, error } = await apiPost(`/functions/v1/${name}`, args?.body ?? {}, args?.headers);
+  if (error) return { data: null, error };
+  return { data, error: null };
 };
 
 const createChannel = () => {
@@ -215,33 +247,63 @@ const createChannel = () => {
 
 export const supabase: any = {
   auth: {
-    getSession: async () => ({ data: { session: currentSession }, error: null }),
-    getUser: async () => ({ data: { user: currentSession?.user ?? null }, error: null }),
+    getSession: async () => {
+      loadStoredSession();
+      if (currentSession?.access_token) {
+        const { data, error } = await apiGet("/functions/v1/auth/session");
+        if (!error && data?.session) {
+          storeSession(data.session);
+          return { data: { session: data.session }, error: null };
+        }
+      }
+      return { data: { session: null }, error: null };
+    },
+    getUser: async () => {
+      const { data } = await supabase.auth.getSession();
+      return { data: { user: data?.session?.user ?? null }, error: null };
+    },
     onAuthStateChange: (cb: any) => {
-      cb?.("SIGNED_IN", currentSession);
-      return { data: { subscription: { unsubscribe: () => undefined } } };
-    },
-    signInWithPassword: async ({ email }: any) => {
-      currentSession = {
-        access_token: "local-access-token",
-        refresh_token: "local-refresh-token",
-        user: { id: defaultUserId, email: email || profileDefaults.email },
+      if (typeof cb === "function") listeners.add(cb);
+      cb?.(currentSession ? "SIGNED_IN" : "SIGNED_OUT", currentSession);
+      return {
+        data: {
+          subscription: {
+            unsubscribe: () => listeners.delete(cb),
+          },
+        },
       };
-      return { data: { session: currentSession, user: currentSession.user }, error: null };
     },
-    signUp: async ({ email }: any) => {
-      currentSession = {
-        access_token: "local-access-token",
-        refresh_token: "local-refresh-token",
-        user: { id: defaultUserId, email: email || profileDefaults.email },
-      };
-      return { data: { session: currentSession, user: currentSession.user }, error: null };
+    signInWithPassword: async ({ email, password }: any) => {
+      const { data, error } = await apiPost("/functions/v1/auth/login", { email, password });
+      if (error) return { data: { session: null, user: null }, error };
+      const session = data?.session ?? null;
+      storeSession(session);
+      emitAuth("SIGNED_IN", session);
+      return { data: { session, user: session?.user ?? null }, error: null };
+    },
+    signUp: async ({ email, password, options }: any) => {
+      const { data, error } = await apiPost("/functions/v1/auth/signup", {
+        email,
+        password,
+        name: options?.data?.name || "Aspirant",
+      });
+      if (error) return { data: { session: null, user: null }, error };
+      const session = data?.session ?? null;
+      storeSession(session);
+      emitAuth("SIGNED_IN", session);
+      return { data: { session, user: session?.user ?? null }, error: null };
     },
     signOut: async () => {
-      currentSession = null;
+      await apiPost("/functions/v1/auth/logout", {});
+      storeSession(null);
+      emitAuth("SIGNED_OUT", null);
       return { error: null };
     },
-    setSession: async (_tokens: any) => ({ data: { session: currentSession }, error: null }),
+    setSession: async (session: any) => {
+      storeSession(session);
+      emitAuth("SIGNED_IN", session);
+      return { data: { session }, error: null };
+    },
   },
   functions: {
     invoke: invokeFunction,
@@ -250,10 +312,27 @@ export const supabase: any = {
   channel: (_name: string) => createChannel(),
   removeChannel: (_channel: any) => undefined,
   storage: {
-    from: (_bucket: string) => ({
-      upload: async (_path: string, _file: any, _opts?: any) => ({ data: { path: _path }, error: null }),
-      getPublicUrl: (_path: string) => ({ data: { publicUrl: _path ? `${BACKEND_BASE_URL}/storage/${encodeURIComponent(_path)}` : "" } }),
-      remove: async (_paths: string[]) => ({ data: null, error: null }),
+    from: (bucket: string) => ({
+      upload: async (filePath: string, file: any, _opts?: any) => {
+        try {
+          const base64 = await fileToBase64(file as File);
+          const { data, error } = await apiPost("/functions/v1/storage/upload", {
+            bucket,
+            path: filePath,
+            base64,
+          });
+          if (error) return { data: null, error };
+          return { data: { path: filePath, publicUrl: `${BACKEND_BASE_URL}${data?.data?.publicUrl || ""}` }, error: null };
+        } catch (error: any) {
+          return { data: null, error: { message: error?.message || "Upload failed" } };
+        }
+      },
+      getPublicUrl: (filePath: string) => ({ data: { publicUrl: filePath ? `${BACKEND_BASE_URL}/storage/${bucket}/${filePath}` : "" } }),
+      remove: async (paths: string[]) => {
+        const { data, error } = await apiPost("/functions/v1/storage/remove", { bucket, paths });
+        if (error) return { data: null, error };
+        return { data: data?.data ?? null, error: null };
+      },
     }),
   },
 };

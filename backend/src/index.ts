@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import { config } from "./config.js";
 import "./db/sqlite.js";
 import { ensureNeonSchema, neonHealthCheck } from "./db/neon.js";
+import { readFile } from "./lib/storage.js";
 import { functionsRouter } from "./routes/functions.js";
 
 const app = new Hono();
@@ -29,6 +30,14 @@ app.get("/", (c) =>
 app.get("/health/neon", async (c) => {
   const status = await neonHealthCheck();
   return c.json(status, status.connected ? 200 : 503);
+});
+
+app.get("/storage/:bucket/*", async (c) => {
+  const bucket = c.req.param("bucket");
+  const wildcard = c.req.path.split(`/storage/${bucket}/`)[1] || "";
+  const file = readFile(bucket, wildcard);
+  if (!file) return c.json({ error: "File not found" }, 404);
+  return new Response(file, { status: 200 });
 });
 
 app.route("/functions/v1", functionsRouter);

@@ -6,7 +6,7 @@ const run = async () => {
     console.log("Skipping migration: NEON_DATABASE_URL not set.");
     return;
   }
-  console.log("Neon migration completed: ai_cache_entries, ai_function_logs");
+  console.log("Neon migration completed: app tables + ai_cache_entries + ai_function_logs");
 };
 
 run().catch((err) => {

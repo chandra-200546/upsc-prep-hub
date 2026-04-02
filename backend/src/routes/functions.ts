@@ -1,8 +1,11 @@
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
+import { dbDelete, dbInsert, dbSelect, dbUpdate, dbUpsert, loginUser, resolveSession, revokeSession, signUpUser } from "../db/app-db.js";
 import { cacheGet, cacheSet, logRequest } from "../db/sqlite.js";
 import { neonAdminStats, neonCacheGet, neonCacheSet, neonLogRequest } from "../db/neon.js";
+import { getProfileById, listProfiles, parseProfilesCsv, upsertProfiles } from "../db/profiles.js";
 import { generateJson, generateText } from "../lib/gemini.js";
+import { deleteFile, getStoragePublicPath, saveBase64File } from "../lib/storage.js";
 import { hashPayload } from "../lib/utils.js";
 
 type Bindings = { Variables: { fn: string } };
@@ -46,6 +49,186 @@ const safeAi = async (system: string, user: string, fallback: string) => {
   }
 };
 
+const authTokenFromHeader = (authHeader?: string | null) => {
+  if (!authHeader) return "";
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || "";
+};
+
+functionsRouter.post("/auth/signup", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const email = String(body?.email ?? "").trim().toLowerCase();
+  const password = String(body?.password ?? "");
+  const name = String(body?.name ?? "Aspirant").trim();
+
+  if (!email || !password) return c.json({ message: "email and password are required" }, 400);
+  try {
+    const session = await signUpUser(email, password, name || "Aspirant");
+    return c.json({ session, user: session.user });
+  } catch (error: any) {
+    return c.json({ message: error?.message || "Signup failed" }, 400);
+  }
+});
+
+functionsRouter.post("/auth/login", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const email = String(body?.email ?? "").trim().toLowerCase();
+  const password = String(body?.password ?? "");
+  if (!email || !password) return c.json({ message: "email and password are required" }, 400);
+
+  try {
+    const session = await loginUser(email, password);
+    return c.json({ session, user: session.user });
+  } catch (error: any) {
+    return c.json({ message: error?.message || "Login failed" }, 401);
+  }
+});
+
+functionsRouter.get("/auth/session", async (c) => {
+  const token = authTokenFromHeader(c.req.header("Authorization"));
+  if (!token) return c.json({ session: null, user: null });
+  const session = await resolveSession(token);
+  return c.json({ session, user: session?.user ?? null });
+});
+
+functionsRouter.post("/auth/logout", async (c) => {
+  const token = authTokenFromHeader(c.req.header("Authorization"));
+  if (token) await revokeSession(token);
+  return c.json({ success: true });
+});
+
+functionsRouter.post("/db/select", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  try {
+    const data = await dbSelect({
+      table: String(body?.table ?? ""),
+      filters: Array.isArray(body?.filters) ? body.filters : [],
+      order: body?.order ?? null,
+      limit: body?.limit ?? null,
+    });
+    return c.json({ data, error: null });
+  } catch (error: any) {
+    return c.json({ data: null, error: { message: error?.message || "Select failed" } }, 400);
+  }
+});
+
+functionsRouter.post("/db/insert", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  try {
+    const rows = Array.isArray(body?.rows) ? body.rows : [];
+    const data = await dbInsert(String(body?.table ?? ""), rows);
+    return c.json({ data, error: null });
+  } catch (error: any) {
+    return c.json({ data: null, error: { message: error?.message || "Insert failed" } }, 400);
+  }
+});
+
+functionsRouter.post("/db/upsert", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  try {
+    const rows = Array.isArray(body?.rows) ? body.rows : [];
+    const data = await dbUpsert(String(body?.table ?? ""), rows);
+    return c.json({ data, error: null });
+  } catch (error: any) {
+    return c.json({ data: null, error: { message: error?.message || "Upsert failed" } }, 400);
+  }
+});
+
+functionsRouter.post("/db/update", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  try {
+    const data = await dbUpdate({
+      table: String(body?.table ?? ""),
+      patch: body?.patch ?? {},
+      filters: Array.isArray(body?.filters) ? body.filters : [],
+    });
+    return c.json({ data, error: null });
+  } catch (error: any) {
+    return c.json({ data: null, error: { message: error?.message || "Update failed" } }, 400);
+  }
+});
+
+functionsRouter.post("/db/delete", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  try {
+    const data = await dbDelete({
+      table: String(body?.table ?? ""),
+      filters: Array.isArray(body?.filters) ? body.filters : [],
+    });
+    return c.json({ data, error: null });
+  } catch (error: any) {
+    return c.json({ data: null, error: { message: error?.message || "Delete failed" } }, 400);
+  }
+});
+
+functionsRouter.post("/storage/upload", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const bucket = String(body?.bucket ?? "default");
+  const filePath = String(body?.path ?? "");
+  const base64 = String(body?.base64 ?? "");
+  if (!filePath || !base64) return c.json({ data: null, error: { message: "path and base64 are required" } }, 400);
+
+  try {
+    saveBase64File(bucket, filePath, base64);
+    const publicUrl = getStoragePublicPath(bucket, filePath);
+    return c.json({ data: { path: filePath, publicUrl }, error: null });
+  } catch (error: any) {
+    return c.json({ data: null, error: { message: error?.message || "Upload failed" } }, 400);
+  }
+});
+
+functionsRouter.post("/storage/remove", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const bucket = String(body?.bucket ?? "default");
+  const paths = Array.isArray(body?.paths) ? (body.paths as unknown[]).map((p: unknown) => String(p)) : [];
+  const removed = paths.map((p) => ({ path: p, removed: deleteFile(bucket, p) }));
+  return c.json({ data: removed, error: null });
+});
+
+functionsRouter.get("/profiles", async (c) => {
+  const limit = Number(c.req.query("limit") ?? 100);
+  const offset = Number(c.req.query("offset") ?? 0);
+  const profiles = await listProfiles(limit, offset);
+  return c.json({ profiles, count: profiles.length });
+});
+
+functionsRouter.get("/profiles/:id", async (c) => {
+  const id = c.req.param("id");
+  const profile = await getProfileById(id);
+  if (!profile) return c.json({ error: "Profile not found" }, 404);
+  return c.json(profile);
+});
+
+functionsRouter.post("/profiles/upsert", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const profile = body?.profile;
+  if (!profile?.id || !profile?.name) {
+    return c.json({ error: "profile.id and profile.name are required" }, 400);
+  }
+
+  const result = await upsertProfiles([profile]);
+  await persistLog("profiles/upsert", body, result);
+  return c.json({ ok: true, ...result });
+});
+
+functionsRouter.post("/profiles/import-csv", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const csv = body?.csv;
+  if (typeof csv !== "string" || !csv.trim()) {
+    return c.json({ error: "csv text is required" }, 400);
+  }
+
+  const profiles = parseProfilesCsv(csv);
+  if (!profiles.length) {
+    return c.json({ error: "No valid profile rows found in CSV" }, 400);
+  }
+
+  const result = await upsertProfiles(profiles);
+  const response = { ok: true, parsed: profiles.length, ...result };
+  await persistLog("profiles/import-csv", { rows: profiles.length }, response);
+  return c.json(response);
+});
+
 functionsRouter.post("/ai-chat", async (c) => {
   const body = await c.req.json();
   const messages = body?.messages ?? [];
@@ -57,6 +240,23 @@ functionsRouter.post("/ai-chat", async (c) => {
   const response = { text };
   await persistLog("ai-chat", body, response);
   return c.json(response);
+});
+
+functionsRouter.post("/ai-generate", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const messages = Array.isArray(body?.messages) ? body.messages : [];
+  if (!messages.length) {
+    return c.json({ text: "", error: { message: "messages are required" } }, 400);
+  }
+
+  try {
+    const text = await generateText(messages, Number(body?.temperature ?? 0.2));
+    const response = { text };
+    await persistLog("ai-generate", { count: messages.length }, response);
+    return c.json(response);
+  } catch (error: any) {
+    return c.json({ text: "", error: { message: error?.message || "AI generation failed" } }, 500);
+  }
 });
 
 functionsRouter.post("/generate-prelims-questions", async (c) => {

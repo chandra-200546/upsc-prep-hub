@@ -21,11 +21,27 @@ const required = (name: string, fallback = "") => {
   return value.trim();
 };
 
+const buildNeonUrlFromPgEnv = () => {
+  const user = required("PGUSER");
+  const password = required("PGPASSWORD");
+  const host = required("PGHOST");
+  const database = required("PGDATABASE", "neondb");
+  const port = required("PGPORT", "5432");
+  const sslmode = required("PGSSLMODE", "require");
+  const channelBinding = required("CHANNEL_BINDING", "require");
+
+  if (!user || !password || !host) return "";
+
+  const u = encodeURIComponent(user);
+  const p = encodeURIComponent(password);
+  return `postgresql://${u}:${p}@${host}:${port}/${database}?sslmode=${sslmode}&channel_binding=${channelBinding}`;
+};
+
 export const config = {
   port: Number(required("PORT", "8787")),
   nodeEnv: required("NODE_ENV", "development"),
   geminiApiKey: required("GEMINI_API_KEY"),
-  neonDatabaseUrl: required("NEON_DATABASE_URL"),
+  neonDatabaseUrl: required("NEON_DATABASE_URL") || buildNeonUrlFromPgEnv(),
   sqlitePath: required("SQLITE_PATH", "./data/app.db"),
   allowedOrigin: required("ALLOWED_ORIGIN", "*"),
 };

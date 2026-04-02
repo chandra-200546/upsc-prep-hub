@@ -139,6 +139,8 @@ const Prelims = () => {
       await supabase.from("prelims_attempts").insert({
         user_id: user.id,
         question_id: questions[currentIndex].id,
+        subject: questions[currentIndex].subject || selectedSubject || "General",
+        level: currentLevel,
         selected_answer: answer,
         is_correct: isCorrect,
       });

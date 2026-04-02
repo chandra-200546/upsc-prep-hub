@@ -5,72 +5,33 @@ export type GeminiMessage = {
   content: string;
 };
 
-const getGeminiKey = () => {
-  const envKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY || "";
-  if (envKey) return envKey;
-  return "";
-};
+const BACKEND_BASE_URL = (import.meta.env.VITE_BACKEND_URL || "http://localhost:8787").replace(/\/$/, "");
 
 export const streamGeminiText = async ({
   messages,
   onDelta,
-  model = "gemini-2.0-flash",
 }: {
   messages: GeminiMessage[];
   onDelta?: (delta: string) => void;
   model?: string;
 }) => {
-  let apiKey = getGeminiKey();
-  if (!apiKey && typeof window !== "undefined") {
-    const entered = window.prompt("Enter Gemini API Key to continue AI features:");
-    if (entered && entered.trim()) {
-      apiKey = entered.trim();
-    }
-  }
-
-  if (!apiKey) {
-    throw new Error("Gemini API key is not configured");
-  }
-
-  const systemMessage = messages.find((m) => m.role === "system")?.content || "";
-  const conversation = messages
-    .filter((m) => m.role !== "system")
-    .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
-    .join("\n\n");
-  const fullPrompt = `${systemMessage}\n\n${conversation}`.trim();
-
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+  const response = await fetch(`${BACKEND_BASE_URL}/functions/v1/ai-generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: fullPrompt }] }],
-      generationConfig: {
-        temperature: 0.2,
-      },
-    }),
+    body: JSON.stringify({ messages, temperature: 0.2 }),
   });
 
+  const raw = await response.text();
+  const payload = raw ? JSON.parse(raw) : {};
   if (!response.ok) {
-    const raw = await response.text();
-    let message = raw || "Gemini request failed";
-    try {
-      const parsed = JSON.parse(raw);
-      message =
-        parsed?.error?.message ||
-        parsed?.message ||
-        message;
-    } catch {
-      // keep raw message
-    }
-    throw new Error(`Gemini ${response.status}: ${message}`);
+    const message = payload?.error?.message || payload?.message || "AI generation failed";
+    throw new Error(message);
   }
 
-  const parsed = await response.json();
-  const fullText = parsed?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || "").join("") || "";
-  if (!fullText) throw new Error("Gemini returned empty response");
-  onDelta?.(fullText);
-
-  return fullText;
+  const text = payload?.text || "";
+  if (!text) throw new Error("AI returned empty response");
+  onDelta?.(text);
+  return text;
 };

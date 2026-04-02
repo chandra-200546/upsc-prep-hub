@@ -46,7 +46,7 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
 
     const { data: attempts } = await supabase
       .from("prelims_attempts")
-      .select("*, prelims_questions(subject)")
+      .select("*")
       .eq("user_id", userId)
       .order("attempted_at", { ascending: true });
 
@@ -66,7 +66,7 @@ const ActivityDashboard = ({ profile }: ActivityDashboardProps) => {
         dailyMap[day].total++;
         if (a.is_correct) dailyMap[day].correct++;
 
-        const subject = a.prelims_questions?.subject || "Unknown";
+        const subject = a.subject || "Unknown";
         if (!subjectMap[subject]) subjectMap[subject] = { correct: 0, total: 0 };
         subjectMap[subject].total++;
         if (a.is_correct) subjectMap[subject].correct++;

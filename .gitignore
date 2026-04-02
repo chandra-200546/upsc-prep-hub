@@ -1,0 +1,15 @@
+# dependencies
+**/node_modules/
+
+# build outputs
+**/dist/
+**/build/
+
+# local runtime/data artifacts
+backend/data/
+backend/backend/
+
+# env files
+**/.env
+**/.env.local
+**/.env.*.local
