@@ -12,6 +12,7 @@ import {
   Brain,
   GraduationCap,
   FileBarChart,
+  NotebookPen,
 } from "lucide-react";
 
 const features = [
@@ -50,6 +51,12 @@ const features = [
     title: "Notes Library",
     description: "Create unlimited notes organized by subjects. Tired of screens? Listen to your notes with text-to-speech.",
     color: "from-teal-500 to-green-500",
+  },
+  {
+    icon: NotebookPen,
+    title: "UPSC Smart Notes",
+    description: "Topic-wise AI slide notes with checkpoints, revision flow, and practice prompts for faster exam-ready preparation.",
+    color: "from-lime-500 to-emerald-500",
   },
   {
     icon: Map,
@@ -126,7 +133,7 @@ const FeaturesSection = () => {
             </span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            12 AI-powered tools designed specifically for UPSC aspirants. From preparation to interview, we've got you covered.
+            13 AI-powered tools designed specifically for UPSC aspirants. From preparation to interview, we've got you covered.
           </p>
         </motion.div>
 
