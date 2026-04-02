@@ -55,6 +55,10 @@ const extractJson = (raw: string) => {
 
 const lk = (u: string) => `upsc_smart_notes_${u}`;
 const rk = (u: string) => `upsc_smart_notes_resume_${u}`;
+const createId = () =>
+  (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 const normalizeDeck = (input: any, topic: string, subjectName: string): Deck => {
   const slidesRaw = Array.isArray(input?.slides) ? input.slides : [];
@@ -246,7 +250,7 @@ const UPSCNotes = () => {
 
   const saveNote = async () => {
     if (!deck || !subject || !userId) return;
-    const id = crypto.randomUUID();
+    const id = createId();
     const note: SavedNote = { id, subjectId: subject.id, subjectName: subject.name, topic: deck.topicTitle, slidesCount: deck.slides.length, savedAt: new Date().toISOString(), deck, currentSlide: slideIndex, passedCheckpoints: passed, source: "local" };
     let dbOk = false;
     try {

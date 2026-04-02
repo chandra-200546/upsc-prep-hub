@@ -39,6 +39,10 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const LOCAL_USER_KEY = "upsc_local_user";
 const LOCAL_USERS_DB_KEY = "upsc_local_users_db";
 const LOCAL_PROFILES_KEY = "upsc_local_profiles";
+const createId = () =>
+  (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 function getLocalUsersDB(): Record<string, { email: string; password: string; name: string }> {
   try {
@@ -178,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const existing = Object.values(usersDB).find(v => v.email === email);
     if (existing) return { error: "An account with this email already exists" };
 
-    const id = crypto.randomUUID();
+    const id = createId();
     usersDB[id] = { email, password, name };
     localStorage.setItem(LOCAL_USERS_DB_KEY, JSON.stringify(usersDB));
 
