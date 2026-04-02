@@ -194,18 +194,10 @@ const PYQEngine = () => {
     setAnalysisGenerated(false);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pyq-analysis`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ examType: selectedExam, analysisType: "full" }),
+      const { data, error } = await supabase.functions.invoke("pyq-analysis", {
+        body: { examType: selectedExam, analysisType: "full" },
       });
-
-      if (!response.ok) throw new Error("Failed to generate analysis");
-
-      const data = await response.json();
+      if (error || !data) throw new Error("Failed to generate analysis");
       const incomingQuestions: PYQQuestion[] = (data.pyqQuestions || []).map((q: any, idx: number) => ({
         id: q.id || `pyq-${idx}`,
         year: Number(q.year) || 2000,
@@ -325,23 +317,16 @@ const PYQEngine = () => {
 
     setLoadingExactPractice(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pyq-analysis`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke("pyq-analysis", {
+        body: {
           examType: "prelims",
           analysisType: "practice_only",
           subject,
           level,
           count: 20,
-        }),
+        },
       });
-
-      if (!response.ok) throw new Error("Failed to fetch exact practice set");
-      const data = await response.json();
+      if (error || !data) throw new Error("Failed to fetch exact practice set");
       const incoming: PYQQuestion[] = (data.pyqQuestions || []).map((q: any, idx: number) => ({
         id: q.id || `exact-${idx}-${Date.now()}`,
         year: Number(q.year) || 2000,
