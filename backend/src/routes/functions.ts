@@ -1,5 +1,7 @@
 import { Hono } from "hono";
+import { randomUUID } from "node:crypto";
 import { cacheGet, cacheSet, logRequest } from "../db/sqlite.js";
+import { neonAdminStats, neonCacheGet, neonCacheSet, neonLogRequest } from "../db/neon.js";
 import { generateJson, generateText } from "../lib/gemini.js";
 import { hashPayload } from "../lib/utils.js";
 
@@ -8,11 +10,26 @@ export const functionsRouter = new Hono<Bindings>();
 
 const withCache = async <T>(fn: string, payload: unknown, compute: () => Promise<T>) => {
   const key = hashPayload(fn, payload);
-  const cached = cacheGet<T>(key);
-  if (cached) return cached;
+
+  const neonCached = await neonCacheGet<T>(key);
+  if (neonCached) return neonCached;
+
+  const sqliteCached = cacheGet<T>(key);
+  if (sqliteCached) {
+    await neonCacheSet(key, fn, sqliteCached);
+    return sqliteCached;
+  }
+
   const fresh = await compute();
   cacheSet(key, fresh);
+  await neonCacheSet(key, fn, fresh);
   return fresh;
+};
+
+const persistLog = async (fn: string, payload: unknown, response: unknown) => {
+  const key = hashPayload(fn, payload);
+  logRequest(fn, payload, response);
+  await neonLogRequest(fn, key, payload, response);
 };
 
 functionsRouter.post("/ai-chat", async (c) => {
@@ -24,7 +41,7 @@ functionsRouter.post("/ai-chat", async (c) => {
     generateText([{ role: "system", content: system }, ...messages]),
   );
   const response = { text };
-  logRequest("ai-chat", body, response);
+  await persistLog("ai-chat", body, response);
   return c.json(response);
 });
 
@@ -36,7 +53,7 @@ functionsRouter.post("/generate-prelims-questions", async (c) => {
 
   const fallback = {
     questions: Array.from({ length: count }).map((_, i) => ({
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       question: `${subject} practice question ${i + 1} (Level ${level})`,
       option_a: "Option A",
       option_b: "Option B",
@@ -52,14 +69,13 @@ functionsRouter.post("/generate-prelims-questions", async (c) => {
     subject,
   };
 
-  const prompt = `Generate ${count} UPSC prelims MCQs for ${subject} at level ${level}. Return strict JSON:
-{"questions":[{"question":"","option_a":"","option_b":"","option_c":"","option_d":"","correct_answer":"A","explanation":"","subject":"","topic":"","difficulty":""}]}`;
+  const prompt = `Generate ${count} UPSC prelims MCQs for ${subject} at level ${level}. Return strict JSON:\n{"questions":[{"question":"","option_a":"","option_b":"","option_c":"","option_d":"","correct_answer":"A","explanation":"","subject":"","topic":"","difficulty":""}]}`;
 
   const result = await withCache("generate-prelims-questions", body, () =>
     generateJson([{ role: "system", content: "Return strict JSON only." }, { role: "user", content: prompt }], fallback, 0.7),
   );
 
-  logRequest("generate-prelims-questions", body, result);
+  await persistLog("generate-prelims-questions", body, result);
   return c.json(result);
 });
 
@@ -73,7 +89,7 @@ functionsRouter.post("/mains-question", async (c) => {
     ]),
   );
   const response = { question: text || `Discuss a key issue in ${category}. (15 marks, 250 words)` };
-  logRequest("mains-question", body, response);
+  await persistLog("mains-question", body, response);
   return c.json(response);
 });
 
@@ -94,7 +110,7 @@ functionsRouter.post("/map-questions", async (c) => {
       0.4,
     ),
   );
-  logRequest("map-questions", body, response);
+  await persistLog("map-questions", body, response);
   return c.json(response);
 });
 
@@ -115,7 +131,7 @@ functionsRouter.post("/mind-map-generator", async (c) => {
       0.3,
     ),
   );
-  logRequest("mind-map-generator", body, response);
+  await persistLog("mind-map-generator", body, response);
   return c.json(response);
 });
 
@@ -130,7 +146,7 @@ functionsRouter.post("/optional-professor", async (c) => {
     ]),
   );
   const response = { explanation: answer || "Fallback optional explanation." };
-  logRequest("optional-professor", body, response);
+  await persistLog("optional-professor", body, response);
   return c.json(response);
 });
 
@@ -152,7 +168,7 @@ functionsRouter.post("/pyq-analysis", async (c) => {
       0.3,
     ),
   );
-  logRequest("pyq-analysis", body, response);
+  await persistLog("pyq-analysis", body, response);
   return c.json(response);
 });
 
@@ -189,7 +205,7 @@ functionsRouter.post("/upsc-notes-slides", async (c) => {
     ),
   );
 
-  logRequest("upsc-notes-slides", body, response);
+  await persistLog("upsc-notes-slides", body, response);
   return c.json(response);
 });
 
@@ -209,7 +225,7 @@ functionsRouter.post("/generate-current-affairs", async (c) => {
       0.4,
     ),
   );
-  logRequest("generate-current-affairs", body, response);
+  await persistLog("generate-current-affairs", body, response);
   return c.json(response);
 });
 
@@ -222,11 +238,20 @@ functionsRouter.post("/daily-intel-report", async (c) => {
     ]),
   );
   const response = { report: text || "Fallback daily report." };
-  logRequest("daily-intel-report", body, response);
+  await persistLog("daily-intel-report", body, response);
   return c.json(response);
 });
 
 functionsRouter.post("/check-subscription", (c) => c.json({ active: true, plan: "pro", source: "stub" }));
 functionsRouter.post("/create-subscription", (c) => c.json({ ok: true, checkoutUrl: "/subscription/mock" }));
 functionsRouter.post("/verify-subscription", (c) => c.json({ verified: true }));
-functionsRouter.post("/admin-stats", (c) => c.json({ users: 0, sessions: 0, revenue: 0 }));
+functionsRouter.post("/admin-stats", async (c) => {
+  const stats = await neonAdminStats();
+  return c.json({
+    users: 0,
+    sessions: stats.logs,
+    revenue: 0,
+    cacheEntries: stats.cacheEntries,
+    source: "neon",
+  });
+});

@@ -18,6 +18,7 @@ This backend exposes UPSC function endpoints compatible with `.../functions/v1/*
 ```bash
 cd backend
 npm install
+npm run migrate
 npm run dev
 ```
 
