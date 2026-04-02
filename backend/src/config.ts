@@ -26,7 +26,7 @@ export const config = {
   nodeEnv: required("NODE_ENV", "development"),
   geminiApiKey: required("GEMINI_API_KEY"),
   neonDatabaseUrl: required("NEON_DATABASE_URL"),
-  sqlitePath: required("SQLITE_PATH", "./backend/data/app.db"),
+  sqlitePath: required("SQLITE_PATH", "./data/app.db"),
   allowedOrigin: required("ALLOWED_ORIGIN", "*"),
 };
 

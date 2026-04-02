@@ -1,18 +1,24 @@
-import { neon } from "@neondatabase/serverless";
+import { Pool } from "pg";
 import { config, hasNeon } from "../config.js";
 
-export const neonSql = hasNeon ? neon(config.neonDatabaseUrl) : null;
+export const pool = hasNeon
+  ? new Pool({
+      connectionString: config.neonDatabaseUrl,
+      ssl: { rejectUnauthorized: false },
+      max: 5,
+    })
+  : null;
 
 export const queryNeon = async <T = unknown>(query: string, params: unknown[] = []): Promise<T[]> => {
-  if (!neonSql) return [];
-  const rows = await neonSql(query, params);
-  return rows as T[];
+  if (!pool) return [];
+  const result = await pool.query(query, params);
+  return result.rows as T[];
 };
 
 export const ensureNeonSchema = async () => {
-  if (!neonSql) return false;
+  if (!pool) return false;
 
-  await neonSql(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS ai_cache_entries (
       cache_key TEXT PRIMARY KEY,
       function_name TEXT NOT NULL,
@@ -21,7 +27,7 @@ export const ensureNeonSchema = async () => {
     );
   `);
 
-  await neonSql(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS ai_function_logs (
       id BIGSERIAL PRIMARY KEY,
       function_name TEXT NOT NULL,
@@ -36,27 +42,27 @@ export const ensureNeonSchema = async () => {
 };
 
 export const neonHealthCheck = async () => {
-  if (!neonSql) return { connected: false, reason: "NEON_DATABASE_URL missing" };
+  if (!pool) return { connected: false, reason: "NEON_DATABASE_URL missing" };
   try {
-    const rows = await neonSql("SELECT NOW() AS now");
-    return { connected: true, now: (rows as any[])[0]?.now ?? null };
+    const result = await pool.query("SELECT NOW() AS now");
+    return { connected: true, now: result.rows[0]?.now ?? null };
   } catch (error: any) {
     return { connected: false, reason: error?.message || "Neon query failed" };
   }
 };
 
 export const neonCacheGet = async <T = unknown>(cacheKey: string): Promise<T | null> => {
-  if (!neonSql) return null;
-  const rows = await neonSql(
+  if (!pool) return null;
+  const result = await pool.query(
     "SELECT payload FROM ai_cache_entries WHERE cache_key = $1 LIMIT 1",
     [cacheKey],
-  ) as Array<{ payload: T }>;
-  return rows[0]?.payload ?? null;
+  );
+  return (result.rows[0]?.payload as T) ?? null;
 };
 
 export const neonCacheSet = async (cacheKey: string, functionName: string, payload: unknown) => {
-  if (!neonSql) return;
-  await neonSql(
+  if (!pool) return;
+  await pool.query(
     `
     INSERT INTO ai_cache_entries (cache_key, function_name, payload)
     VALUES ($1, $2, $3::jsonb)
@@ -68,8 +74,8 @@ export const neonCacheSet = async (cacheKey: string, functionName: string, paylo
 };
 
 export const neonLogRequest = async (functionName: string, cacheKey: string, requestBody: unknown, responseBody: unknown) => {
-  if (!neonSql) return;
-  await neonSql(
+  if (!pool) return;
+  await pool.query(
     `
     INSERT INTO ai_function_logs (function_name, cache_key, request_body, response_body)
     VALUES ($1, $2, $3::jsonb, $4::jsonb)
@@ -79,13 +85,13 @@ export const neonLogRequest = async (functionName: string, cacheKey: string, req
 };
 
 export const neonAdminStats = async () => {
-  if (!neonSql) return { logs: 0, cacheEntries: 0 };
+  if (!pool) return { logs: 0, cacheEntries: 0 };
 
-  const logs = await neonSql("SELECT COUNT(*)::int AS count FROM ai_function_logs") as Array<{ count: number }>;
-  const cacheEntries = await neonSql("SELECT COUNT(*)::int AS count FROM ai_cache_entries") as Array<{ count: number }>;
+  const logs = await pool.query("SELECT COUNT(*)::int AS count FROM ai_function_logs");
+  const cacheEntries = await pool.query("SELECT COUNT(*)::int AS count FROM ai_cache_entries");
 
   return {
-    logs: logs[0]?.count ?? 0,
-    cacheEntries: cacheEntries[0]?.count ?? 0,
+    logs: logs.rows[0]?.count ?? 0,
+    cacheEntries: cacheEntries.rows[0]?.count ?? 0,
   };
 };

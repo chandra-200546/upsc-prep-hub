@@ -37,7 +37,12 @@ app.notFound((c) => c.json({ error: "Not found" }, 404));
 app.onError((err, c) => c.json({ error: err.message || "Internal error" }, 500));
 
 const boot = async () => {
-  await ensureNeonSchema();
+  try {
+    await ensureNeonSchema();
+    console.log("Neon schema ready");
+  } catch (err) {
+    console.error("Neon unavailable at boot, continuing with local fallback:", err);
+  }
   serve(
     {
       fetch: app.fetch,
