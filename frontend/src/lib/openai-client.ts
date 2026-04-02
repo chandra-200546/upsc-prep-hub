@@ -5,7 +5,14 @@ export type GeminiMessage = {
   content: string;
 };
 
-const BACKEND_BASE_URL = (import.meta.env.VITE_BACKEND_URL || "http://localhost:8787").replace(/\/$/, "");
+const resolveBackendBaseUrl = () => {
+  const configured = (import.meta.env.VITE_BACKEND_URL || "").trim();
+  if (configured) return configured.replace(/\/$/, "");
+  if (typeof window !== "undefined" && window.location.port === "5173") return "http://localhost:8787";
+  return "http://localhost:8787";
+};
+
+const BACKEND_BASE_URL = resolveBackendBaseUrl();
 
 export const streamGeminiText = async ({
   messages,
