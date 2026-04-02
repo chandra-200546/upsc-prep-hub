@@ -123,11 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return {};
         }
       }
-      // If it's a fetch error, fall through to local
-      if (error?.message?.includes("fetch")) {
-        // continue to local auth
-      } else if (error) {
-        return { error: error.message };
+      // Any auth failure should gracefully fall back to local auth mode
+      if (error) {
+        console.warn("Backend sign-in failed, trying local fallback:", error.message);
       }
     } catch {
       // Supabase unreachable
@@ -162,10 +160,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLocalMode(false);
         return {};
       }
-      if (error?.message?.includes("fetch")) {
-        // continue to local
-      } else if (error) {
-        return { error: error.message };
+      if (error) {
+        console.warn("Backend sign-up failed, trying local fallback:", error.message);
       }
     } catch {
       // Supabase unreachable

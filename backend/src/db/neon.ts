@@ -192,45 +192,61 @@ export const neonHealthCheck = async () => {
 
 export const neonCacheGet = async <T = unknown>(cacheKey: string): Promise<T | null> => {
   if (!pool) return null;
-  const result = await pool.query(
-    "SELECT payload FROM ai_cache_entries WHERE cache_key = $1 LIMIT 1",
-    [cacheKey],
-  );
-  return (result.rows[0]?.payload as T) ?? null;
+  try {
+    const result = await pool.query(
+      "SELECT payload FROM ai_cache_entries WHERE cache_key = $1 LIMIT 1",
+      [cacheKey],
+    );
+    return (result.rows[0]?.payload as T) ?? null;
+  } catch {
+    return null;
+  }
 };
 
 export const neonCacheSet = async (cacheKey: string, functionName: string, payload: unknown) => {
   if (!pool) return;
-  await pool.query(
-    `
-    INSERT INTO ai_cache_entries (cache_key, function_name, payload)
-    VALUES ($1, $2, $3::jsonb)
-    ON CONFLICT (cache_key)
-    DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW();
-    `,
-    [cacheKey, functionName, JSON.stringify(payload)],
-  );
+  try {
+    await pool.query(
+      `
+      INSERT INTO ai_cache_entries (cache_key, function_name, payload)
+      VALUES ($1, $2, $3::jsonb)
+      ON CONFLICT (cache_key)
+      DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW();
+      `,
+      [cacheKey, functionName, JSON.stringify(payload)],
+    );
+  } catch {
+    // ignore neon write failure and keep app responsive
+  }
 };
 
 export const neonLogRequest = async (functionName: string, cacheKey: string, requestBody: unknown, responseBody: unknown) => {
   if (!pool) return;
-  await pool.query(
-    `
-    INSERT INTO ai_function_logs (function_name, cache_key, request_body, response_body)
-    VALUES ($1, $2, $3::jsonb, $4::jsonb)
-    `,
-    [functionName, cacheKey, JSON.stringify(requestBody ?? null), JSON.stringify(responseBody ?? null)],
-  );
+  try {
+    await pool.query(
+      `
+      INSERT INTO ai_function_logs (function_name, cache_key, request_body, response_body)
+      VALUES ($1, $2, $3::jsonb, $4::jsonb)
+      `,
+      [functionName, cacheKey, JSON.stringify(requestBody ?? null), JSON.stringify(responseBody ?? null)],
+    );
+  } catch {
+    // ignore neon write failure and keep app responsive
+  }
 };
 
 export const neonAdminStats = async () => {
   if (!pool) return { logs: 0, cacheEntries: 0 };
 
-  const logs = await pool.query("SELECT COUNT(*)::int AS count FROM ai_function_logs");
-  const cacheEntries = await pool.query("SELECT COUNT(*)::int AS count FROM ai_cache_entries");
+  try {
+    const logs = await pool.query("SELECT COUNT(*)::int AS count FROM ai_function_logs");
+    const cacheEntries = await pool.query("SELECT COUNT(*)::int AS count FROM ai_cache_entries");
 
-  return {
-    logs: logs.rows[0]?.count ?? 0,
-    cacheEntries: cacheEntries.rows[0]?.count ?? 0,
-  };
+    return {
+      logs: logs.rows[0]?.count ?? 0,
+      cacheEntries: cacheEntries.rows[0]?.count ?? 0,
+    };
+  } catch {
+    return { logs: 0, cacheEntries: 0 };
+  }
 };

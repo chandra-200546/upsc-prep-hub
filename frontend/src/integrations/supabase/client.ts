@@ -1,7 +1,18 @@
 type AnyRow = Record<string, any>;
 type Result<T = any> = Promise<{ data: T; error: any }>;
 
-const BACKEND_BASE_URL = (import.meta.env.VITE_BACKEND_URL || "http://localhost:8787").replace(/\/$/, "");
+const resolveBackendBaseUrl = () => {
+  const configured = (import.meta.env.VITE_BACKEND_URL || "").trim();
+  if (configured) return configured.replace(/\/$/, "");
+  if (typeof window !== "undefined") {
+    const { origin, port } = window.location;
+    if (port === "5173") return "http://localhost:8787";
+    return origin.replace(/\/$/, "");
+  }
+  return "http://localhost:8787";
+};
+
+const BACKEND_BASE_URL = resolveBackendBaseUrl();
 const SESSION_KEY = "upsc_backend_session";
 
 let currentSession: any = null;
@@ -248,12 +259,15 @@ const createChannel = () => {
 export const supabase: any = {
   auth: {
     getSession: async () => {
-      loadStoredSession();
+      const stored = loadStoredSession();
       if (currentSession?.access_token) {
         const { data, error } = await apiGet("/functions/v1/auth/session");
         if (!error && data?.session) {
           storeSession(data.session);
           return { data: { session: data.session }, error: null };
+        }
+        if (stored?.access_token) {
+          return { data: { session: stored }, error: null };
         }
       }
       return { data: { session: null }, error: null };
