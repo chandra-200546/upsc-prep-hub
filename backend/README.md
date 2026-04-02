@@ -23,6 +23,7 @@ npm run dev
 ```
 
 Backend starts at `http://localhost:8787`.
+Neon connection check: `http://localhost:8787/health/neon`
 
 ## Routes
 - `POST /functions/v1/ai-chat`

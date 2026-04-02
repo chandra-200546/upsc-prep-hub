@@ -1,6 +1,20 @@
 import dotenv from "dotenv";
+import fs from "node:fs";
+import path from "node:path";
 
-dotenv.config();
+const envCandidates = [
+  process.env.BACKEND_ENV_PATH,
+  path.resolve(process.cwd(), ".env"),
+  path.resolve(process.cwd(), "backend/.env"),
+  path.resolve(process.cwd(), "../.env"),
+].filter(Boolean) as string[];
+
+for (const candidate of envCandidates) {
+  if (fs.existsSync(candidate)) {
+    dotenv.config({ path: candidate });
+    break;
+  }
+}
 
 const required = (name: string, fallback = "") => {
   const value = process.env[name] ?? fallback;

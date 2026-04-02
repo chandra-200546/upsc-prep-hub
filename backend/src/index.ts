@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { config } from "./config.js";
 import "./db/sqlite.js";
-import { ensureNeonSchema } from "./db/neon.js";
+import { ensureNeonSchema, neonHealthCheck } from "./db/neon.js";
 import { functionsRouter } from "./routes/functions.js";
 
 const app = new Hono();
@@ -25,6 +25,11 @@ app.get("/", (c) =>
     routes: "/functions/v1/*",
   }),
 );
+
+app.get("/health/neon", async (c) => {
+  const status = await neonHealthCheck();
+  return c.json(status, status.connected ? 200 : 503);
+});
 
 app.route("/functions/v1", functionsRouter);
 

@@ -35,6 +35,16 @@ export const ensureNeonSchema = async () => {
   return true;
 };
 
+export const neonHealthCheck = async () => {
+  if (!neonSql) return { connected: false, reason: "NEON_DATABASE_URL missing" };
+  try {
+    const rows = await neonSql("SELECT NOW() AS now");
+    return { connected: true, now: (rows as any[])[0]?.now ?? null };
+  } catch (error: any) {
+    return { connected: false, reason: error?.message || "Neon query failed" };
+  }
+};
+
 export const neonCacheGet = async <T = unknown>(cacheKey: string): Promise<T | null> => {
   if (!neonSql) return null;
   const rows = await neonSql(
