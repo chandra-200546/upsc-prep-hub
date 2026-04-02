@@ -1,40 +1,66 @@
 import fs from "node:fs";
 import path from "node:path";
-import Database from "better-sqlite3";
 import { config } from "../config.js";
+
+type CacheRow = { payload: string; created_at: string };
+type LogRow = {
+  id: number;
+  function_name: string;
+  request_body: string;
+  response_body: string;
+  created_at: string;
+};
+
+type DbShape = {
+  cache_entries: Record<string, CacheRow>;
+  request_logs: LogRow[];
+  next_id: number;
+};
 
 const dir = path.dirname(config.sqlitePath);
 if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-export const sqlite = new Database(config.sqlitePath);
+const storageFile = config.sqlitePath.endsWith(".db")
+  ? config.sqlitePath.replace(/\.db$/i, ".json")
+  : `${config.sqlitePath}.json`;
 
-sqlite.exec(`
-CREATE TABLE IF NOT EXISTS cache_entries (
-  key TEXT PRIMARY KEY,
-  payload TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+const emptyDb: DbShape = {
+  cache_entries: {},
+  request_logs: [],
+  next_id: 1,
+};
 
-CREATE TABLE IF NOT EXISTS request_logs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  function_name TEXT NOT NULL,
-  request_body TEXT,
-  response_body TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-`);
+let db: DbShape = emptyDb;
 
-const getStmt = sqlite.prepare("SELECT payload FROM cache_entries WHERE key = ?");
-const upsertStmt = sqlite.prepare(`
-  INSERT INTO cache_entries (key, payload) VALUES (?, ?)
-  ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, created_at = datetime('now')
-`);
-const logStmt = sqlite.prepare(`
-  INSERT INTO request_logs (function_name, request_body, response_body) VALUES (?, ?, ?)
-`);
+const load = () => {
+  try {
+    if (!fs.existsSync(storageFile)) {
+      fs.writeFileSync(storageFile, JSON.stringify(emptyDb, null, 2), "utf-8");
+      db = { ...emptyDb };
+      return;
+    }
+    const raw = fs.readFileSync(storageFile, "utf-8");
+    db = JSON.parse(raw) as DbShape;
+    if (!db.cache_entries) db.cache_entries = {};
+    if (!Array.isArray(db.request_logs)) db.request_logs = [];
+    if (typeof db.next_id !== "number") db.next_id = db.request_logs.length + 1;
+  } catch {
+    db = { ...emptyDb };
+  }
+};
+
+const persist = () => {
+  try {
+    fs.writeFileSync(storageFile, JSON.stringify(db, null, 2), "utf-8");
+  } catch {
+    // ignore persistence failure to keep app running
+  }
+};
+
+load();
 
 export const cacheGet = <T = unknown>(key: string): T | null => {
-  const row = getStmt.get(key) as { payload: string } | undefined;
+  const row = db.cache_entries[key];
   if (!row) return null;
   try {
     return JSON.parse(row.payload) as T;
@@ -44,9 +70,23 @@ export const cacheGet = <T = unknown>(key: string): T | null => {
 };
 
 export const cacheSet = (key: string, payload: unknown) => {
-  upsertStmt.run(key, JSON.stringify(payload));
+  db.cache_entries[key] = {
+    payload: JSON.stringify(payload ?? null),
+    created_at: new Date().toISOString(),
+  };
+  persist();
 };
 
 export const logRequest = (fn: string, requestBody: unknown, responseBody: unknown) => {
-  logStmt.run(fn, JSON.stringify(requestBody ?? null), JSON.stringify(responseBody ?? null));
+  db.request_logs.push({
+    id: db.next_id++,
+    function_name: fn,
+    request_body: JSON.stringify(requestBody ?? null),
+    response_body: JSON.stringify(responseBody ?? null),
+    created_at: new Date().toISOString(),
+  });
+  if (db.request_logs.length > 5000) {
+    db.request_logs = db.request_logs.slice(-5000);
+  }
+  persist();
 };
