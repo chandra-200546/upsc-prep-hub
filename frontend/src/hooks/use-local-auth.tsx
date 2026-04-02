@@ -141,6 +141,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const localUser: LocalUser = { id: userEntry[0], email, name: userEntry[1].name };
     setUser(localUser);
     localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(localUser));
+    await supabase.auth.setSession({
+      access_token: `local-token-${localUser.id}`,
+      refresh_token: `local-refresh-${localUser.id}`,
+      user: { id: localUser.id, email: localUser.email },
+    });
     
     const profiles = getLocalProfiles();
     if (profiles[localUser.id]) setProfile(profiles[localUser.id]);
@@ -180,6 +185,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const localUser: LocalUser = { id, email, name };
     setUser(localUser);
     localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(localUser));
+    await supabase.auth.setSession({
+      access_token: `local-token-${localUser.id}`,
+      refresh_token: `local-refresh-${localUser.id}`,
+      user: { id: localUser.id, email: localUser.email },
+    });
 
     return {};
   };
