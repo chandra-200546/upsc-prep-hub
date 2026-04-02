@@ -8,14 +8,6 @@ export type GeminiMessage = {
 const getGeminiKey = () => {
   const envKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY || "";
   if (envKey) return envKey;
-
-  try {
-    const local = window.localStorage.getItem("GEMINI_API_KEY") || window.localStorage.getItem("OPENAI_API_KEY") || "";
-    if (local) return local;
-  } catch {
-    // ignore storage read errors
-  }
-
   return "";
 };
 
@@ -33,11 +25,6 @@ export const streamGeminiText = async ({
     const entered = window.prompt("Enter Gemini API Key to continue AI features:");
     if (entered && entered.trim()) {
       apiKey = entered.trim();
-      try {
-        window.localStorage.setItem("GEMINI_API_KEY", apiKey);
-      } catch {
-        // ignore storage errors
-      }
     }
   }
 
