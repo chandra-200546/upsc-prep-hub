@@ -56,22 +56,63 @@ function getLocalProfiles(): Record<string, LocalProfile> {
   } catch { return {}; }
 }
 
+const buildDefaultProfile = (user: LocalUser): LocalProfile => ({
+  id: user.id,
+  name: user.name || user.email?.split("@")[0] || "Aspirant",
+  target_year: new Date().getFullYear() + 1,
+  optional_subject: "Public Administration",
+  study_hours_per_day: 4,
+  mentor_personality: "friendly",
+  current_streak: 0,
+  total_xp: 0,
+  level: 1,
+  language: "English",
+  profile_photo_url: null,
+  last_login_date: null,
+});
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<LocalUser | null>(null);
   const [profile, setProfile] = useState<LocalProfile | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isLocalMode, setIsLocalMode] = useState(false);
 
+  const ensureRemoteProfile = async (u: LocalUser): Promise<LocalProfile | null> => {
+    const { data } = await supabase.from("profiles").select("*").eq("id", u.id).maybeSingle();
+    if (data) return data as unknown as LocalProfile;
+
+    const fallback = buildDefaultProfile(u);
+    const { error } = await supabase.from("profiles").upsert({
+      id: fallback.id,
+      name: fallback.name,
+      target_year: fallback.target_year,
+      optional_subject: fallback.optional_subject,
+      study_hours_per_day: fallback.study_hours_per_day,
+      mentor_personality: fallback.mentor_personality,
+      current_streak: fallback.current_streak,
+      total_xp: fallback.total_xp,
+      level: fallback.level,
+      language: fallback.language,
+      profile_photo_url: fallback.profile_photo_url,
+      last_login_date: fallback.last_login_date,
+    });
+    if (error) return null;
+
+    const { data: created } = await supabase.from("profiles").select("*").eq("id", u.id).maybeSingle();
+    return (created as unknown as LocalProfile) || fallback;
+  };
+
   useEffect(() => {
     // Try Supabase first
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        setUser({ id: session.user.id, email: session.user.email || "" });
+        const sessionUser = { id: session.user.id, email: session.user.email || "" };
+        setUser(sessionUser);
         setIsLocalMode(false);
         // Load Supabase profile
-        supabase.from("profiles").select("*").eq("id", session.user.id).single()
-          .then(({ data }) => {
-            if (data) setProfile(data as unknown as LocalProfile);
+        ensureRemoteProfile(sessionUser)
+          .then((profileData) => {
+            if (profileData) setProfile(profileData);
             setIsReady(true);
           });
       } else {
@@ -120,10 +161,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!error) {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          setUser({ id: session.user.id, email: session.user.email || "" });
+          const sessionUser = { id: session.user.id, email: session.user.email || "" };
+          setUser(sessionUser);
           setIsLocalMode(false);
-          const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-          if (data) setProfile(data as unknown as LocalProfile);
+          const profileData = await ensureRemoteProfile(sessionUser);
+          if (profileData) setProfile(profileData);
           return {};
         }
       }
@@ -230,8 +272,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profiles = getLocalProfiles();
       if (profiles[user.id]) setProfile(profiles[user.id]);
     } else {
-      const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-      if (data) setProfile(data as unknown as LocalProfile);
+      const profileData = await ensureRemoteProfile(user);
+      if (profileData) setProfile(profileData);
     }
   };
 

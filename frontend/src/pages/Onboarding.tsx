@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-local-auth";
@@ -35,7 +35,11 @@ const Onboarding = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, isLocalMode, saveProfile, refreshProfile } = useAuth();
+  const { user, profile, isLocalMode, saveProfile, refreshProfile } = useAuth();
+
+  useEffect(() => {
+    if (user && profile) navigate("/dashboard");
+  }, [user, profile, navigate]);
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
