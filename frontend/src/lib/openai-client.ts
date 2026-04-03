@@ -7,15 +7,15 @@ export type GeminiMessage = {
 
 const backendCandidates = () => {
   const configured = (import.meta.env.VITE_BACKEND_URL || "").trim();
-  const fromWindow = typeof window !== "undefined" ? window.location.origin.replace(/\/$/, "") : "";
   const hostDerived =
     typeof window !== "undefined" && window.location?.hostname
       ? `${window.location.protocol}//${window.location.hostname}:8787`
       : "";
+  const fromWindow = typeof window !== "undefined" ? window.location.origin.replace(/\/$/, "") : "";
   const local = "http://localhost:8787";
   const localAlt = "http://127.0.0.1:8787";
   return Array.from(
-    new Set([configured, fromWindow, hostDerived, local, localAlt].filter(Boolean).map((x) => x.replace(/\/$/, ""))),
+    new Set([configured, hostDerived, local, localAlt, fromWindow].filter(Boolean).map((x) => x.replace(/\/$/, ""))),
   );
 };
 
@@ -40,7 +40,12 @@ export const streamGeminiText = async ({
       });
 
       const raw = await response.text();
-      const payload = raw ? JSON.parse(raw) : {};
+      let payload: any = {};
+      try {
+        payload = raw ? JSON.parse(raw) : {};
+      } catch {
+        payload = {};
+      }
       if (!response.ok) {
         lastErr = payload?.error?.message || payload?.message || "AI generation failed";
         if (response.status === 404) continue;

@@ -3,15 +3,15 @@ type Result<T = any> = Promise<{ data: T; error: any }>;
 
 const backendCandidates = () => {
   const configured = (import.meta.env.VITE_BACKEND_URL || "").trim();
-  const fromWindow = typeof window !== "undefined" ? window.location.origin.replace(/\/$/, "") : "";
   const hostDerived =
     typeof window !== "undefined" && window.location?.hostname
       ? `${window.location.protocol}//${window.location.hostname}:8787`
       : "";
+  const fromWindow = typeof window !== "undefined" ? window.location.origin.replace(/\/$/, "") : "";
   const local = "http://localhost:8787";
   const localAlt = "http://127.0.0.1:8787";
   return Array.from(
-    new Set([configured, fromWindow, hostDerived, local, localAlt].filter(Boolean).map((x) => x.replace(/\/$/, ""))),
+    new Set([configured, hostDerived, local, localAlt, fromWindow].filter(Boolean).map((x) => x.replace(/\/$/, ""))),
   );
 };
 
@@ -134,8 +134,16 @@ const apiPost = async (path: string, body: unknown, extraHeaders?: Record<string
         body: JSON.stringify(body ?? {}),
       });
       const raw = await response.text();
-      const data = raw ? JSON.parse(raw) : null;
+      let data: any = null;
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        data = null;
+      }
       if (response.ok) {
+        if (!data || typeof data !== "object") {
+          throw new Error("Invalid backend response");
+        }
         activeBackendBase = base;
         return { data, error: null };
       }
@@ -162,8 +170,16 @@ const apiGet = async (path: string) => {
         },
       });
       const raw = await response.text();
-      const data = raw ? JSON.parse(raw) : null;
+      let data: any = null;
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        data = null;
+      }
       if (response.ok) {
+        if (!data || typeof data !== "object") {
+          throw new Error("Invalid backend response");
+        }
         activeBackendBase = base;
         return { data, error: null };
       }
