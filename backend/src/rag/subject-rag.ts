@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import { pool, queryNeon } from "../db/neon.js";
-import { generateJson } from "../lib/gemini.js";
+import { generateText } from "../lib/gemini.js";
 
 type SubjectChunk = {
   id: string;
@@ -197,37 +197,16 @@ export const getSubjectRagStats = async (subjectId: string) => {
   return { subjectId, chunks: chunks.length, sources };
 };
 
-const fallbackDeck = (subjectName: string, topic: string, slideCount: number, citations: string[]): NotesDeck => ({
-  topicTitle: topic,
-  chapterTitle: subjectName,
-  slides: Array.from({ length: slideCount }).map((_, i) => ({
-    slideNumber: i + 1,
-    topicName: topic,
-    subtopicTitle: `${topic} - Source Notes ${i + 1}`,
-    structuredExplanation: "Source context was limited. Please ingest a cleaner PDF/text source for richer output.",
-    points: ["Definition", "Core features", "Exam relevance"],
-    keyTakeaway: "Revise with source-backed facts.",
-  })),
-  checkpointQuestions: Array.from({ length: Math.floor(slideCount / 3) }).map((_, i) => ({
-    afterSlide: (i + 1) * 3,
-    type: "short",
-    question: `Checkpoint ${i + 1}: What are the key points from slides ${(i + 1) * 3 - 2}-${(i + 1) * 3}?`,
-    correctAnswer: "core points",
-    acceptableAnswers: ["definition", "feature", "significance"],
-    explanation: "Answer from source notes only.",
-  })),
-  practiceQuestions: Array.from({ length: 10 }).map((_, i) => ({
-    questionText: `${topic} practice question ${i + 1}`,
-    difficulty: i < 3 ? "Easy" : i < 7 ? "Medium" : "Hard",
-    type: i < 4 ? "Prelims" : i < 8 ? "Mains" : "Analytical",
-    answer: "Use source-backed answer.",
-    explanation: "Focus on facts and structure.",
-    keyPoints: ["Concept", "Evidence", "Conclusion"],
-  })),
-  revisionSummary: ["Revise key definitions.", "Map facts to UPSC syllabus.", "Practice one mains answer."],
-  generatedAt: new Date().toISOString(),
-  citations,
-});
+const extractJson = (raw: string) => {
+  const text = raw.trim();
+  if (text.startsWith("{")) return text;
+  const fenced = text.match(/```json\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) return fenced[1].trim();
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first >= 0 && last > first) return text.slice(first, last + 1);
+  return text;
+};
 
 export const generateSubjectRagNotes = async ({
   subjectId,
@@ -255,32 +234,52 @@ export const generateSubjectRagNotes = async ({
 
   const selected = ranked.filter((x) => x.score > 0).map((x) => x.chunk);
   const contextChunks = selected.length ? selected : chunks.slice(0, 12);
+  if (!selected.length) {
+    return {
+      ok: false,
+      reason: "Topic match is too weak in source book. Enter a more specific history topic from the book index.",
+    };
+  }
   const context = contextChunks
     .map((c, idx) => `Chunk ${idx + 1} [${c.source_name}] ${c.chunk_text}`)
     .join("\n\n");
   const citations = Array.from(new Set(contextChunks.map((c) => c.source_name)));
   const count = Math.min(20, Math.max(15, slideCount));
 
-  const fallback = fallbackDeck(subjectName, topic, count, citations);
-  const generated = await generateJson<NotesDeck>(
-    [
-      {
-        role: "system",
-        content:
-          "You are a strict UPSC notes generator. Use ONLY provided source context. Do not invent facts. Return only valid JSON in requested schema.",
-      },
-      {
-        role: "user",
-        content:
-          `Subject: ${subjectName}\nTopic: ${topic}\n` +
-          `Create exactly ${count} structured slides from source context. Add checkpointQuestions after each 3 slides and 10 practiceQuestions.\n` +
-          "Schema keys required: topicTitle, chapterTitle, slides, checkpointQuestions, practiceQuestions, revisionSummary, generatedAt, citations.\n\n" +
-          `Source context:\n${context}`,
-      },
-    ],
-    fallback,
-    0.1,
-  );
+  let generated: NotesDeck;
+  try {
+    const raw = await generateText(
+      [
+        {
+          role: "system",
+          content:
+            "You are a strict UPSC notes generator. Use ONLY provided source context. Never invent facts. Return ONLY JSON.",
+        },
+        {
+          role: "user",
+          content:
+            `Subject: ${subjectName}\nTopic: ${topic}\n` +
+            `Create exactly ${count} structured slides from source context. Add checkpointQuestions after each 3 slides and exactly 10 practiceQuestions.\n` +
+            "Schema keys required: topicTitle, chapterTitle, slides, checkpointQuestions, practiceQuestions, revisionSummary, generatedAt, citations.\n\n" +
+            `Source context:\n${context}`,
+        },
+      ],
+      0.1,
+    );
+    generated = JSON.parse(extractJson(raw)) as NotesDeck;
+  } catch {
+    return {
+      ok: false,
+      reason: "Model could not generate valid source-grounded JSON. Please retry with a narrower topic.",
+    };
+  }
+
+  if (!Array.isArray(generated?.slides) || generated.slides.length < 10) {
+    return {
+      ok: false,
+      reason: "Generated notes were not complete. Please retry with a clearer history topic.",
+    };
+  }
 
   return { ok: true, deck: { ...generated, citations } };
 };
