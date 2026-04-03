@@ -1,4 +1,4 @@
-import { BookPart, Chapter, StudyBlock, TopicNote } from "../types";
+import { BookPart, Chapter, StudyBlock, TopicNote, TopicPreference } from "../types";
 
 const clean = (v: string) => v.replace(/\s+/g, " ").trim();
 
@@ -79,3 +79,50 @@ export const paginateChapters = (chapters: Chapter[], page: number, pageSize: nu
 };
 
 export const totalPages = (totalItems: number, pageSize: number) => Math.max(1, Math.ceil(totalItems / pageSize));
+
+type FlatTopic = {
+  chapterId: string;
+  chapterTitle: string;
+  topicId: string;
+  topicTitle: string;
+  done: boolean;
+  weak: boolean;
+  bookmarked: boolean;
+};
+
+export const buildRevisionQueue = ({
+  chapters,
+  isDone,
+  getPreference,
+  limit = 8,
+}: {
+  chapters: Chapter[];
+  isDone: (chapterId: string, topicId: string) => boolean;
+  getPreference: (chapterId: string, topicId: string) => TopicPreference | undefined;
+  limit?: number;
+}): FlatTopic[] => {
+  const flat: FlatTopic[] = [];
+  chapters.forEach((chapter) => {
+    chapter.topics.forEach((topic, idx) => {
+      const topicId = buildTopicId(chapter.id, topic, idx);
+      const pref = getPreference(chapter.id, topicId) || {};
+      flat.push({
+        chapterId: chapter.id,
+        chapterTitle: chapter.title,
+        topicId,
+        topicTitle: topic.title,
+        done: isDone(chapter.id, topicId),
+        weak: Boolean(pref.weak),
+        bookmarked: Boolean(pref.bookmarked),
+      });
+    });
+  });
+
+  return flat
+    .sort((a, b) => {
+      const scoreA = (a.weak ? 4 : 0) + (!a.done ? 2 : 0) + (a.bookmarked ? 1 : 0);
+      const scoreB = (b.weak ? 4 : 0) + (!b.done ? 2 : 0) + (b.bookmarked ? 1 : 0);
+      return scoreB - scoreA;
+    })
+    .slice(0, Math.max(1, limit));
+};

@@ -4,6 +4,9 @@ export type TopicNote = {
   notes: string[];
   prelimsFocus: string[];
   mainsFocus: string[];
+  tags?: string[];
+  pyqHints?: string[];
+  answerFramework?: string[];
 };
 
 export type Chapter = {
@@ -24,4 +27,9 @@ export type StudyBlock = {
   id: string;
   title: string;
   bullets: string[];
+};
+
+export type TopicPreference = {
+  bookmarked?: boolean;
+  weak?: boolean;
 };
