@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, BookOpen, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,18 +6,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { HISTORY_NOTES } from "@/features/notes/data/history-book";
-import { buildStudyBlocks, buildTopicId, filterChaptersByQuery } from "@/features/notes/lib/engine";
+import { HISTORY_BOOK_PARTS } from "@/features/notes/data/history-parts";
+import { buildStudyBlocks, buildTopicId, chaptersForPart, filterChaptersByQuery, paginateChapters, totalPages } from "@/features/notes/lib/engine";
 import { readNotesProgress, topicKey, writeNotesProgress } from "@/features/notes/lib/progress";
+import { Chapter } from "@/features/notes/types";
 
 const UPSCNotes = () => {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const [activePartId, setActivePartId] = useState(HISTORY_BOOK_PARTS[0]?.id || "");
   const [chapterId, setChapterId] = useState(HISTORY_NOTES[0]?.id || "");
   const [topicIndex, setTopicIndex] = useState(0);
   const [blockIndex, setBlockIndex] = useState(0);
+  const [chapterPage, setChapterPage] = useState(1);
   const [progress, setProgress] = useState(readNotesProgress());
+  const CHAPTERS_PER_PAGE = 6;
 
-  const filteredChapters = useMemo(() => filterChaptersByQuery(HISTORY_NOTES, query), [query]);
+  const activePart = useMemo(
+    () => HISTORY_BOOK_PARTS.find((part) => part.id === activePartId) || HISTORY_BOOK_PARTS[0],
+    [activePartId],
+  );
+
+  const chaptersInPart = useMemo(
+    () => (activePart ? chaptersForPart(HISTORY_NOTES, activePart) : HISTORY_NOTES),
+    [activePart],
+  );
+
+  const filteredChapters = useMemo(() => filterChaptersByQuery(chaptersInPart, query), [chaptersInPart, query]);
+  const chaptersPageCount = totalPages(filteredChapters.length, CHAPTERS_PER_PAGE);
+  const pagedChapters = useMemo(
+    () => paginateChapters(filteredChapters, chapterPage, CHAPTERS_PER_PAGE),
+    [filteredChapters, chapterPage],
+  );
 
   const activeChapter = useMemo(() => {
     const chapter = filteredChapters.find((c) => c.id === chapterId);
@@ -31,12 +51,42 @@ const UPSCNotes = () => {
   const topicCount = activeChapter?.topics.length || 0;
   const activeTopicId = activeChapter && activeTopic ? buildTopicId(activeChapter.id, activeTopic, topicIndex) : "";
   const isTopicDone = activeTopicId ? Boolean(progress[topicKey(activeChapter!.id, activeTopicId)]) : false;
+  const topicTotalInPart = useMemo(
+    () => chaptersInPart.reduce((sum: number, chapter: Chapter) => sum + chapter.topics.length, 0),
+    [chaptersInPart],
+  );
+  const topicDoneInPart = useMemo(() => {
+    let done = 0;
+    chaptersInPart.forEach((chapter: Chapter) => {
+      chapter.topics.forEach((topic, idx) => {
+        const id = buildTopicId(chapter.id, topic, idx);
+        if (progress[topicKey(chapter.id, id)]) done += 1;
+      });
+    });
+    return done;
+  }, [chaptersInPart, progress]);
+  const coveragePct = topicTotalInPart > 0 ? Math.round((topicDoneInPart / topicTotalInPart) * 100) : 0;
 
   const resetForChapter = (nextChapterId: string) => {
     setChapterId(nextChapterId);
     setTopicIndex(0);
     setBlockIndex(0);
   };
+
+  const switchPart = (partId: string) => {
+    setActivePartId(partId);
+    setQuery("");
+    setChapterPage(1);
+    const nextPart = HISTORY_BOOK_PARTS.find((part) => part.id === partId);
+    const nextChapterId = nextPart?.chapterIds?.[0] || HISTORY_NOTES[0]?.id || "";
+    resetForChapter(nextChapterId);
+  };
+
+  useEffect(() => {
+    if (chapterPage > chaptersPageCount) {
+      setChapterPage(chaptersPageCount);
+    }
+  }, [chapterPage, chaptersPageCount]);
 
   const moveTopic = (dir: "prev" | "next") => {
     if (!activeChapter) return;
@@ -69,19 +119,45 @@ const UPSCNotes = () => {
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-primary">UPSC History Notes</h1>
-            <p className="text-sm text-muted-foreground">Phase 1: chapter index, search, 10-block study format, progress tracking.</p>
+            <p className="text-sm text-muted-foreground">Phase 2: book-part navigation, chapter pagination, and coverage analytics.</p>
           </div>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5" />History Book Index</CardTitle>
-            <CardDescription>Search and open chapter/topic notes.</CardDescription>
+            <CardDescription>{activePart?.description}</CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="mb-3 flex flex-wrap gap-2">
+              {HISTORY_BOOK_PARTS.map((part) => (
+                <Button
+                  key={part.id}
+                  size="sm"
+                  variant={part.id === activePartId ? "default" : "outline"}
+                  onClick={() => switchPart(part.id)}
+                >
+                  {part.title}
+                </Button>
+              ))}
+            </div>
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input className="pl-9" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search chapter/topic/keyword..." />
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="rounded-md border p-3">
+                <p className="text-xs text-muted-foreground">Topics Completed</p>
+                <p className="text-lg font-semibold">{topicDoneInPart}/{topicTotalInPart}</p>
+              </div>
+              <div className="rounded-md border p-3">
+                <p className="text-xs text-muted-foreground">Coverage</p>
+                <p className="text-lg font-semibold">{coveragePct}%</p>
+              </div>
+              <div className="rounded-md border p-3">
+                <p className="text-xs text-muted-foreground">Chapters in Part</p>
+                <p className="text-lg font-semibold">{chaptersInPart.length}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -90,7 +166,7 @@ const UPSCNotes = () => {
           <Card className="lg:col-span-1">
             <CardHeader><CardTitle className="text-lg">Chapters</CardTitle></CardHeader>
             <CardContent className="space-y-2 max-h-[70vh] overflow-auto">
-              {filteredChapters.map((chapter) => (
+              {pagedChapters.map((chapter) => (
                 <button
                   key={chapter.id}
                   onClick={() => resetForChapter(chapter.id)}
@@ -100,6 +176,25 @@ const UPSCNotes = () => {
                   <p className="text-xs text-muted-foreground mt-1">{chapter.topics.length} topics</p>
                 </button>
               ))}
+              <div className="flex items-center justify-between pt-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={chapterPage <= 1}
+                  onClick={() => setChapterPage((p) => Math.max(1, p - 1))}
+                >
+                  Prev Page
+                </Button>
+                <span className="text-xs text-muted-foreground">Page {chapterPage} / {chaptersPageCount}</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={chapterPage >= chaptersPageCount}
+                  onClick={() => setChapterPage((p) => Math.min(chaptersPageCount, p + 1))}
+                >
+                  Next Page
+                </Button>
+              </div>
               {filteredChapters.length === 0 && <p className="text-sm text-muted-foreground">No chapters matched your search.</p>}
             </CardContent>
           </Card>

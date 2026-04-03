@@ -13,6 +13,13 @@ export type Chapter = {
   topics: TopicNote[];
 };
 
+export type BookPart = {
+  id: string;
+  title: string;
+  description: string;
+  chapterIds: string[];
+};
+
 export type StudyBlock = {
   id: string;
   title: string;

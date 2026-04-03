@@ -1,4 +1,4 @@
-import { Chapter, StudyBlock, TopicNote } from "../types";
+import { BookPart, Chapter, StudyBlock, TopicNote } from "../types";
 
 const clean = (v: string) => v.replace(/\s+/g, " ").trim();
 
@@ -67,3 +67,15 @@ export const filterChaptersByQuery = (chapters: Chapter[], query: string): Chapt
     }))
     .filter((chapter) => chapter.topics.length > 0);
 };
+
+export const chaptersForPart = (allChapters: Chapter[], part: BookPart): Chapter[] => {
+  const set = new Set(part.chapterIds);
+  return allChapters.filter((chapter) => set.has(chapter.id));
+};
+
+export const paginateChapters = (chapters: Chapter[], page: number, pageSize: number): Chapter[] => {
+  const start = Math.max(0, (page - 1) * pageSize);
+  return chapters.slice(start, start + pageSize);
+};
+
+export const totalPages = (totalItems: number, pageSize: number) => Math.max(1, Math.ceil(totalItems / pageSize));
