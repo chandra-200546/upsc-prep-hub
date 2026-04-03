@@ -5,8 +5,9 @@ import { cacheGet, cacheSet, logRequest } from "../db/sqlite.js";
 import { neonAdminStats, neonCacheGet, neonCacheSet, neonLogRequest } from "../db/neon.js";
 import { getProfileById, listProfiles, parseProfilesCsv, upsertProfiles } from "../db/profiles.js";
 import { getHistoryRagStats, ingestHistoryChunks, queryHistoryRag } from "../rag/history-rag.js";
-import { generateSubjectRagNotes, getSubjectRagStats, ingestSubjectPdf } from "../rag/subject-rag.js";
+import { generateSubjectBookAnswer, generateSubjectRagNotes, getSubjectRagStats, ingestSubjectPdf } from "../rag/subject-rag.js";
 import { generateJson, generateText } from "../lib/gemini.js";
+import { hasGemini } from "../config.js";
 import { deleteFile, getStoragePublicPath, saveBase64File } from "../lib/storage.js";
 import { hashPayload } from "../lib/utils.js";
 
@@ -18,8 +19,12 @@ const nowIso = () => new Date().toISOString();
 const withCache = async <T>(fn: string, payload: unknown, compute: () => Promise<T>) => {
   const key = hashPayload(fn, payload);
 
-  const neonCached = await neonCacheGet<T>(key);
-  if (neonCached) return neonCached;
+  try {
+    const neonCached = await neonCacheGet<T>(key);
+    if (neonCached) return neonCached;
+  } catch {
+    // Ignore Neon cache outages and continue with local cache/computation.
+  }
 
   const sqliteCached = cacheGet<T>(key);
   if (sqliteCached) {
@@ -29,14 +34,22 @@ const withCache = async <T>(fn: string, payload: unknown, compute: () => Promise
 
   const fresh = await compute();
   cacheSet(key, fresh);
-  await neonCacheSet(key, fn, fresh);
+  try {
+    await neonCacheSet(key, fn, fresh);
+  } catch {
+    // Ignore Neon cache write failures.
+  }
   return fresh;
 };
 
 const persistLog = async (fn: string, payload: unknown, response: unknown) => {
   const key = hashPayload(fn, payload);
   logRequest(fn, payload, response);
-  await neonLogRequest(fn, key, payload, response);
+  try {
+    await neonLogRequest(fn, key, payload, response);
+  } catch {
+    // Ignore Neon logging failures so feature APIs keep working.
+  }
 };
 
 const safeAi = async (system: string, user: string, fallback: string) => {
@@ -261,6 +274,14 @@ functionsRouter.post("/ai-generate", async (c) => {
   }
 });
 
+functionsRouter.get("/ai-health", async (c) => {
+  return c.json({
+    ok: true,
+    provider: "gemini",
+    hasGeminiKey: hasGemini,
+  });
+});
+
 functionsRouter.get("/history-rag/stats", async (c) => {
   return c.json(getHistoryRagStats());
 });
@@ -335,6 +356,21 @@ functionsRouter.post("/notes-rag/generate", async (c) => {
     topic,
     slideCount: slides,
   });
+  if (!result.ok) return c.json(result, 400);
+  return c.json(result);
+});
+
+functionsRouter.post("/notes-rag/answer", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const subjectId = String(body?.subjectId ?? "").trim();
+  const subjectName = String(body?.subjectName ?? "").trim();
+  const topic = String(body?.topic ?? "").trim();
+
+  if (!subjectId || !subjectName || !topic) {
+    return c.json({ ok: false, error: "subjectId, subjectName and topic are required" }, 400);
+  }
+
+  const result = await generateSubjectBookAnswer({ subjectId, subjectName, topic });
   if (!result.ok) return c.json(result, 400);
   return c.json(result);
 });

@@ -55,7 +55,11 @@ const buildNeonUrlFromPgEnv = () => {
 export const config = {
   port: Number(required("PORT", "8787")),
   nodeEnv: required("NODE_ENV", "development"),
-  geminiApiKey: required("GEMINI_API_KEY"),
+  geminiApiKey:
+    required("GEMINI_API_KEY") ||
+    required("GOOGLE_GEMINI_API_KEY") ||
+    required("GEMINI_KEY") ||
+    required("VITE_GEMINI_API_KEY"),
   neonDatabaseUrl: required("NEON_DATABASE_URL") || buildNeonUrlFromPgEnv(),
   sqlitePath: required("SQLITE_PATH", "./data/app.db"),
   allowedOrigins: parseAllowedOrigins(required("ALLOWED_ORIGIN", "*")),

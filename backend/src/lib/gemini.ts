@@ -3,14 +3,24 @@ import { config, hasGemini } from "../config.js";
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
 const openAiCompatEndpoint = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-const nativeEndpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
 
 const toNativeRole = (role: ChatMessage["role"]) => {
   if (role === "assistant") return "model";
   return "user";
 };
 
-const tryOpenAiCompat = async (messages: ChatMessage[], temperature: number) => {
+const normalizeMessages = (messages: ChatMessage[]): ChatMessage[] => {
+  return (Array.isArray(messages) ? messages : [])
+    .map((m) => {
+      const role = m?.role === "assistant" || m?.role === "system" ? m.role : "user";
+      const content = typeof m?.content === "string" ? m.content.trim() : String(m?.content ?? "").trim();
+      return { role, content } as ChatMessage;
+    })
+    .filter((m) => Boolean(m.content));
+};
+
+const tryOpenAiCompat = async (messages: ChatMessage[], model: string, temperature: number) => {
   const response = await fetch(openAiCompatEndpoint, {
     method: "POST",
     headers: {
@@ -18,7 +28,7 @@ const tryOpenAiCompat = async (messages: ChatMessage[], temperature: number) => 
       Authorization: `Bearer ${config.geminiApiKey}`,
     },
     body: JSON.stringify({
-      model: "gemini-2.0-flash",
+      model,
       temperature,
       messages,
     }),
@@ -33,7 +43,8 @@ const tryOpenAiCompat = async (messages: ChatMessage[], temperature: number) => 
   return String(parsed?.choices?.[0]?.message?.content || "").trim();
 };
 
-const tryNativeGemini = async (messages: ChatMessage[], temperature: number) => {
+const tryNativeGemini = async (messages: ChatMessage[], model: string, temperature: number) => {
+  const nativeEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   const response = await fetch(`${nativeEndpoint}?key=${encodeURIComponent(config.geminiApiKey)}`, {
     method: "POST",
     headers: {
@@ -63,24 +74,29 @@ const tryNativeGemini = async (messages: ChatMessage[], temperature: number) => 
 
 export const generateText = async (messages: ChatMessage[], temperature = 0.2) => {
   if (!hasGemini) throw new Error("GEMINI_API_KEY is missing");
-  if (!Array.isArray(messages) || messages.length === 0) throw new Error("messages are required");
+  const normalizedMessages = normalizeMessages(messages);
+  if (normalizedMessages.length === 0) throw new Error("messages are required");
 
   const errors: string[] = [];
 
-  try {
-    const text = await tryOpenAiCompat(messages, temperature);
-    if (text) return text;
-    errors.push("openai-compat returned empty response");
-  } catch (error: any) {
-    errors.push(error?.message || "openai-compat request failed");
+  for (const model of models) {
+    try {
+      const text = await tryOpenAiCompat(normalizedMessages, model, temperature);
+      if (text) return text;
+      errors.push(`openai-compat(${model}) returned empty response`);
+    } catch (error: any) {
+      errors.push(error?.message || `openai-compat(${model}) request failed`);
+    }
   }
 
-  try {
-    const text = await tryNativeGemini(messages, temperature);
-    if (text) return text;
-    errors.push("native gemini returned empty response");
-  } catch (error: any) {
-    errors.push(error?.message || "native gemini request failed");
+  for (const model of models) {
+    try {
+      const text = await tryNativeGemini(normalizedMessages, model, temperature);
+      if (text) return text;
+      errors.push(`native gemini(${model}) returned empty response`);
+    } catch (error: any) {
+      errors.push(error?.message || `native gemini(${model}) request failed`);
+    }
   }
 
   throw new Error(`Gemini failed: ${errors.join(" | ")}`);
