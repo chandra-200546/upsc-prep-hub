@@ -1,17 +1,5 @@
 import { randomUUID, createHash } from "node:crypto";
 import { pool } from "./neon.js";
-import {
-  localCreateSession,
-  localDbDelete,
-  localDbInsert,
-  localDbSelect,
-  localDbUpdate,
-  localDbUpsert,
-  localLogin,
-  localResolveSession,
-  localRevokeSession,
-  localSignUp,
-} from "./local-app-store.js";
 
 const TABLES = new Set([
   "profiles",
@@ -35,18 +23,21 @@ const assertCol = (column: string) => {
 };
 
 const hashPassword = (password: string) => createHash("sha256").update(password).digest("hex");
+const requirePool = () => {
+  if (!pool) {
+    throw new Error("Neon database is required. Set valid NEON_DATABASE_URL.");
+  }
+  return pool;
+};
 
 export const signUpUser = async (email: string, password: string, name: string) => {
-  if (!pool) {
-    const localUser = localSignUp(email, hashPassword(password), name);
-    return localCreateSession(localUser.id, localUser.email);
-  }
+  const db = requirePool();
   const userId = randomUUID();
   const passHash = hashPassword(password);
-  const existing = await pool.query("SELECT id FROM user_accounts WHERE email = $1 LIMIT 1", [email]);
+  const existing = await db.query("SELECT id FROM user_accounts WHERE email = $1 LIMIT 1", [email]);
   if (existing.rows[0]) throw new Error("User already exists");
 
-  const client = await pool.connect();
+  const client = await db.connect();
   try {
     await client.query("BEGIN");
     await client.query(
@@ -75,29 +66,26 @@ export const signUpUser = async (email: string, password: string, name: string) 
 };
 
 export const loginUser = async (email: string, password: string) => {
-  if (!pool) {
-    const localUser = localLogin(email, hashPassword(password));
-    return localCreateSession(localUser.id, localUser.email);
-  }
+  const db = requirePool();
   const passHash = hashPassword(password);
-  const result = await pool.query<{ id: string; email: string }>(
+  const result = await db.query<{ id: string; email: string }>(
     "SELECT id, email FROM user_accounts WHERE email = $1 AND password_hash = $2 LIMIT 1",
     [email, passHash],
   );
   const user = result.rows[0];
   if (!user) throw new Error("Invalid email or password");
 
-  await pool.query("UPDATE profiles SET last_login_date = CURRENT_DATE, updated_at = NOW() WHERE id = $1", [user.id]);
+  await db.query("UPDATE profiles SET last_login_date = CURRENT_DATE, updated_at = NOW() WHERE id = $1", [user.id]);
   return createSession(user.id, user.email);
 };
 
 export const createSession = async (userId: string, email: string) => {
-  if (!pool) return localCreateSession(userId, email);
+  const db = requirePool();
   const token = `upsc_${randomUUID().replace(/-/g, "")}`;
   const refreshToken = `upsc_refresh_${randomUUID().replace(/-/g, "")}`;
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
 
-  await pool.query(
+  await db.query(
     `
     INSERT INTO auth_sessions (token, refresh_token, user_id, expires_at)
     VALUES ($1, $2, $3, $4::timestamptz)
@@ -114,8 +102,8 @@ export const createSession = async (userId: string, email: string) => {
 
 export const resolveSession = async (token?: string | null) => {
   if (!token) return null;
-  if (!pool) return localResolveSession(token);
-  const result = await pool.query<{ user_id: string; email: string }>(
+  const db = requirePool();
+  const result = await db.query<{ user_id: string; email: string }>(
     `
     SELECT s.user_id, u.email
     FROM auth_sessions s
@@ -136,11 +124,8 @@ export const resolveSession = async (token?: string | null) => {
 
 export const revokeSession = async (token?: string | null) => {
   if (!token) return;
-  if (!pool) {
-    localRevokeSession(token);
-    return;
-  }
-  await pool.query("DELETE FROM auth_sessions WHERE token = $1", [token]);
+  const db = requirePool();
+  await db.query("DELETE FROM auth_sessions WHERE token = $1", [token]);
 };
 
 type EqFilter = { col: string; value: unknown; op?: "eq" | "gte" | "lte" };
@@ -158,9 +143,7 @@ export const dbSelect = async (input: {
   order?: { col: string; ascending?: boolean } | null;
   limit?: number | null;
 }) => {
-  if (!pool) {
-    return localDbSelect(input.table as any, input.filters ?? [], input.order ?? null, input.limit ?? null);
-  }
+  const db = requirePool();
   const table = assertTable(input.table);
   const values: unknown[] = [];
   const whereParts: string[] = [];
@@ -183,7 +166,7 @@ export const dbSelect = async (input: {
     sql += ` LIMIT ${lim}`;
   }
 
-  const result = await pool.query(sql, values);
+  const result = await db.query(sql, values);
   return result.rows;
 };
 
@@ -193,7 +176,7 @@ const rowColumns = (row: Record<string, unknown>) =>
     .sort();
 
 export const dbInsert = async (tableInput: string, rowsInput: Record<string, unknown>[]) => {
-  if (!pool) return localDbInsert(tableInput as any, rowsInput as any);
+  const db = requirePool();
   const table = assertTable(tableInput);
   const rows = rowsInput.length ? rowsInput : [];
   if (!rows.length) return [];
@@ -213,14 +196,14 @@ export const dbInsert = async (tableInput: string, rowsInput: Record<string, unk
     const vals = cols.map((c) => row[c]);
     const placeholders = cols.map((_, i) => `$${i + 1}`).join(", ");
     const sql = `INSERT INTO ${table} (${cols.join(", ")}) VALUES (${placeholders}) RETURNING *`;
-    const result = await pool.query(sql, vals);
+    const result = await db.query(sql, vals);
     inserted.push(result.rows[0]);
   }
   return inserted;
 };
 
 export const dbUpsert = async (tableInput: string, rowsInput: Record<string, unknown>[]) => {
-  if (!pool) return localDbUpsert(tableInput as any, rowsInput as any);
+  const db = requirePool();
   const table = assertTable(tableInput);
   const rows = rowsInput.length ? rowsInput : [];
   if (!rows.length) return [];
@@ -250,7 +233,7 @@ export const dbUpsert = async (tableInput: string, rowsInput: Record<string, unk
       ON CONFLICT (id) DO UPDATE SET ${updates || "id = EXCLUDED.id"}
       RETURNING *
     `;
-    const result = await pool.query(sql, vals);
+    const result = await db.query(sql, vals);
     upserted.push(result.rows[0]);
   }
 
@@ -263,7 +246,7 @@ export const dbUpdate = async (input: {
   patch: Record<string, unknown>;
   filters?: EqFilter[];
 }) => {
-  if (!pool) return localDbUpdate(input.table as any, input.patch as any, input.filters ?? []);
+  const db = requirePool();
   const table = assertTable(input.table);
   const patchCols = rowColumns(input.patch);
   if (!patchCols.length) return [];
@@ -288,12 +271,12 @@ export const dbUpdate = async (input: {
   if (whereParts.length) sql += ` WHERE ${whereParts.join(" AND ")}`;
   sql += " RETURNING *";
 
-  const result = await pool.query(sql, values);
+  const result = await db.query(sql, values);
   return result.rows;
 };
 
 export const dbDelete = async (input: { table: string; filters?: EqFilter[] }) => {
-  if (!pool) return localDbDelete(input.table as any, input.filters ?? []);
+  const db = requirePool();
   const table = assertTable(input.table);
   const values: unknown[] = [];
   const whereParts: string[] = [];
@@ -307,6 +290,6 @@ export const dbDelete = async (input: { table: string; filters?: EqFilter[] }) =
   let sql = `DELETE FROM ${table}`;
   if (whereParts.length) sql += ` WHERE ${whereParts.join(" AND ")}`;
   sql += " RETURNING *";
-  const result = await pool.query(sql, values);
+  const result = await db.query(sql, values);
   return result.rows;
 };

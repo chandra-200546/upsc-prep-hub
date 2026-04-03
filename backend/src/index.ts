@@ -12,7 +12,7 @@ const app = new Hono();
 app.use(
   "*",
   cors({
-    origin: config.allowedOrigins.length === 1 ? config.allowedOrigins[0] : config.allowedOrigins,
+    origin: "*",
     allowHeaders: ["Content-Type", "Authorization", "apikey", "x-client-info"],
     allowMethods: ["GET", "POST", "OPTIONS"],
     credentials: true,
@@ -51,7 +51,7 @@ const boot = async () => {
     await ensureNeonSchema();
     console.log("Neon schema ready");
   } catch (err) {
-    console.error("Neon unavailable at boot, continuing with local fallback:", err);
+    console.error("Neon is currently unreachable. Backend API is up, but DB-backed routes will fail until Neon connects.", err);
   }
   serve(
     {

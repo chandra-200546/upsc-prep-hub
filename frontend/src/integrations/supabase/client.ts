@@ -4,12 +4,19 @@ type Result<T = any> = Promise<{ data: T; error: any }>;
 const backendCandidates = () => {
   const configured = (import.meta.env.VITE_BACKEND_URL || "").trim();
   const fromWindow = typeof window !== "undefined" ? window.location.origin.replace(/\/$/, "") : "";
+  const hostDerived =
+    typeof window !== "undefined" && window.location?.hostname
+      ? `${window.location.protocol}//${window.location.hostname}:8787`
+      : "";
   const local = "http://localhost:8787";
   const localAlt = "http://127.0.0.1:8787";
-  return Array.from(new Set([configured, fromWindow, local, localAlt].filter(Boolean).map((x) => x.replace(/\/$/, ""))));
+  return Array.from(
+    new Set([configured, fromWindow, hostDerived, local, localAlt].filter(Boolean).map((x) => x.replace(/\/$/, ""))),
+  );
 };
 
 let activeBackendBase = backendCandidates()[0] || "http://localhost:8787";
+const ALLOW_LOCAL_FALLBACK = String(import.meta.env.VITE_ALLOW_LOCAL_FALLBACK || "").toLowerCase() === "true";
 const SESSION_KEY = "upsc_backend_session";
 const LOCAL_USER_KEY = "upsc_local_user";
 
@@ -114,6 +121,7 @@ const authHeaders = () => {
 
 const apiPost = async (path: string, body: unknown, extraHeaders?: Record<string, string>) => {
   const attempts = [activeBackendBase, ...backendCandidates().filter((c) => c !== activeBackendBase)];
+  let lastErr = "";
   for (const base of attempts) {
     try {
       const response = await fetch(`${base}${path}`, {
@@ -133,15 +141,17 @@ const apiPost = async (path: string, body: unknown, extraHeaders?: Record<string
       }
       if (response.status === 404 && base !== attempts[attempts.length - 1]) continue;
       return { data: null, error: data || { message: `Request failed: ${path}` } };
-    } catch {
+    } catch (error: any) {
+      lastErr = error?.message || String(error || "");
       // try next candidate
     }
   }
-  return { data: null, error: { message: "Failed to fetch backend API" } };
+  return { data: null, error: { message: `Failed to fetch backend API (${attempts.join(", ")}). ${lastErr}`.trim() } };
 };
 
 const apiGet = async (path: string) => {
   const attempts = [activeBackendBase, ...backendCandidates().filter((c) => c !== activeBackendBase)];
+  let lastErr = "";
   for (const base of attempts) {
     try {
       const response = await fetch(`${base}${path}`, {
@@ -159,11 +169,12 @@ const apiGet = async (path: string) => {
       }
       if (response.status === 404 && base !== attempts[attempts.length - 1]) continue;
       return { data: null, error: data || { message: `Request failed: ${path}` } };
-    } catch {
+    } catch (error: any) {
+      lastErr = error?.message || String(error || "");
       // try next candidate
     }
   }
-  return { data: null, error: { message: "Failed to fetch backend API" } };
+  return { data: null, error: { message: `Failed to fetch backend API (${attempts.join(", ")}). ${lastErr}`.trim() } };
 };
 
 const fileToBase64 = (file: File): Promise<string> =>
@@ -366,7 +377,10 @@ class QueryBuilder {
       if (!response.error) return this.finish(response.data?.data, null);
     }
 
-    return this.finish(this.localExec(), null);
+    if (ALLOW_LOCAL_FALLBACK) {
+      return this.finish(this.localExec(), null);
+    }
+    return this.finish(null, response.error || { message: "Backend request failed and local fallback is disabled." });
   }
 }
 

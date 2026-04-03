@@ -8,9 +8,15 @@ export type GeminiMessage = {
 const backendCandidates = () => {
   const configured = (import.meta.env.VITE_BACKEND_URL || "").trim();
   const fromWindow = typeof window !== "undefined" ? window.location.origin.replace(/\/$/, "") : "";
+  const hostDerived =
+    typeof window !== "undefined" && window.location?.hostname
+      ? `${window.location.protocol}//${window.location.hostname}:8787`
+      : "";
   const local = "http://localhost:8787";
   const localAlt = "http://127.0.0.1:8787";
-  return Array.from(new Set([configured, fromWindow, local, localAlt].filter(Boolean).map((x) => x.replace(/\/$/, ""))));
+  return Array.from(
+    new Set([configured, fromWindow, hostDerived, local, localAlt].filter(Boolean).map((x) => x.replace(/\/$/, ""))),
+  );
 };
 
 export const streamGeminiText = async ({
