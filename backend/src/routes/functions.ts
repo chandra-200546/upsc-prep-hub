@@ -4,6 +4,7 @@ import { dbDelete, dbInsert, dbSelect, dbUpdate, dbUpsert, loginUser, resolveSes
 import { cacheGet, cacheSet, logRequest } from "../db/sqlite.js";
 import { neonAdminStats, neonCacheGet, neonCacheSet, neonLogRequest } from "../db/neon.js";
 import { getProfileById, listProfiles, parseProfilesCsv, upsertProfiles } from "../db/profiles.js";
+import { getHistoryRagStats, ingestHistoryChunks, queryHistoryRag } from "../rag/history-rag.js";
 import { generateJson, generateText } from "../lib/gemini.js";
 import { deleteFile, getStoragePublicPath, saveBase64File } from "../lib/storage.js";
 import { hashPayload } from "../lib/utils.js";
@@ -257,6 +258,25 @@ functionsRouter.post("/ai-generate", async (c) => {
   } catch (error: any) {
     return c.json({ text: "", error: { message: error?.message || "AI generation failed" } }, 500);
   }
+});
+
+functionsRouter.get("/history-rag/stats", async (c) => {
+  return c.json(getHistoryRagStats());
+});
+
+functionsRouter.post("/history-rag/ingest", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const chunks = Array.isArray(body?.chunks) ? body.chunks : [];
+  const result = ingestHistoryChunks(chunks);
+  return c.json({ ok: true, ...result });
+});
+
+functionsRouter.post("/history-rag/query", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const question = String(body?.question ?? "").trim();
+  if (!question) return c.json({ error: "question is required" }, 400);
+  const result = await queryHistoryRag(question);
+  return c.json(result);
 });
 
 functionsRouter.post("/generate-prelims-questions", async (c) => {

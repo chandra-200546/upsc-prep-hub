@@ -1,5 +1,17 @@
 import { randomUUID, createHash } from "node:crypto";
 import { pool } from "./neon.js";
+import {
+  localCreateSession,
+  localDbDelete,
+  localDbInsert,
+  localDbSelect,
+  localDbUpdate,
+  localDbUpsert,
+  localLogin,
+  localResolveSession,
+  localRevokeSession,
+  localSignUp,
+} from "./local-app-store.js";
 
 const TABLES = new Set([
   "profiles",
@@ -25,58 +37,73 @@ const assertCol = (column: string) => {
 const hashPassword = (password: string) => createHash("sha256").update(password).digest("hex");
 
 export const signUpUser = async (email: string, password: string, name: string) => {
-  if (!pool) throw new Error("Neon is not configured");
+  if (!pool) {
+    const localUser = localSignUp(email, hashPassword(password), name);
+    return localCreateSession(localUser.id, localUser.email);
+  }
   const userId = randomUUID();
   const passHash = hashPassword(password);
 
-  const existing = await pool.query("SELECT id FROM user_accounts WHERE email = $1 LIMIT 1", [email]);
-  if (existing.rows[0]) throw new Error("User already exists");
-
-  const client = await pool.connect();
   try {
-    await client.query("BEGIN");
-    await client.query(
-      "INSERT INTO user_accounts (id, email, password_hash, name) VALUES ($1, $2, $3, $4)",
-      [userId, email, passHash, name],
-    );
-    await client.query(
-      `
-      INSERT INTO profiles (
-        id, name, target_year, optional_subject, study_hours_per_day, language,
-        profile_photo_url, mentor_personality, current_streak, total_xp, level, last_login_date
-      )
-      VALUES ($1, $2, 2027, 'Public Administration', 4, 'English', NULL, 'friendly', 0, 0, 1, CURRENT_DATE)
-      ON CONFLICT (id) DO NOTHING
-      `,
-      [userId, name || "Aspirant"],
-    );
-    await client.query("COMMIT");
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+    const existing = await pool.query("SELECT id FROM user_accounts WHERE email = $1 LIMIT 1", [email]);
+    if (existing.rows[0]) throw new Error("User already exists");
 
-  return createSession(userId, email);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        "INSERT INTO user_accounts (id, email, password_hash, name) VALUES ($1, $2, $3, $4)",
+        [userId, email, passHash, name],
+      );
+      await client.query(
+        `
+        INSERT INTO profiles (
+          id, name, target_year, optional_subject, study_hours_per_day, language,
+          profile_photo_url, mentor_personality, current_streak, total_xp, level, last_login_date
+        )
+        VALUES ($1, $2, 2027, 'Public Administration', 4, 'English', NULL, 'friendly', 0, 0, 1, CURRENT_DATE)
+        ON CONFLICT (id) DO NOTHING
+        `,
+        [userId, name || "Aspirant"],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+    return createSession(userId, email);
+  } catch {
+    const localUser = localSignUp(email, passHash, name);
+    return localCreateSession(localUser.id, localUser.email);
+  }
 };
 
 export const loginUser = async (email: string, password: string) => {
-  if (!pool) throw new Error("Neon is not configured");
+  if (!pool) {
+    const localUser = localLogin(email, hashPassword(password));
+    return localCreateSession(localUser.id, localUser.email);
+  }
   const passHash = hashPassword(password);
-  const result = await pool.query<{ id: string; email: string }>(
-    "SELECT id, email FROM user_accounts WHERE email = $1 AND password_hash = $2 LIMIT 1",
-    [email, passHash],
-  );
-  const user = result.rows[0];
-  if (!user) throw new Error("Invalid email or password");
+  try {
+    const result = await pool.query<{ id: string; email: string }>(
+      "SELECT id, email FROM user_accounts WHERE email = $1 AND password_hash = $2 LIMIT 1",
+      [email, passHash],
+    );
+    const user = result.rows[0];
+    if (!user) throw new Error("Invalid email or password");
 
-  await pool.query("UPDATE profiles SET last_login_date = CURRENT_DATE, updated_at = NOW() WHERE id = $1", [user.id]);
-  return createSession(user.id, user.email);
+    await pool.query("UPDATE profiles SET last_login_date = CURRENT_DATE, updated_at = NOW() WHERE id = $1", [user.id]);
+    return createSession(user.id, user.email);
+  } catch {
+    const localUser = localLogin(email, passHash);
+    return localCreateSession(localUser.id, localUser.email);
+  }
 };
 
 export const createSession = async (userId: string, email: string) => {
-  if (!pool) throw new Error("Neon is not configured");
+  if (!pool) return localCreateSession(userId, email);
   const token = `upsc_${randomUUID().replace(/-/g, "")}`;
   const refreshToken = `upsc_refresh_${randomUUID().replace(/-/g, "")}`;
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
@@ -97,29 +124,42 @@ export const createSession = async (userId: string, email: string) => {
 };
 
 export const resolveSession = async (token?: string | null) => {
-  if (!pool || !token) return null;
-  const result = await pool.query<{ user_id: string; email: string }>(
-    `
-    SELECT s.user_id, u.email
-    FROM auth_sessions s
-    JOIN user_accounts u ON u.id = s.user_id
-    WHERE s.token = $1 AND s.expires_at > NOW()
-    LIMIT 1
-    `,
-    [token],
-  );
-  const row = result.rows[0];
-  if (!row) return null;
-  return {
-    access_token: token,
-    refresh_token: "",
-    user: { id: row.user_id, email: row.email },
-  };
+  if (!token) return null;
+  if (!pool) return localResolveSession(token);
+  try {
+    const result = await pool.query<{ user_id: string; email: string }>(
+      `
+      SELECT s.user_id, u.email
+      FROM auth_sessions s
+      JOIN user_accounts u ON u.id = s.user_id
+      WHERE s.token = $1 AND s.expires_at > NOW()
+      LIMIT 1
+      `,
+      [token],
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    return {
+      access_token: token,
+      refresh_token: "",
+      user: { id: row.user_id, email: row.email },
+    };
+  } catch {
+    return localResolveSession(token);
+  }
 };
 
 export const revokeSession = async (token?: string | null) => {
-  if (!pool || !token) return;
-  await pool.query("DELETE FROM auth_sessions WHERE token = $1", [token]);
+  if (!token) return;
+  if (!pool) {
+    localRevokeSession(token);
+    return;
+  }
+  try {
+    await pool.query("DELETE FROM auth_sessions WHERE token = $1", [token]);
+  } catch {
+    localRevokeSession(token);
+  }
 };
 
 type EqFilter = { col: string; value: unknown; op?: "eq" | "gte" | "lte" };
@@ -137,7 +177,9 @@ export const dbSelect = async (input: {
   order?: { col: string; ascending?: boolean } | null;
   limit?: number | null;
 }) => {
-  if (!pool) return [];
+  if (!pool) {
+    return localDbSelect(input.table as any, input.filters ?? [], input.order ?? null, input.limit ?? null);
+  }
   const table = assertTable(input.table);
   const values: unknown[] = [];
   const whereParts: string[] = [];
@@ -170,7 +212,7 @@ const rowColumns = (row: Record<string, unknown>) =>
     .sort();
 
 export const dbInsert = async (tableInput: string, rowsInput: Record<string, unknown>[]) => {
-  if (!pool) return [];
+  if (!pool) return localDbInsert(tableInput as any, rowsInput as any);
   const table = assertTable(tableInput);
   const rows = rowsInput.length ? rowsInput : [];
   if (!rows.length) return [];
@@ -197,7 +239,7 @@ export const dbInsert = async (tableInput: string, rowsInput: Record<string, unk
 };
 
 export const dbUpsert = async (tableInput: string, rowsInput: Record<string, unknown>[]) => {
-  if (!pool) return [];
+  if (!pool) return localDbUpsert(tableInput as any, rowsInput as any);
   const table = assertTable(tableInput);
   const rows = rowsInput.length ? rowsInput : [];
   if (!rows.length) return [];
@@ -240,7 +282,7 @@ export const dbUpdate = async (input: {
   patch: Record<string, unknown>;
   filters?: EqFilter[];
 }) => {
-  if (!pool) return [];
+  if (!pool) return localDbUpdate(input.table as any, input.patch as any, input.filters ?? []);
   const table = assertTable(input.table);
   const patchCols = rowColumns(input.patch);
   if (!patchCols.length) return [];
@@ -270,7 +312,7 @@ export const dbUpdate = async (input: {
 };
 
 export const dbDelete = async (input: { table: string; filters?: EqFilter[] }) => {
-  if (!pool) return [];
+  if (!pool) return localDbDelete(input.table as any, input.filters ?? []);
   const table = assertTable(input.table);
   const values: unknown[] = [];
   const whereParts: string[] = [];

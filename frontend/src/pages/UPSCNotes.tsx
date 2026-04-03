@@ -40,7 +40,6 @@ const SUBJECTS: Subject[] = [
   { id: "current-affairs", name: "Current Affairs", examFocus: "GS I/II/III + Essay", description: "Issue-wise analytical current updates." },
   { id: "csat", name: "CSAT", examFocus: "Prelims Paper II", description: "Reasoning, numeracy, and comprehension." },
   { id: "essay", name: "Essay", examFocus: "Mains Essay", description: "Theme development and balanced arguments." },
-  { id: "optional-placeholder", name: "Optional Subject", examFocus: "Optional Papers", description: "Placeholder for optional modules." },
 ];
 
 const extractJson = (raw: string) => {
