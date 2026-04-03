@@ -6,6 +6,7 @@ import "./db/sqlite.js";
 import { ensureNeonSchema, neonHealthCheck } from "./db/neon.js";
 import { readFile } from "./lib/storage.js";
 import { functionsRouter } from "./routes/functions.js";
+import { seedHistoryBookIfMissing } from "./rag/subject-rag.js";
 
 const app = new Hono();
 
@@ -50,6 +51,13 @@ const boot = async () => {
   try {
     await ensureNeonSchema();
     console.log("Neon schema ready");
+    const seed = await seedHistoryBookIfMissing();
+    if (seed.seeded) {
+      const saved = "saved" in seed ? seed.saved : 0;
+      console.log(`History book seeded in DB with ${saved} chunks`);
+    } else {
+      console.log(`History seed status: ${seed.reason || "skipped"}`);
+    }
   } catch (err) {
     console.error("Neon is currently unreachable. Backend API is up, but DB-backed routes will fail until Neon connects.", err);
   }

@@ -47,32 +47,6 @@ type NotesDeck = {
   citations: string[];
 };
 
-const localStoreDir = path.resolve(process.cwd(), "data", "rag");
-const localStoreFile = path.resolve(localStoreDir, "subject-rag.json");
-
-const ensureLocalStore = () => {
-  if (!fs.existsSync(localStoreDir)) fs.mkdirSync(localStoreDir, { recursive: true });
-  if (!fs.existsSync(localStoreFile)) {
-    fs.writeFileSync(localStoreFile, JSON.stringify({ chunks: [] as SubjectChunk[] }, null, 2), "utf-8");
-  }
-};
-
-const loadLocalChunks = (): SubjectChunk[] => {
-  ensureLocalStore();
-  try {
-    const raw = fs.readFileSync(localStoreFile, "utf-8");
-    const parsed = JSON.parse(raw) as { chunks?: SubjectChunk[] };
-    return Array.isArray(parsed.chunks) ? parsed.chunks : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveLocalChunks = (chunks: SubjectChunk[]) => {
-  ensureLocalStore();
-  fs.writeFileSync(localStoreFile, JSON.stringify({ chunks }, null, 2), "utf-8");
-};
-
 const clean = (v: string) => v.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 
 const scoreChunk = (chunkText: string, query: string) => {
@@ -182,29 +156,8 @@ const insertSubjectChunksNeon = async (
   }
 };
 
-const insertSubjectChunksLocal = (
-  subjectId: string,
-  subjectName: string,
-  sourceName: string,
-  chunks: string[],
-  replaceExisting: boolean,
-) => {
-  const all = loadLocalChunks();
-  const remaining = replaceExisting ? all.filter((c) => c.subject_id !== subjectId) : all;
-  const now = new Date().toISOString();
-  const rows = chunks.map((chunk, idx) => ({
-    id: `${subjectId}-${Date.now()}-${idx}`,
-    subject_id: subjectId,
-    subject_name: subjectName,
-    source_name: sourceName,
-    chunk_index: idx,
-    chunk_text: chunk,
-    created_at: now,
-  }));
-  saveLocalChunks([...remaining, ...rows]);
-};
-
 const getSubjectChunks = async (subjectId: string): Promise<SubjectChunk[]> => {
+  if (!pool) throw new Error("Neon database is required for subject RAG.");
   const neonRows = await queryNeon<SubjectChunk>(
     `SELECT id::text, subject_id, subject_name, source_name, chunk_index, chunk_text, created_at::text
      FROM subject_rag_chunks
@@ -212,8 +165,7 @@ const getSubjectChunks = async (subjectId: string): Promise<SubjectChunk[]> => {
      ORDER BY chunk_index ASC`,
     [subjectId],
   );
-  if (neonRows.length) return neonRows;
-  return loadLocalChunks().filter((c) => c.subject_id === subjectId).sort((a, b) => a.chunk_index - b.chunk_index);
+  return neonRows;
 };
 
 export const ingestSubjectPdf = async ({
@@ -235,11 +187,7 @@ export const ingestSubjectPdf = async ({
     return { ok: false, saved: 0, reason: "Could not extract readable text from PDF." };
   }
   const replace = replaceExisting !== false;
-  try {
-    await insertSubjectChunksNeon(subjectId, subjectName, sourceName, chunks, replace);
-  } catch {
-    insertSubjectChunksLocal(subjectId, subjectName, sourceName, chunks, replace);
-  }
+  await insertSubjectChunksNeon(subjectId, subjectName, sourceName, chunks, replace);
   return { ok: true, saved: chunks.length, extractedChars: text.length };
 };
 
@@ -335,4 +283,45 @@ export const generateSubjectRagNotes = async ({
   );
 
   return { ok: true, deck: { ...generated, citations } };
+};
+
+const DEFAULT_HISTORY_PATHS = [
+  process.env.HISTORY_BOOK_PDF_PATH || "",
+  String.raw`C:\Users\Chandrashekar\Downloads\COPY - A Brief History of Modern India Spectrum 2019-20 Edition Rajiv Ahir .pdf`,
+  path.resolve(process.cwd(), "..", "COPY - A Brief History of Modern India Spectrum 2019-20 Edition Rajiv Ahir .pdf"),
+].filter(Boolean);
+
+const firstExistingPath = (candidates: string[]) => {
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) return candidate;
+    } catch {
+      // ignore
+    }
+  }
+  return "";
+};
+
+export const seedHistoryBookIfMissing = async () => {
+  if (!pool) return { seeded: false, reason: "Neon unavailable" };
+  const existing = await getSubjectChunks("history");
+  if (existing.length > 0) return { seeded: false, reason: "History chunks already present", count: existing.length };
+
+  const pdfPath = firstExistingPath(DEFAULT_HISTORY_PATHS);
+  if (!pdfPath) {
+    return {
+      seeded: false,
+      reason: "History PDF path not found. Set HISTORY_BOOK_PDF_PATH in backend .env.",
+    };
+  }
+
+  const pdfBase64 = fs.readFileSync(pdfPath).toString("base64");
+  const result = await ingestSubjectPdf({
+    subjectId: "history",
+    subjectName: "History",
+    sourceName: path.basename(pdfPath),
+    pdfBase64,
+    replaceExisting: true,
+  });
+  return { seeded: Boolean(result.ok), ...result };
 };
