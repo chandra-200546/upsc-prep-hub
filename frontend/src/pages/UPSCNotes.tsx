@@ -17,16 +17,6 @@ type Slide = {
   keyTakeaway: string;
 };
 
-type CheckpointQuestion = {
-  afterSlide: number;
-  type: "mcq" | "short";
-  question: string;
-  options?: string[];
-  correctAnswer: string;
-  acceptableAnswers?: string[];
-  explanation: string;
-};
-
 type PracticeQuestion = {
   questionText: string;
   difficulty: "Easy" | "Medium" | "Hard";
@@ -40,7 +30,6 @@ type Deck = {
   topicTitle: string;
   chapterTitle: string;
   slides: Slide[];
-  checkpointQuestions: CheckpointQuestion[];
   practiceQuestions: PracticeQuestion[];
   revisionSummary: string[];
   generatedAt: string;
@@ -55,22 +44,38 @@ const SUBJECT = {
   description: "Modern History notes from your stored source book (Spectrum).",
 };
 
+const toCleanBullet = (value: string) => value.replace(/\s+/g, " ").trim().replace(/^[\-\d.)\s]+/, "");
+
+const toBulletList = (slide: any): string[] => {
+  const fromPoints = Array.isArray(slide?.points)
+    ? slide.points.map((p: string) => toCleanBullet(String(p))).filter((p: string) => p.length > 20)
+    : [];
+  if (fromPoints.length >= 3) return fromPoints.slice(0, 6).map((p) => (p.length > 170 ? `${p.slice(0, 167)}...` : p));
+
+  const fallbackText = String(slide?.structuredExplanation || "");
+  const split = fallbackText
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => toCleanBullet(s))
+    .filter((s) => s.length > 20)
+    .slice(0, 6);
+  return split.map((p) => (p.length > 170 ? `${p.slice(0, 167)}...` : p));
+};
+
 const normalizeDeck = (input: any, topic: string): Deck => {
   const slidesRaw = Array.isArray(input?.slides) ? input.slides : [];
   const slides = slidesRaw.map((s: any, i: number) => ({
     slideNumber: i + 1,
     topicName: s?.topicName || topic,
     subtopicTitle: s?.subtopicTitle || `Slide ${i + 1}`,
-    structuredExplanation: s?.structuredExplanation || "",
-    points: Array.isArray(s?.points) ? s.points : [],
-    keyTakeaway: s?.keyTakeaway || "Revise key facts.",
+    structuredExplanation: String(s?.structuredExplanation || "").replace(/\s+/g, " ").trim(),
+    points: toBulletList(s),
+    keyTakeaway: String(s?.keyTakeaway || "Revise key facts.").replace(/\s+/g, " ").trim(),
   }));
 
   return {
     topicTitle: input?.topicTitle || topic,
     chapterTitle: input?.chapterTitle || "History",
     slides,
-    checkpointQuestions: Array.isArray(input?.checkpointQuestions) ? input.checkpointQuestions : [],
     practiceQuestions: Array.isArray(input?.practiceQuestions) ? input.practiceQuestions : [],
     revisionSummary: Array.isArray(input?.revisionSummary) ? input.revisionSummary : [],
     generatedAt: input?.generatedAt || new Date().toISOString(),
@@ -87,16 +92,10 @@ const UPSCNotes = () => {
   const [loading, setLoading] = useState(false);
   const [deck, setDeck] = useState<Deck | null>(null);
   const [slideIndex, setSlideIndex] = useState(0);
-  const [passedCheckpoints, setPassedCheckpoints] = useState<number[]>([]);
-  const [shortAnswer, setShortAnswer] = useState("");
-  const [selectedOption, setSelectedOption] = useState("");
-  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const [sourceReady, setSourceReady] = useState(false);
   const [sourceMsg, setSourceMsg] = useState("Checking source status...");
 
   const currentSlide = deck?.slides[slideIndex] || null;
-  const checkpoint = deck?.checkpointQuestions.find((q) => q.afterSlide === slideIndex + 1) || null;
-  const checkpointPassed = checkpoint ? passedCheckpoints.includes(checkpoint.afterSlide) : true;
   const progress = deck ? Math.round(((slideIndex + 1) / Math.max(1, deck.slides.length)) * 100) : 0;
 
   const citationText = useMemo(() => (deck?.citations?.length ? deck.citations.join(", ") : "History source book"), [deck]);
@@ -143,8 +142,6 @@ const UPSCNotes = () => {
     setLoading(true);
     setDeck(null);
     setSlideIndex(0);
-    setPassedCheckpoints([]);
-    setFeedback(null);
 
     try {
       const { data, error } = await (supabase as any).functions.invoke("notes-rag/generate", {
@@ -175,41 +172,10 @@ const UPSCNotes = () => {
     }
   };
 
-  const validateCheckpoint = () => {
-    if (!checkpoint) return true;
-    const answer = checkpoint.type === "mcq" ? selectedOption : shortAnswer;
-    const normalized = answer.trim().toLowerCase();
-    const accepted = [checkpoint.correctAnswer, ...(checkpoint.acceptableAnswers || [])]
-      .map((x) => (x || "").toLowerCase())
-      .filter(Boolean);
-    const ok = accepted.some((x) => normalized.includes(x));
-    if (ok) {
-      setPassedCheckpoints((prev) => (prev.includes(checkpoint.afterSlide) ? prev : [...prev, checkpoint.afterSlide]));
-      setFeedback({ ok: true, text: "Correct. Next block unlocked." });
-      return true;
-    }
-    setFeedback({
-      ok: false,
-      text: `Incorrect. Expected: ${checkpoint.correctAnswer}. ${checkpoint.explanation}`,
-    });
-    return false;
-  };
-
   const goNext = () => {
     if (!deck) return;
-    if (checkpoint && !checkpointPassed) {
-      toast({
-        title: "Checkpoint pending",
-        description: "Answer the checkpoint to continue.",
-        variant: "destructive",
-      });
-      return;
-    }
     if (slideIndex < deck.slides.length - 1) {
       setSlideIndex((prev) => prev + 1);
-      setShortAnswer("");
-      setSelectedOption("");
-      setFeedback(null);
       return;
     }
     setView("practice");
@@ -280,51 +246,22 @@ const UPSCNotes = () => {
               <div className="rounded-lg border bg-primary/5 p-4">
                 <p className="text-xs font-semibold text-primary">SLIDE {currentSlide.slideNumber}</p>
                 <h3 className="text-lg font-bold">{currentSlide.subtopicTitle}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{currentSlide.structuredExplanation}</p>
+                <p className="mt-2 text-sm text-foreground leading-relaxed">{currentSlide.structuredExplanation}</p>
               </div>
-              <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-base">Points</CardTitle></CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 text-sm text-muted-foreground">
-                    {currentSlide.points.map((point, idx) => <li key={`${currentSlide.slideNumber}-${idx}`}>{idx + 1}. {point}</li>)}
-                  </ul>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-base">Key Takeaway</CardTitle></CardHeader>
-                <CardContent><p className="text-sm text-muted-foreground">{currentSlide.keyTakeaway}</p></CardContent>
-              </Card>
-
-              {checkpoint && !checkpointPassed && (
-                <Card className="border-warning/30 bg-warning/5">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Checkpoint</CardTitle>
-                    <CardDescription>Answer correctly to continue.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-sm font-medium">{checkpoint.question}</p>
-                    {checkpoint.type === "mcq" && checkpoint.options?.length ? (
-                      <div className="space-y-2">
-                        {checkpoint.options.map((option) => (
-                          <button
-                            key={option}
-                            onClick={() => setSelectedOption(option)}
-                            className={`w-full rounded-md border p-2 text-left text-sm ${selectedOption === option ? "border-primary bg-primary/10" : "border-border"}`}
-                          >
-                            {option}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <Input value={shortAnswer} onChange={(e) => setShortAnswer(e.target.value)} placeholder="Type short answer" />
-                    )}
-                    <Button onClick={validateCheckpoint} disabled={checkpoint.type === "mcq" ? !selectedOption : !shortAnswer.trim()}>
-                      Submit
-                    </Button>
-                    {feedback && <p className={`text-sm ${feedback.ok ? "text-green-600" : "text-red-600"}`}>{feedback.text}</p>}
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-base">Structured Notes</CardTitle></CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      {currentSlide.points.map((point, idx) => <li key={`${currentSlide.slideNumber}-${idx}`} className="leading-relaxed">{idx + 1}. {point}</li>)}
+                    </ul>
                   </CardContent>
                 </Card>
-              )}
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-base">Quick Revision</CardTitle></CardHeader>
+                  <CardContent><p className="text-sm text-muted-foreground leading-relaxed">{currentSlide.keyTakeaway}</p></CardContent>
+                </Card>
+              </div>
 
               <div className="flex items-center justify-between gap-2">
                 <Button variant="outline" onClick={() => setSlideIndex((prev) => Math.max(0, prev - 1))} disabled={slideIndex === 0}>
