@@ -21,6 +21,21 @@ const required = (name: string, fallback = "") => {
   return value.trim();
 };
 
+const parseAllowedOrigins = (raw: string) => {
+  if (!raw || raw === "*") return ["*"];
+  const explicit = raw
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const localhostDefaults = [
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+  ];
+  return Array.from(new Set([...explicit, ...localhostDefaults]));
+};
+
 const buildNeonUrlFromPgEnv = () => {
   const user = required("PGUSER");
   const password = required("PGPASSWORD");
@@ -43,7 +58,7 @@ export const config = {
   geminiApiKey: required("GEMINI_API_KEY"),
   neonDatabaseUrl: required("NEON_DATABASE_URL") || buildNeonUrlFromPgEnv(),
   sqlitePath: required("SQLITE_PATH", "./data/app.db"),
-  allowedOrigin: required("ALLOWED_ORIGIN", "*"),
+  allowedOrigins: parseAllowedOrigins(required("ALLOWED_ORIGIN", "*")),
 };
 
 export const hasGemini = Boolean(config.geminiApiKey);

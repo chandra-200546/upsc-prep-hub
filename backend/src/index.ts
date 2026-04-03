@@ -12,9 +12,10 @@ const app = new Hono();
 app.use(
   "*",
   cors({
-    origin: config.allowedOrigin === "*" ? "*" : config.allowedOrigin,
+    origin: config.allowedOrigins.length === 1 ? config.allowedOrigins[0] : config.allowedOrigins,
     allowHeaders: ["Content-Type", "Authorization", "apikey", "x-client-info"],
     allowMethods: ["GET", "POST", "OPTIONS"],
+    credentials: true,
   }),
 );
 

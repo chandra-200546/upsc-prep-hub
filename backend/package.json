@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "migrate": "tsx src/db/migrate.ts",
-    "import:profiles": "tsx src/scripts/import-profiles-csv.ts",
-    "migrate:local-to-neon": "tsx src/scripts/migrate-local-to-neon.ts",
+    "dev": "node ./node_modules/tsx/dist/cli.mjs watch src/index.ts",
+    "migrate": "node ./node_modules/tsx/dist/cli.mjs src/db/migrate.ts",
+    "import:profiles": "node ./node_modules/tsx/dist/cli.mjs src/scripts/import-profiles-csv.ts",
+    "migrate:local-to-neon": "node ./node_modules/tsx/dist/cli.mjs src/scripts/migrate-local-to-neon.ts",
     "start": "node --enable-source-maps dist/index.js",
     "build": "tsc -p tsconfig.json"
   },

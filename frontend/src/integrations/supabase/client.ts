@@ -5,7 +5,8 @@ const backendCandidates = () => {
   const configured = (import.meta.env.VITE_BACKEND_URL || "").trim();
   const fromWindow = typeof window !== "undefined" ? window.location.origin.replace(/\/$/, "") : "";
   const local = "http://localhost:8787";
-  return Array.from(new Set([configured, fromWindow, local].filter(Boolean).map((x) => x.replace(/\/$/, ""))));
+  const localAlt = "http://127.0.0.1:8787";
+  return Array.from(new Set([configured, fromWindow, local, localAlt].filter(Boolean).map((x) => x.replace(/\/$/, ""))));
 };
 
 let activeBackendBase = backendCandidates()[0] || "http://localhost:8787";
