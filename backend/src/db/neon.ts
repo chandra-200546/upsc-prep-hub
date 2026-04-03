@@ -1,9 +1,24 @@
 import { Pool } from "pg";
 import { config, hasNeon } from "../config.js";
 
+const normalizeConnectionUrl = (url: string) => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.searchParams.get("channel_binding")) {
+      parsed.searchParams.delete("channel_binding");
+    }
+    if (!parsed.searchParams.get("sslmode")) {
+      parsed.searchParams.set("sslmode", "require");
+    }
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+};
+
 const poolFromUrl = (url: string) =>
   new Pool({
-    connectionString: url,
+    connectionString: normalizeConnectionUrl(url),
     ssl: { rejectUnauthorized: false },
     max: 5,
   });
