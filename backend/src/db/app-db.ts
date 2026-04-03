@@ -43,41 +43,35 @@ export const signUpUser = async (email: string, password: string, name: string) 
   }
   const userId = randomUUID();
   const passHash = hashPassword(password);
+  const existing = await pool.query("SELECT id FROM user_accounts WHERE email = $1 LIMIT 1", [email]);
+  if (existing.rows[0]) throw new Error("User already exists");
 
+  const client = await pool.connect();
   try {
-    const existing = await pool.query("SELECT id FROM user_accounts WHERE email = $1 LIMIT 1", [email]);
-    if (existing.rows[0]) throw new Error("User already exists");
-
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      await client.query(
-        "INSERT INTO user_accounts (id, email, password_hash, name) VALUES ($1, $2, $3, $4)",
-        [userId, email, passHash, name],
-      );
-      await client.query(
-        `
-        INSERT INTO profiles (
-          id, name, target_year, optional_subject, study_hours_per_day, language,
-          profile_photo_url, mentor_personality, current_streak, total_xp, level, last_login_date
-        )
-        VALUES ($1, $2, 2027, 'Public Administration', 4, 'English', NULL, 'friendly', 0, 0, 1, CURRENT_DATE)
-        ON CONFLICT (id) DO NOTHING
-        `,
-        [userId, name || "Aspirant"],
-      );
-      await client.query("COMMIT");
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
-    return createSession(userId, email);
-  } catch {
-    const localUser = localSignUp(email, passHash, name);
-    return localCreateSession(localUser.id, localUser.email);
+    await client.query("BEGIN");
+    await client.query(
+      "INSERT INTO user_accounts (id, email, password_hash, name) VALUES ($1, $2, $3, $4)",
+      [userId, email, passHash, name],
+    );
+    await client.query(
+      `
+      INSERT INTO profiles (
+        id, name, target_year, optional_subject, study_hours_per_day, language,
+        profile_photo_url, mentor_personality, current_streak, total_xp, level, last_login_date
+      )
+      VALUES ($1, $2, 2027, 'Public Administration', 4, 'English', NULL, 'friendly', 0, 0, 1, CURRENT_DATE)
+      ON CONFLICT (id) DO NOTHING
+      `,
+      [userId, name || "Aspirant"],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
   }
+  return createSession(userId, email);
 };
 
 export const loginUser = async (email: string, password: string) => {
@@ -86,20 +80,15 @@ export const loginUser = async (email: string, password: string) => {
     return localCreateSession(localUser.id, localUser.email);
   }
   const passHash = hashPassword(password);
-  try {
-    const result = await pool.query<{ id: string; email: string }>(
-      "SELECT id, email FROM user_accounts WHERE email = $1 AND password_hash = $2 LIMIT 1",
-      [email, passHash],
-    );
-    const user = result.rows[0];
-    if (!user) throw new Error("Invalid email or password");
+  const result = await pool.query<{ id: string; email: string }>(
+    "SELECT id, email FROM user_accounts WHERE email = $1 AND password_hash = $2 LIMIT 1",
+    [email, passHash],
+  );
+  const user = result.rows[0];
+  if (!user) throw new Error("Invalid email or password");
 
-    await pool.query("UPDATE profiles SET last_login_date = CURRENT_DATE, updated_at = NOW() WHERE id = $1", [user.id]);
-    return createSession(user.id, user.email);
-  } catch {
-    const localUser = localLogin(email, passHash);
-    return localCreateSession(localUser.id, localUser.email);
-  }
+  await pool.query("UPDATE profiles SET last_login_date = CURRENT_DATE, updated_at = NOW() WHERE id = $1", [user.id]);
+  return createSession(user.id, user.email);
 };
 
 export const createSession = async (userId: string, email: string) => {
@@ -126,27 +115,23 @@ export const createSession = async (userId: string, email: string) => {
 export const resolveSession = async (token?: string | null) => {
   if (!token) return null;
   if (!pool) return localResolveSession(token);
-  try {
-    const result = await pool.query<{ user_id: string; email: string }>(
-      `
-      SELECT s.user_id, u.email
-      FROM auth_sessions s
-      JOIN user_accounts u ON u.id = s.user_id
-      WHERE s.token = $1 AND s.expires_at > NOW()
-      LIMIT 1
-      `,
-      [token],
-    );
-    const row = result.rows[0];
-    if (!row) return null;
-    return {
-      access_token: token,
-      refresh_token: "",
-      user: { id: row.user_id, email: row.email },
-    };
-  } catch {
-    return localResolveSession(token);
-  }
+  const result = await pool.query<{ user_id: string; email: string }>(
+    `
+    SELECT s.user_id, u.email
+    FROM auth_sessions s
+    JOIN user_accounts u ON u.id = s.user_id
+    WHERE s.token = $1 AND s.expires_at > NOW()
+    LIMIT 1
+    `,
+    [token],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    access_token: token,
+    refresh_token: "",
+    user: { id: row.user_id, email: row.email },
+  };
 };
 
 export const revokeSession = async (token?: string | null) => {
@@ -155,11 +140,7 @@ export const revokeSession = async (token?: string | null) => {
     localRevokeSession(token);
     return;
   }
-  try {
-    await pool.query("DELETE FROM auth_sessions WHERE token = $1", [token]);
-  } catch {
-    localRevokeSession(token);
-  }
+  await pool.query("DELETE FROM auth_sessions WHERE token = $1", [token]);
 };
 
 type EqFilter = { col: string; value: unknown; op?: "eq" | "gte" | "lte" };
