@@ -39,6 +39,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const LOCAL_USER_KEY = "upsc_local_user";
 const LOCAL_USERS_DB_KEY = "upsc_local_users_db";
 const LOCAL_PROFILES_KEY = "upsc_local_profiles";
+const ALLOW_LOCAL_FALLBACK = String(import.meta.env.VITE_ALLOW_LOCAL_FALLBACK || "").toLowerCase() === "true";
 const createId = () =>
   (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
     ? crypto.randomUUID()
@@ -115,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (profileData) setProfile(profileData);
             setIsReady(true);
           });
-      } else {
+      } else if (ALLOW_LOCAL_FALLBACK) {
         // Fall back to localStorage
         setIsLocalMode(true);
         const stored = localStorage.getItem(LOCAL_USER_KEY);
@@ -128,18 +129,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } catch { /* ignore */ }
         }
         setIsReady(true);
+      } else {
+        setIsLocalMode(false);
+        setUser(null);
+        setProfile(null);
+        setIsReady(true);
       }
     }).catch(() => {
-      // Supabase unreachable, use local
-      setIsLocalMode(true);
-      const stored = localStorage.getItem(LOCAL_USER_KEY);
-      if (stored) {
-        try {
-          const u = JSON.parse(stored) as LocalUser;
-          setUser(u);
-          const profiles = getLocalProfiles();
-          if (profiles[u.id]) setProfile(profiles[u.id]);
-        } catch { /* ignore */ }
+      // Supabase/backend unreachable
+      if (ALLOW_LOCAL_FALLBACK) {
+        setIsLocalMode(true);
+        const stored = localStorage.getItem(LOCAL_USER_KEY);
+        if (stored) {
+          try {
+            const u = JSON.parse(stored) as LocalUser;
+            setUser(u);
+            const profiles = getLocalProfiles();
+            if (profiles[u.id]) setProfile(profiles[u.id]);
+          } catch { /* ignore */ }
+        }
+      } else {
+        setIsLocalMode(false);
+        setUser(null);
+        setProfile(null);
       }
       setIsReady(true);
     });
@@ -169,12 +181,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return {};
         }
       }
-      // Any auth failure should gracefully fall back to local auth mode
       if (error) {
+        if (!ALLOW_LOCAL_FALLBACK) {
+          return { error: error.message || "Sign in failed. Backend/Neon is required." };
+        }
         console.warn("Backend sign-in failed, trying local fallback:", error.message);
       }
     } catch {
       // Supabase unreachable
+    }
+
+    if (!ALLOW_LOCAL_FALLBACK) {
+      return { error: "Sign in failed. Backend/Neon is required and local fallback is disabled." };
     }
 
     // Local fallback
@@ -212,10 +230,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return {};
       }
       if (error) {
+        if (!ALLOW_LOCAL_FALLBACK) {
+          return { error: error.message || "Sign up failed. Backend/Neon is required." };
+        }
         console.warn("Backend sign-up failed, trying local fallback:", error.message);
       }
     } catch {
       // Supabase unreachable
+    }
+
+    if (!ALLOW_LOCAL_FALLBACK) {
+      return { error: "Sign up failed. Backend/Neon is required and local fallback is disabled." };
     }
 
     // Local fallback
