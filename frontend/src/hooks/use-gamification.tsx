@@ -42,6 +42,11 @@ const dayDiff = (fromDateStr: string, toDateStr: string): number | null => {
   return Math.round((to.getTime() - from.getTime()) / MS_PER_DAY);
 };
 
+const normalizeDateOnly = (value?: string | null): string => {
+  if (!value) return "";
+  return value.includes("T") ? value.split("T")[0] : value;
+};
+
 export function useGamification() {
   const { user, profile, isLocalMode, refreshProfile } = useAuth();
 
@@ -94,7 +99,7 @@ export function useGamification() {
       const p = profiles[user.id];
       if (!p) return;
 
-      const lastLogin = p.last_login_date;
+      const lastLogin = normalizeDateOnly(p.last_login_date);
       if (lastLogin === todayStr) return; // Already logged in today
 
       let newStreak = 1;
@@ -126,7 +131,7 @@ export function useGamification() {
 
       if (!data) return;
 
-      const lastLogin = data.last_login_date;
+      const lastLogin = normalizeDateOnly(data.last_login_date);
       if (lastLogin === todayStr) return; // Already updated today
 
       let newStreak = 1;

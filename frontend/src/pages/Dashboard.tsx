@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/use-local-auth";
 import { useGamification } from "@/hooks/use-gamification";
@@ -29,6 +29,7 @@ const Dashboard = () => {
   const [passwordError, setPasswordError] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const streakSyncKeyRef = useRef("");
   
   const { user, profile, isReady } = useAuth();
   const { updateStreak } = useGamification();
@@ -38,8 +39,13 @@ const Dashboard = () => {
     if (!user) { navigate("/auth"); return; }
     if (!profile) { navigate("/onboarding"); return; }
     setLoading(false);
-    // Update daily streak on dashboard load
-    updateStreak();
+    // Update streak once per user per day to avoid repeated XP increments on rerenders.
+    const today = new Date().toISOString().slice(0, 10);
+    const syncKey = `${user.id}-${today}`;
+    if (streakSyncKeyRef.current !== syncKey) {
+      streakSyncKeyRef.current = syncKey;
+      updateStreak();
+    }
   }, [isReady, user, profile, navigate]);
 
   const handleAdminAccess = () => {
