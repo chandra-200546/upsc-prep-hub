@@ -1,14 +1,14 @@
 type AnyRow = Record<string, any>;
 type Result<T = any> = Promise<{ data: T; error: any }>;
 
-const resolveBackendBaseUrl = () => {
+const backendCandidates = () => {
   const configured = (import.meta.env.VITE_BACKEND_URL || "").trim();
-  if (configured) return configured.replace(/\/$/, "");
-  if (typeof window !== "undefined" && window.location.port === "5173") return "http://localhost:8787";
-  return "http://localhost:8787";
+  const fromWindow = typeof window !== "undefined" ? window.location.origin.replace(/\/$/, "") : "";
+  const local = "http://localhost:8787";
+  return Array.from(new Set([configured, fromWindow, local].filter(Boolean).map((x) => x.replace(/\/$/, ""))));
 };
 
-const BACKEND_BASE_URL = resolveBackendBaseUrl();
+let activeBackendBase = backendCandidates()[0] || "http://localhost:8787";
 const SESSION_KEY = "upsc_backend_session";
 const LOCAL_USER_KEY = "upsc_local_user";
 
@@ -112,41 +112,57 @@ const authHeaders = () => {
 };
 
 const apiPost = async (path: string, body: unknown, extraHeaders?: Record<string, string>) => {
-  try {
-    const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeaders(),
-        ...(extraHeaders || {}),
-      },
-      body: JSON.stringify(body ?? {}),
-    });
-    const raw = await response.text();
-    const data = raw ? JSON.parse(raw) : null;
-    if (!response.ok) return { data: null, error: data || { message: `Request failed: ${path}` } };
-    return { data, error: null };
-  } catch (error: any) {
-    return { data: null, error: { message: error?.message || "Network error" } };
+  const attempts = [activeBackendBase, ...backendCandidates().filter((c) => c !== activeBackendBase)];
+  for (const base of attempts) {
+    try {
+      const response = await fetch(`${base}${path}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+          ...(extraHeaders || {}),
+        },
+        body: JSON.stringify(body ?? {}),
+      });
+      const raw = await response.text();
+      const data = raw ? JSON.parse(raw) : null;
+      if (response.ok) {
+        activeBackendBase = base;
+        return { data, error: null };
+      }
+      if (response.status === 404 && base !== attempts[attempts.length - 1]) continue;
+      return { data: null, error: data || { message: `Request failed: ${path}` } };
+    } catch {
+      // try next candidate
+    }
   }
+  return { data: null, error: { message: "Failed to fetch backend API" } };
 };
 
 const apiGet = async (path: string) => {
-  try {
-    const response = await fetch(`${BACKEND_BASE_URL}${path}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeaders(),
-      },
-    });
-    const raw = await response.text();
-    const data = raw ? JSON.parse(raw) : null;
-    if (!response.ok) return { data: null, error: data || { message: `Request failed: ${path}` } };
-    return { data, error: null };
-  } catch (error: any) {
-    return { data: null, error: { message: error?.message || "Network error" } };
+  const attempts = [activeBackendBase, ...backendCandidates().filter((c) => c !== activeBackendBase)];
+  for (const base of attempts) {
+    try {
+      const response = await fetch(`${base}${path}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+      });
+      const raw = await response.text();
+      const data = raw ? JSON.parse(raw) : null;
+      if (response.ok) {
+        activeBackendBase = base;
+        return { data, error: null };
+      }
+      if (response.status === 404 && base !== attempts[attempts.length - 1]) continue;
+      return { data: null, error: data || { message: `Request failed: ${path}` } };
+    } catch {
+      // try next candidate
+    }
   }
+  return { data: null, error: { message: "Failed to fetch backend API" } };
 };
 
 const fileToBase64 = (file: File): Promise<string> =>
@@ -448,12 +464,12 @@ export const supabase: any = {
             base64,
           });
           if (error) return { data: null, error };
-          return { data: { path: filePath, publicUrl: `${BACKEND_BASE_URL}${data?.data?.publicUrl || ""}` }, error: null };
+          return { data: { path: filePath, publicUrl: `${activeBackendBase}${data?.data?.publicUrl || ""}` }, error: null };
         } catch (error: any) {
           return { data: null, error: { message: error?.message || "Upload failed" } };
         }
       },
-      getPublicUrl: (filePath: string) => ({ data: { publicUrl: filePath ? `${BACKEND_BASE_URL}/storage/${bucket}/${filePath}` : "" } }),
+      getPublicUrl: (filePath: string) => ({ data: { publicUrl: filePath ? `${activeBackendBase}/storage/${bucket}/${filePath}` : "" } }),
       remove: async (paths: string[]) => {
         const { data, error } = await apiPost("/functions/v1/storage/remove", { bucket, paths });
         if (error) return { data: null, error };

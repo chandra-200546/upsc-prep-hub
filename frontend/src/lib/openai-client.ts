@@ -5,14 +5,12 @@ export type GeminiMessage = {
   content: string;
 };
 
-const resolveBackendBaseUrl = () => {
+const backendCandidates = () => {
   const configured = (import.meta.env.VITE_BACKEND_URL || "").trim();
-  if (configured) return configured.replace(/\/$/, "");
-  if (typeof window !== "undefined" && window.location.port === "5173") return "http://localhost:8787";
-  return "http://localhost:8787";
+  const fromWindow = typeof window !== "undefined" ? window.location.origin.replace(/\/$/, "") : "";
+  const local = "http://localhost:8787";
+  return Array.from(new Set([configured, fromWindow, local].filter(Boolean).map((x) => x.replace(/\/$/, ""))));
 };
-
-const BACKEND_BASE_URL = resolveBackendBaseUrl();
 
 export const streamGeminiText = async ({
   messages,
@@ -22,23 +20,33 @@ export const streamGeminiText = async ({
   onDelta?: (delta: string) => void;
   model?: string;
 }) => {
-  const response = await fetch(`${BACKEND_BASE_URL}/functions/v1/ai-generate`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ messages, temperature: 0.2 }),
-  });
+  const attempts = backendCandidates();
+  let lastErr = "Failed to fetch backend API";
+  for (const base of attempts) {
+    try {
+      const response = await fetch(`${base}/functions/v1/ai-generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ messages, temperature: 0.2 }),
+      });
 
-  const raw = await response.text();
-  const payload = raw ? JSON.parse(raw) : {};
-  if (!response.ok) {
-    const message = payload?.error?.message || payload?.message || "AI generation failed";
-    throw new Error(message);
+      const raw = await response.text();
+      const payload = raw ? JSON.parse(raw) : {};
+      if (!response.ok) {
+        lastErr = payload?.error?.message || payload?.message || "AI generation failed";
+        if (response.status === 404) continue;
+        throw new Error(lastErr);
+      }
+
+      const text = payload?.text || "";
+      if (!text) throw new Error("AI returned empty response");
+      onDelta?.(text);
+      return text;
+    } catch (error: any) {
+      lastErr = error?.message || lastErr;
+    }
   }
-
-  const text = payload?.text || "";
-  if (!text) throw new Error("AI returned empty response");
-  onDelta?.(text);
-  return text;
+  throw new Error(lastErr);
 };
