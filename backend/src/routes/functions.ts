@@ -5,6 +5,7 @@ import { cacheGet, cacheSet, logRequest } from "../db/sqlite.js";
 import { neonAdminStats, neonCacheGet, neonCacheSet, neonLogRequest } from "../db/neon.js";
 import { getProfileById, listProfiles, parseProfilesCsv, upsertProfiles } from "../db/profiles.js";
 import { getHistoryRagStats, ingestHistoryChunks, queryHistoryRag } from "../rag/history-rag.js";
+import { generateSubjectRagNotes, getSubjectRagStats, ingestSubjectPdf } from "../rag/subject-rag.js";
 import { generateJson, generateText } from "../lib/gemini.js";
 import { deleteFile, getStoragePublicPath, saveBase64File } from "../lib/storage.js";
 import { hashPayload } from "../lib/utils.js";
@@ -279,6 +280,65 @@ functionsRouter.post("/history-rag/query", async (c) => {
   return c.json(result);
 });
 
+functionsRouter.get("/notes-rag/stats", async (c) => {
+  const subjectId = String(c.req.query("subjectId") ?? "").trim();
+  if (!subjectId) return c.json({ error: "subjectId is required" }, 400);
+  const stats = await getSubjectRagStats(subjectId);
+  return c.json(stats);
+});
+
+functionsRouter.post("/notes-rag/stats", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const subjectId = String(body?.subjectId ?? "").trim();
+  if (!subjectId) return c.json({ error: "subjectId is required" }, 400);
+  const stats = await getSubjectRagStats(subjectId);
+  return c.json(stats);
+});
+
+functionsRouter.post("/notes-rag/ingest-pdf", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const subjectId = String(body?.subjectId ?? "").trim();
+  const subjectName = String(body?.subjectName ?? "").trim();
+  const sourceName = String(body?.sourceName ?? body?.fileName ?? "").trim() || `${subjectName || "Subject"} Book`;
+  const pdfBase64 = String(body?.pdfBase64 ?? "").trim();
+  const replaceExisting = body?.replaceExisting !== false;
+
+  if (!subjectId || !subjectName || !pdfBase64) {
+    return c.json({ ok: false, error: "subjectId, subjectName and pdfBase64 are required" }, 400);
+  }
+
+  const result = await ingestSubjectPdf({
+    subjectId,
+    subjectName,
+    sourceName,
+    pdfBase64,
+    replaceExisting,
+  });
+  const status = result.ok ? 200 : 400;
+  return c.json(result, status);
+});
+
+functionsRouter.post("/notes-rag/generate", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const subjectId = String(body?.subjectId ?? "").trim();
+  const subjectName = String(body?.subjectName ?? "").trim();
+  const topic = String(body?.topic ?? "").trim();
+  const slides = Number(body?.slides ?? 18);
+
+  if (!subjectId || !subjectName || !topic) {
+    return c.json({ ok: false, error: "subjectId, subjectName and topic are required" }, 400);
+  }
+
+  const result = await generateSubjectRagNotes({
+    subjectId,
+    subjectName,
+    topic,
+    slideCount: slides,
+  });
+  if (!result.ok) return c.json(result, 400);
+  return c.json(result);
+});
+
 functionsRouter.post("/generate-prelims-questions", async (c) => {
   const body = await c.req.json();
   const level = Number(body?.level ?? 1);
@@ -519,30 +579,68 @@ functionsRouter.post("/upsc-notes-slides", async (c) => {
   const body = await c.req.json();
   const subject = body?.subject ?? "Indian Polity";
   const topic = body?.topic ?? "Fundamental Rights";
+  const slideCountInput = Number(body?.slides ?? 18);
+  const slideCount = Number.isFinite(slideCountInput) ? Math.min(20, Math.max(15, slideCountInput)) : 18;
 
   const fallback = {
     topicTitle: topic,
     chapterTitle: subject,
-    slides: Array.from({ length: 10 }).map((_, i) => ({
-      heading: `${topic} - Slide ${i + 1}`,
-      bullets: ["Point 1", "Point 2", "Point 3"],
-      detailedExplanation: "Structured explanation for UPSC prep.",
-      example: "Relevant example.",
-      visualTitle: "Visual cue",
-      visualLines: ["Step 1", "Step 2", "Step 3"],
+    slides: Array.from({ length: slideCount }).map((_, i) => ({
+      slideNumber: i + 1,
+      topicName: topic,
+      subtopicTitle: `${topic} - Slide ${i + 1}`,
+      structuredExplanation: `Structured explanation ${i + 1} for ${topic} with UPSC prelims + mains orientation.`,
+      points: [
+        `${topic}: core concept ${i + 1}`,
+        `${topic}: relevant constitutional/factual linkage`,
+        `${topic}: exam application (prelims + mains)`,
+      ],
+      keyTakeaway: `Key takeaway ${i + 1} for revision.`,
     })),
-    quizzes: [{ afterSlide: 3, question: "Quick checkpoint?", acceptableAnswers: ["yes"] }],
-    sources: ["Gemini"],
+    checkpointQuestions: Array.from({ length: Math.floor(slideCount / 3) }).map((_, i) => ({
+      afterSlide: (i + 1) * 3,
+      type: "short",
+      question: `Checkpoint ${i + 1}: Explain one core concept from slides ${(i + 1) * 3 - 2} to ${(i + 1) * 3}.`,
+      correctAnswer: "core concept",
+      acceptableAnswers: ["definition", "feature", "significance", "challenge"],
+      explanation: "Mention meaning + one example + one exam-useful point.",
+    })),
+    practiceQuestions: Array.from({ length: 10 }).map((_, i) => ({
+      questionText: `${topic} practice question ${i + 1}`,
+      difficulty: i < 3 ? "Easy" : i < 7 ? "Medium" : "Hard",
+      type: i < 4 ? "Prelims" : i < 8 ? "Mains" : "Analytical",
+      answer: "Model answer with intro, body, and conclusion.",
+      explanation: "Use factual anchors and analytical framing.",
+      keyPoints: ["Definition", "Body points", "Examples", "Way forward"],
+    })),
+    revisionSummary: [
+      `Revise the complete flow of ${topic}.`,
+      "Separate prelims facts and mains analysis.",
+      "Practice one short and one long answer.",
+    ],
+    generatedAt: nowIso(),
   };
 
   const response = await withCache("upsc-notes-slides", body, () =>
     generateJson(
       [
-        { role: "system", content: "Return only valid JSON with topicTitle, chapterTitle, slides, quizzes, sources." },
-        { role: "user", content: `Generate UPSC slide notes for subject ${subject}, topic ${topic}, 15 slides.` },
+        {
+          role: "system",
+          content:
+            "You are a UPSC notes generator. Return only strict JSON with keys: topicTitle, chapterTitle, slides, checkpointQuestions, practiceQuestions, revisionSummary, generatedAt.",
+        },
+        {
+          role: "user",
+          content:
+            `Generate UPSC Smart Notes for subject "${subject}" and topic "${topic}". ` +
+            `Create exactly ${slideCount} slides. For each slide include slideNumber, topicName, subtopicTitle, structuredExplanation, points (3 to 5 items), keyTakeaway. ` +
+            `Add checkpointQuestions after every 3 slides with answerable correctAnswer, acceptableAnswers and explanation. ` +
+            `Add exactly 10 practiceQuestions with type in [Prelims, Mains, Analytical], difficulty in [Easy, Medium, Hard], and include answer/explanation/keyPoints. ` +
+            "Keep quality exam-ready for UPSC Prelims and Mains.",
+        },
       ],
       fallback,
-      0.25,
+      0.2,
     ),
   );
 

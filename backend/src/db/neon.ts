@@ -156,6 +156,19 @@ export const ensureNeonSchema = async () => {
     );
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS subject_rag_chunks (
+      id BIGSERIAL PRIMARY KEY,
+      subject_id TEXT NOT NULL,
+      subject_name TEXT NOT NULL,
+      source_name TEXT NOT NULL,
+      chunk_index INTEGER NOT NULL,
+      chunk_text TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_subject_rag_chunks_subject ON subject_rag_chunks(subject_id);`);
+
   await pool.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS chat_type TEXT DEFAULT 'mentor';`);
   await pool.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS content TEXT;`);
   await pool.query(`UPDATE chat_messages SET content = message WHERE content IS NULL AND message IS NOT NULL;`);

@@ -6,8 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, Loader2, Search, Trash2 } from "lucide-react";
-import { streamGeminiText } from "@/lib/openai-client";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Loader2, Search, Trash2, Upload } from "lucide-react";
 
 type Subject = { id: string; name: string; description: string; examFocus: string };
 type Slide = { slideNumber: number; topicName: string; subtopicTitle: string; structuredExplanation: string; points: string[]; keyTakeaway: string };
@@ -16,6 +15,7 @@ type PracticeQuestion = { questionText: string; difficulty: "Easy" | "Medium" | 
 type Deck = { topicTitle: string; chapterTitle: string; slides: Slide[]; checkpointQuestions: CheckpointQuestion[]; practiceQuestions: PracticeQuestion[]; revisionSummary: string[]; generatedAt: string };
 type SavedNote = { id: string; subjectId: string; subjectName: string; topic: string; slidesCount: number; savedAt: string; deck: Deck; currentSlide: number; passedCheckpoints: number[]; source: "db" | "local" };
 type ViewMode = "subjects" | "topic" | "study" | "practice" | "saved";
+type RagStats = { chunks: number; sources: string[] };
 
 const SUBJECTS: Subject[] = [
   { id: "history", name: "History", examFocus: "GS I + Prelims", description: "Ancient to Modern trends and continuity." },
@@ -42,14 +42,8 @@ const SUBJECTS: Subject[] = [
   { id: "essay", name: "Essay", examFocus: "Mains Essay", description: "Theme development and balanced arguments." },
 ];
 
-const extractJson = (raw: string) => {
-  const trimmed = raw.trim();
-  if (trimmed.startsWith("{")) return trimmed;
-  const fenced = trimmed.match(/```json\s*([\s\S]*?)```/i);
-  if (fenced?.[1]) return fenced[1].trim();
-  const first = trimmed.indexOf("{");
-  const last = trimmed.lastIndexOf("}");
-  return first >= 0 && last > first ? trimmed.slice(first, last + 1) : trimmed;
+const SUBJECT_BOOK_HINTS: Record<string, string> = {
+  "modern-history": "Use: A Brief History of Modern India (Spectrum, Rajiv Ahir)",
 };
 
 const lk = (u: string) => `upsc_smart_notes_${u}`;
@@ -81,62 +75,6 @@ const normalizeDeck = (input: any, topic: string, subjectName: string): Deck => 
   return { topicTitle: input?.topicTitle || topic, chapterTitle: input?.chapterTitle || subjectName, slides: filledSlides, checkpointQuestions, practiceQuestions, revisionSummary: Array.isArray(input?.revisionSummary) ? input.revisionSummary : ["Revise definitions.", "Map prelims with mains.", "Add examples and case references."], generatedAt: new Date().toISOString() };
 };
 
-const buildDeckFromAiText = (subjectName: string, topic: string, aiText: string) => {
-  const cleaned = aiText
-    .replace(/\*\*/g, "")
-    .replace(/[_`#>-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  const parts = cleaned
-    .split(/(?<=[.!?])\s+/)
-    .map((p) => p.trim())
-    .filter((p) => p.length > 30);
-
-  const slides = Array.from({ length: 15 }).map((_, i) => {
-    const base = parts[i % Math.max(1, parts.length)] || `${topic} concept in ${subjectName}.`;
-    const next = parts[(i + 1) % Math.max(1, parts.length)] || base;
-    return {
-      slideNumber: i + 1,
-      topicName: topic,
-      subtopicTitle: `AI Notes Slide ${i + 1}`,
-      structuredExplanation: base,
-      points: [base, next, `${topic} exam linkage for Prelims + Mains.`],
-      keyTakeaway: `Revision takeaway ${i + 1}: ${topic} - core conceptual clarity.`,
-    };
-  });
-
-  const checkpointQuestions = [3, 6, 9, 12, 15].map((afterSlide, idx) => ({
-    afterSlide,
-    type: "short" as const,
-    question: `Checkpoint ${idx + 1}: What is the core idea from slides ${afterSlide - 2} to ${afterSlide}?`,
-    correctAnswer: "core concept",
-    acceptableAnswers: ["concept", "feature", "significance", "challenge"],
-    explanation: "Mention definition, one key point, and one exam-useful linkage.",
-  }));
-
-  const practiceQuestions = Array.from({ length: 10 }).map((_, i) => ({
-    questionText: `Practice Q${i + 1}: ${topic} (${subjectName})`,
-    difficulty: i < 3 ? ("Easy" as const) : i < 7 ? ("Medium" as const) : ("Hard" as const),
-    type: i < 4 ? ("Prelims" as const) : i < 8 ? ("Mains" as const) : ("Analytical" as const),
-    answer: "Answer using intro, structured body points, and balanced conclusion.",
-    explanation: "Highlight constitutional/factual anchors and one current linkage.",
-    keyPoints: ["Definition", "Core dimension", "Example", "Way forward"],
-  }));
-
-  return {
-    topicTitle: topic,
-    chapterTitle: subjectName,
-    slides,
-    checkpointQuestions,
-    practiceQuestions,
-    revisionSummary: [
-      `Revise ${topic} using 5-point summary.`,
-      "Separate prelims facts and mains analysis.",
-      "Write one practice answer for retention.",
-    ],
-  };
-};
-
 const UPSCNotes = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -153,12 +91,15 @@ const UPSCNotes = () => {
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const [saved, setSaved] = useState<SavedNote[]>([]);
   const [q, setQ] = useState("");
+  const [ragStatsBySubject, setRagStatsBySubject] = useState<Record<string, RagStats>>({});
+  const [ingestingPdf, setIngestingPdf] = useState(false);
 
   const subject = useMemo(() => SUBJECTS.find((s) => s.id === subjectId) || null, [subjectId]);
   const slide = deck?.slides[slideIndex] || null;
   const cp = deck?.checkpointQuestions.find((x) => x.afterSlide === slideIndex + 1) || null;
   const cpPassed = cp ? passed.includes(cp.afterSlide) : true;
   const progress = deck ? Math.round(((slideIndex + 1) / deck.slides.length) * 100) : 0;
+  const subjectStats = subjectId ? ragStatsBySubject[subjectId] : undefined;
 
   useEffect(() => {
     const init = async () => {
@@ -176,6 +117,29 @@ const UPSCNotes = () => {
     init();
   }, [navigate]);
 
+  useEffect(() => {
+    const loadStats = async () => {
+      if (!subjectId) return;
+      try {
+        const { data, error } = await (supabase as any).functions.invoke("notes-rag/stats", {
+          body: { subjectId },
+        });
+        if (!error && data) {
+          setRagStatsBySubject((prev) => ({
+            ...prev,
+            [subjectId]: {
+              chunks: Number(data.chunks || 0),
+              sources: Array.isArray(data.sources) ? data.sources : [],
+            },
+          }));
+        }
+      } catch {
+        // keep silent
+      }
+    };
+    loadStats();
+  }, [subjectId]);
+
   const loadSaved = async (uid: string) => {
     const local = (() => { try { return JSON.parse(localStorage.getItem(lk(uid)) || "[]"); } catch { return []; } })();
     try {
@@ -190,41 +154,69 @@ const UPSCNotes = () => {
   const persistLocal = (notes: SavedNote[]) => { if (userId) localStorage.setItem(lk(userId), JSON.stringify(notes.filter((n) => n.source === "local"))); };
   const saveResume = () => { if (deck && userId) localStorage.setItem(rk(userId), JSON.stringify({ subjectId, topic, deck, slideIndex, passed })); toast({ title: "Progress saved", description: "Resume later from same module." }); };
 
+  const uploadSubjectPdf = async (file: File) => {
+    if (!subject) return;
+    setIngestingPdf(true);
+    try {
+      const b64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const raw = String(reader.result || "");
+          const value = raw.includes(",") ? raw.split(",")[1] : raw;
+          resolve(value);
+        };
+        reader.onerror = () => reject(reader.error || new Error("Failed to read PDF file"));
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await (supabase as any).functions.invoke("notes-rag/ingest-pdf", {
+        body: {
+          subjectId: subject.id,
+          subjectName: subject.name,
+          sourceName: file.name,
+          pdfBase64: b64,
+          replaceExisting: true,
+        },
+      });
+      if (error || !data?.ok) {
+        throw new Error(data?.reason || error?.message || "PDF ingestion failed");
+      }
+      setRagStatsBySubject((prev) => ({
+        ...prev,
+        [subject.id]: {
+          chunks: Number(data.saved || 0),
+          sources: [file.name],
+        },
+      }));
+      toast({ title: "Book uploaded", description: `${data.saved || 0} chunks indexed for ${subject.name}.` });
+    } catch (e: any) {
+      toast({ title: "PDF ingest failed", description: e?.message || "Could not index PDF.", variant: "destructive" });
+    } finally {
+      setIngestingPdf(false);
+    }
+  };
+
   const generate = async () => {
     if (!subject || !topic.trim()) return;
+    if (!subjectStats || subjectStats.chunks === 0) {
+      toast({ title: "Source book missing", description: "Upload subject PDF first to generate notes from RAG.", variant: "destructive" });
+      return;
+    }
     setLoading(true); setDeck(null); setSlideIndex(0); setPassed([]); setAns(""); setMcq(""); setFeedback(null);
-    const prompt = `Create UPSC Smart Notes JSON.\nSubject: ${subject.name}\nTopic: ${topic.trim()}\nSchema: {"topicTitle":"","chapterTitle":"","slides":[{"slideNumber":1,"topicName":"","subtopicTitle":"","structuredExplanation":"","points":[""],"keyTakeaway":""}],"checkpointQuestions":[{"afterSlide":3,"type":"mcq or short","question":"","options":[""],"correctAnswer":"","acceptableAnswers":[""],"explanation":""}],"practiceQuestions":[{"questionText":"","difficulty":"Easy or Medium or Hard","type":"Prelims or Mains or Analytical","answer":"","explanation":"","keyPoints":[""]}],"revisionSummary":[""]}\nRules: 15-20 slides, checkpoint after each 3 slides, exactly 10 practice questions, UPSC prelims+mains quality.`;
     try {
-      let txt = "";
-      let parsed: any = null;
-      try {
-        txt = await streamGeminiText({
-          messages: [
-            { role: "system", content: "Return only valid JSON for UPSC smart notes schema." },
-            { role: "user", content: prompt },
-          ],
-        });
-        parsed = JSON.parse(extractJson(txt));
-      } catch {
-        // fallback to direct Gemini streaming
-        try {
-          txt = await streamGeminiText({
-            messages: [
-              { role: "system", content: "Return only valid JSON for UPSC smart notes schema." },
-              { role: "user", content: prompt },
-            ],
-          });
-
-          try {
-            parsed = JSON.parse(extractJson(txt));
-          } catch {
-            parsed = buildDeckFromAiText(subject.name, topic.trim(), txt);
-          }
-        } catch (fallbackError: any) {
-          throw new Error(fallbackError?.message || "Gemini generation failed.");
-        }
+      const fnResponse = await (supabase as any).functions.invoke("notes-rag/generate", {
+        body: {
+          subjectId: subject.id,
+          subject: subject.name,
+          subjectName: subject.name,
+          topic: topic.trim(),
+          slides: 18,
+        },
+      });
+      if (fnResponse?.error || !fnResponse?.data?.ok || !fnResponse?.data?.deck) {
+        throw new Error(fnResponse?.data?.reason || fnResponse?.error?.message || "RAG generation failed");
       }
-      setDeck(normalizeDeck(parsed, topic.trim(), subject.name));
+      setDeck(normalizeDeck(fnResponse.data.deck, topic.trim(), subject.name));
       setView("study");
     } catch (e: any) {
       toast({ title: "Generation failed", description: e?.message || "Could not generate.", variant: "destructive" });
@@ -236,7 +228,7 @@ const UPSCNotes = () => {
     const answer = cp.type === "mcq" ? mcq : ans;
     const norm = answer.trim().toLowerCase();
     const accepted = [cp.correctAnswer, ...(cp.acceptableAnswers || [])].map((x) => (x || "").toLowerCase()).filter(Boolean);
-    const ok = accepted.some((x) => norm.includes(x) || x.includes(norm));
+    const ok = accepted.some((x) => norm.includes(x));
     if (ok) { setPassed((p) => (p.includes(cp.afterSlide) ? p : [...p, cp.afterSlide])); setFeedback({ ok: true, text: "Correct. Next block unlocked." }); return true; }
     setFeedback({ ok: false, text: `Wrong. Correct: ${cp.correctAnswer}. ${cp.explanation}` }); return false;
   };
@@ -302,7 +294,49 @@ const UPSCNotes = () => {
         )}
 
         {view === "topic" && subject && (
-          <Card><CardHeader><CardTitle>{subject.name} Topic Input</CardTitle><CardDescription>Enter specific topic and generate 15-20 slides.</CardDescription></CardHeader><CardContent className="space-y-4"><Input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Example: Fundamental Rights, Governor, Monsoon in India" /><div className="flex gap-2"><Button onClick={generate} disabled={loading || !topic.trim()}>{loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating...</> : "Generate Smart Slides"}</Button><Button variant="outline" onClick={() => setView("subjects")}>Back</Button></div></CardContent></Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{subject.name} Topic Input</CardTitle>
+              <CardDescription>Upload subject PDF once, then generate topic notes from retrieved source chunks.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-md border border-dashed p-4">
+                <p className="mb-2 text-sm font-medium">Subject Source Book (PDF)</p>
+                {subject?.id && SUBJECT_BOOK_HINTS[subject.id] ? (
+                  <p className="mb-2 text-xs text-muted-foreground">{SUBJECT_BOOK_HINTS[subject.id]}</p>
+                ) : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex cursor-pointer items-center rounded-md border px-3 py-2 text-sm">
+                    <Upload className="mr-2 h-4 w-4" />
+                    {ingestingPdf ? "Uploading..." : "Upload PDF"}
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      className="hidden"
+                      disabled={ingestingPdf}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) uploadSubjectPdf(file);
+                      }}
+                    />
+                  </label>
+                  <Badge variant={subjectStats?.chunks ? "secondary" : "outline"}>
+                    {subjectStats?.chunks ? `${subjectStats.chunks} chunks indexed` : "No PDF indexed"}
+                  </Badge>
+                </div>
+                {subjectStats?.sources?.length ? (
+                  <p className="mt-2 text-xs text-muted-foreground">Sources: {subjectStats.sources.join(", ")}</p>
+                ) : null}
+              </div>
+              <Input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Example: Fundamental Rights, Governor, Monsoon in India" />
+              <div className="flex gap-2">
+                <Button onClick={generate} disabled={loading || !topic.trim() || !subjectStats?.chunks}>
+                  {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating...</> : "Generate RAG Notes"}
+                </Button>
+                <Button variant="outline" onClick={() => setView("subjects")}>Back</Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {view === "study" && deck && slide && (
