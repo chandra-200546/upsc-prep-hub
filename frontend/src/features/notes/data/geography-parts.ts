@@ -122,4 +122,40 @@ export const GEOGRAPHY_BOOK_PARTS: BookPart[] = [
       "geo10-ch7-lifelines-of-national-economy",
     ],
   },
+  {
+    id: "geography-part-13",
+    title: "Part 13: Class 11 Physical Geography - Foundations",
+    description: "Chapters 1 to 5 covering discipline basics, Earth origin, interior and geomorphic processes.",
+    chapterIds: [
+      "geo11p1-ch1-geography-as-discipline",
+      "geo11p1-ch2-origin-and-evolution-of-earth",
+      "geo11p1-ch3-interior-of-earth",
+      "geo11p1-ch4-distribution-of-oceans-and-continents",
+      "geo11p1-ch5-geomorphic-processes",
+    ],
+  },
+  {
+    id: "geography-part-14",
+    title: "Part 14: Class 11 Physical Geography - Atmosphere",
+    description: "Chapters 6 to 11 on landforms, atmosphere, circulation, climate and change.",
+    chapterIds: [
+      "geo11p1-ch6-landforms-and-their-evolution",
+      "geo11p1-ch7-composition-structure-of-atmosphere",
+      "geo11p1-ch8-solar-radiation-heat-balance-temperature",
+      "geo11p1-ch9-atmospheric-circulation-weather-systems",
+      "geo11p1-ch10-water-in-atmosphere",
+      "geo11p1-ch11-world-climate-climate-change",
+    ],
+  },
+  {
+    id: "geography-part-15",
+    title: "Part 15: Class 11 Physical Geography - Oceans and Ecology",
+    description: "Chapters 12 to 15 on ocean systems, biosphere and biodiversity conservation.",
+    chapterIds: [
+      "geo11p1-ch12-oceans",
+      "geo11p1-ch13-movements-of-ocean-water",
+      "geo11p1-ch14-life-on-earth",
+      "geo11p1-ch15-biodiversity-and-conservation",
+    ],
+  },
 ];

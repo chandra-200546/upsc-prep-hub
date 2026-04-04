@@ -1426,4 +1426,604 @@ export const GEOGRAPHY_NOTES: Chapter[] = [
       },
     ],
   },
+  {
+    id: "geo11p1-ch1-geography-as-discipline",
+    title: "Class 11 Physical Geography Chapter 1: Geography as a Discipline",
+    weight: "Foundation",
+    topics: [
+      {
+        title: "Meaning, Nature and Scope of Geography",
+        notes: [
+          "Geography studies spatial variation and interaction between physical and human phenomena.",
+          "It bridges natural sciences and social sciences through integrated analysis.",
+          "Core themes include location, place, region, environment and spatial organization.",
+          "Geography supports planning, resource management and policy decisions.",
+        ],
+        prelimsFocus: ["Scope and branches of geography"],
+        mainsFocus: ["Interdisciplinary nature of geography"],
+      },
+      {
+        title: "Physical vs Human Geography Linkages",
+        notes: [
+          "Physical geography focuses on landforms, climate, soils, vegetation and natural systems.",
+          "Human geography studies settlements, economy, culture and political organization.",
+          "Both interact continuously through resource use and environmental change.",
+          "Integrated perspective is essential for UPSC analytical answers.",
+        ],
+        prelimsFocus: ["Physical and human geography distinction"],
+        mainsFocus: ["Need for integrated geographical perspective"],
+      },
+      {
+        title: "Approaches in Geographical Study",
+        notes: [
+          "Systematic approach studies one phenomenon globally, while regional approach studies all phenomena in one area.",
+          "Spatial analysis uses maps, scale and location to interpret patterns.",
+          "Temporal analysis helps understand dynamic geographic change over time.",
+          "Modern geography combines field observation, statistics and geospatial tools.",
+        ],
+        prelimsFocus: ["Systematic vs regional approach"],
+        mainsFocus: ["Methodological approaches in geography"],
+      },
+    ],
+  },
+  {
+    id: "geo11p1-ch2-origin-and-evolution-of-earth",
+    title: "Class 11 Physical Geography Chapter 2: Origin and Evolution of the Earth",
+    weight: "High",
+    topics: [
+      {
+        title: "Theories of Origin of Universe and Earth",
+        notes: [
+          "Big Bang theory explains the origin and expansion of the universe.",
+          "Solar system formed from rotating nebular material around the proto-sun.",
+          "Early Earth was hot and underwent differentiation into layered structure.",
+          "Scientific theories evolve through astronomical and geophysical evidence.",
+        ],
+        prelimsFocus: ["Big Bang and nebular hypothesis basics"],
+        mainsFocus: ["Evolutionary understanding of Earth system"],
+      },
+      {
+        title: "Earth's Evolution and Geological Time",
+        notes: [
+          "Earth cooled over time, enabling crust formation and hydrosphere development.",
+          "Life evolved gradually, marked across geological eras and periods.",
+          "Geological time scale provides chronology of major biological and tectonic events.",
+          "Past Earth changes explain present landscapes and climate trends.",
+        ],
+        prelimsFocus: ["Geological time scale terms"],
+        mainsFocus: ["Geological evolution and current Earth processes"],
+      },
+      {
+        title: "Evolution of Atmosphere and Hydrosphere",
+        notes: [
+          "Volcanic outgassing and cooling helped develop early atmosphere and oceans.",
+          "Primitive atmosphere lacked free oxygen; photosynthesis later transformed composition.",
+          "Hydrosphere evolution enabled weathering, sedimentation and life expansion.",
+          "Earth system components co-evolved through geologic time.",
+        ],
+        prelimsFocus: ["Early atmosphere features"],
+        mainsFocus: ["Earth system co-evolution"],
+      },
+    ],
+  },
+  {
+    id: "geo11p1-ch3-interior-of-earth",
+    title: "Class 11 Physical Geography Chapter 3: Interior of the Earth",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Sources of Information about Earth's Interior",
+        notes: [
+          "Direct evidence is limited; drilling and volcanic materials provide partial clues.",
+          "Seismic waves are key indirect source for internal layering analysis.",
+          "P and S wave behavior reveals composition and state of internal layers.",
+          "Discontinuities mark changes in density and material properties.",
+        ],
+        prelimsFocus: ["Seismic wave types", "Major discontinuities"],
+        mainsFocus: ["Geophysical basis of Earth's internal structure"],
+      },
+      {
+        title: "Crust, Mantle and Core Characteristics",
+        notes: [
+          "Crust is outermost thin layer; continental and oceanic crust differ in composition.",
+          "Mantle is thick intermediate zone with partly plastic asthenosphere region.",
+          "Core includes liquid outer core and solid inner core, rich in iron-nickel.",
+          "Internal dynamics drive plate movement, volcanism and tectonic activity.",
+        ],
+        prelimsFocus: ["Layer properties and composition"],
+        mainsFocus: ["Interior dynamics and surface processes"],
+      },
+      {
+        title: "Lithosphere, Asthenosphere and Tectonic Mobility",
+        notes: [
+          "Lithosphere is rigid outer shell broken into tectonic plates.",
+          "Asthenosphere is weaker and permits plate movement.",
+          "Plate interactions lead to earthquakes, mountain building and volcanic arcs.",
+          "Internal heat flow is key driver of tectonic activity.",
+        ],
+        prelimsFocus: ["Lithosphere-asthenosphere distinction"],
+        mainsFocus: ["Interior mechanics and plate tectonics"],
+      },
+    ],
+  },
+  {
+    id: "geo11p1-ch4-distribution-of-oceans-and-continents",
+    title: "Class 11 Physical Geography Chapter 4: Distribution of Oceans and Continents",
+    weight: "High",
+    topics: [
+      {
+        title: "Continental Drift and Plate Tectonic Foundations",
+        notes: [
+          "Wegener's continental drift proposed movement of landmasses from a supercontinent.",
+          "Modern plate tectonics explains lithospheric movement over asthenosphere.",
+          "Convergent, divergent and transform boundaries generate major tectonic features.",
+          "Plate interactions shape mountains, trenches, ridges and earthquake belts.",
+        ],
+        prelimsFocus: ["Plate boundary types"],
+        mainsFocus: ["Plate tectonics and distribution of continents/oceans"],
+      },
+      {
+        title: "Sea-floor Spreading and Geological Evidence",
+        notes: [
+          "Sea-floor spreading at mid-ocean ridges creates new oceanic crust.",
+          "Paleomagnetism and age patterns of oceanic rocks support tectonic theory.",
+          "Subduction zones recycle oceanic crust into mantle.",
+          "Global distribution of relief reflects long-term tectonic evolution.",
+        ],
+        prelimsFocus: ["Sea-floor spreading concept"],
+        mainsFocus: ["Evidence framework for plate tectonics"],
+      },
+      {
+        title: "Mountain Building and Continental Configuration",
+        notes: [
+          "Orogeny occurs mainly at convergent boundaries due to compression and subduction.",
+          "Rift valleys and mid-ocean ridges form at divergent margins.",
+          "Continental arrangement has changed repeatedly through supercontinent cycles.",
+          "Present land-ocean distribution reflects long tectonic history.",
+        ],
+        prelimsFocus: ["Convergent vs divergent landforms"],
+        mainsFocus: ["Tectonics and continental organization"],
+      },
+    ],
+  },
+  {
+    id: "geo11p1-ch5-geomorphic-processes",
+    title: "Class 11 Physical Geography Chapter 5: Geomorphic Processes",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Endogenic and Exogenic Processes",
+        notes: [
+          "Endogenic processes originate inside Earth and include tectonism and volcanism.",
+          "Exogenic processes include weathering, erosion, transport and deposition.",
+          "Landform evolution depends on continuous interaction of both process groups.",
+          "Time and energy balance determine geomorphic outcomes.",
+        ],
+        prelimsFocus: ["Endogenic vs exogenic processes"],
+        mainsFocus: ["Process-based geomorphology"],
+      },
+      {
+        title: "Weathering, Mass Wasting and Erosion",
+        notes: [
+          "Weathering can be mechanical, chemical or biological.",
+          "Mass wasting includes slope movement under gravity influence.",
+          "Erosion agents such as rivers, glaciers, wind and waves reshape terrain.",
+          "Process intensity depends on climate, slope, lithology and vegetation.",
+        ],
+        prelimsFocus: ["Types of weathering and mass movement"],
+        mainsFocus: ["Controls of geomorphic process intensity"],
+      },
+      {
+        title: "Denudation and Landscape Equilibrium",
+        notes: [
+          "Denudation lowers relief through weathering, erosion and slope processes.",
+          "Geomorphic systems tend toward dynamic equilibrium under given climatic controls.",
+          "Threshold events can rapidly alter long-term equilibrium states.",
+          "Human land-use changes increasingly influence denudational intensity.",
+        ],
+        prelimsFocus: ["Denudation concept"],
+        mainsFocus: ["Dynamic equilibrium in geomorphology"],
+      },
+    ],
+  },
+  {
+    id: "geo11p1-ch6-landforms-and-their-evolution",
+    title: "Class 11 Physical Geography Chapter 6: Landforms and Their Evolution",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Fluvial, Karst and Glacial Landforms",
+        notes: [
+          "Rivers create valleys, floodplains, meanders, deltas and terraces.",
+          "Karst landscapes develop in limestone through dissolution processes.",
+          "Glacial action forms cirques, U-shaped valleys and moraines.",
+          "Landforms evolve through long-term denudational cycles.",
+        ],
+        prelimsFocus: ["Landform-agent association"],
+        mainsFocus: ["Comparative landform evolution"],
+      },
+      {
+        title: "Aeolian and Coastal Landforms",
+        notes: [
+          "Wind forms dunes, loess and deflation hollows in arid landscapes.",
+          "Waves shape coasts into cliffs, caves, stacks, beaches and spits.",
+          "Coastal and desert morphologies are sensitive to climate and sediment supply.",
+          "Human interventions can accelerate or alter natural evolution.",
+        ],
+        prelimsFocus: ["Wind and marine landforms"],
+        mainsFocus: ["Coastal geomorphology and human impact"],
+      },
+      {
+        title: "Geomorphic Cycles and Polycyclic Relief",
+        notes: [
+          "Landscapes evolve through youth, maturity and old-age stages in classic cycle models.",
+          "Most real landscapes are polycyclic due to repeated uplift and climatic shifts.",
+          "Relief inversion and rejuvenation can reset erosional sequences.",
+          "Process-based understanding is preferred over rigid stage models.",
+        ],
+        prelimsFocus: ["Geomorphic cycle concept"],
+        mainsFocus: ["Limits of cycle theories in modern geomorphology"],
+      },
+    ],
+  },
+  {
+    id: "geo11p1-ch7-composition-structure-of-atmosphere",
+    title: "Class 11 Physical Geography Chapter 7: Composition and Structure of Atmosphere",
+    weight: "High",
+    topics: [
+      {
+        title: "Atmospheric Composition and Vertical Structure",
+        notes: [
+          "Atmosphere includes nitrogen, oxygen, argon, carbon dioxide, water vapor and aerosols.",
+          "Major layers are troposphere, stratosphere, mesosphere, thermosphere and exosphere.",
+          "Ozone concentration in stratosphere protects life from harmful UV radiation.",
+          "Temperature variation with height defines atmospheric layers.",
+        ],
+        prelimsFocus: ["Atmospheric layers and gases"],
+        mainsFocus: ["Significance of atmospheric structure"],
+      },
+      {
+        title: "Role of Dust and Water Vapor",
+        notes: [
+          "Water vapor is key for cloud formation, latent heat transfer and precipitation.",
+          "Aerosols influence radiation balance and cloud microphysics.",
+          "Atmospheric composition affects weather systems and climate behavior.",
+          "Anthropogenic emissions are modifying atmospheric chemistry and climate risks.",
+        ],
+        prelimsFocus: ["Role of water vapor"],
+        mainsFocus: ["Atmospheric composition and climate sensitivity"],
+      },
+      {
+        title: "Ozone, Greenhouse Effect and Atmospheric Stability",
+        notes: [
+          "Ozone in stratosphere absorbs ultraviolet radiation and protects biosphere.",
+          "Greenhouse gases trap outgoing longwave radiation and warm lower atmosphere.",
+          "Vertical temperature profile controls atmospheric stability and convection.",
+          "Anthropogenic emissions are altering radiative balance and climate behavior.",
+        ],
+        prelimsFocus: ["Greenhouse gases list"],
+        mainsFocus: ["Atmospheric composition and warming"],
+      },
+    ],
+  },
+  {
+    id: "geo11p1-ch8-solar-radiation-heat-balance-temperature",
+    title: "Class 11 Physical Geography Chapter 8: Solar Radiation, Heat Balance and Temperature",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Insolation and Heat Budget",
+        notes: [
+          "Solar radiation is primary energy source for Earth's atmospheric processes.",
+          "Insolation varies with latitude, season, cloud cover and day length.",
+          "Earth's heat budget reflects balance between incoming and outgoing radiation.",
+          "Latitudinal heat imbalance drives atmospheric and oceanic circulation.",
+        ],
+        prelimsFocus: ["Insolation controls", "Heat budget concept"],
+        mainsFocus: ["Radiation balance and climate dynamics"],
+      },
+      {
+        title: "Temperature Distribution and Controls",
+        notes: [
+          "Temperature depends on altitude, distance from sea, ocean currents and relief.",
+          "Isotherms represent spatial distribution of temperature.",
+          "Annual and diurnal range vary by continentality and latitude.",
+          "Temperature patterns underpin pressure belts and wind systems.",
+        ],
+        prelimsFocus: ["Temperature controls"],
+        mainsFocus: ["Spatial temperature variation and implications"],
+      },
+      {
+        title: "Heat Transfer Mechanisms",
+        notes: [
+          "Conduction, convection and advection transfer heat in atmosphere and near-surface layers.",
+          "Latent heat release during condensation powers many weather systems.",
+          "Land-water contrast creates local breezes and mesoscale variations.",
+          "Heat transfer dynamics underpin pressure variations and circulation patterns.",
+        ],
+        prelimsFocus: ["Conduction/convection/advection basics"],
+        mainsFocus: ["Heat transfer and weather formation"],
+      },
+    ],
+  },
+  {
+    id: "geo11p1-ch9-atmospheric-circulation-weather-systems",
+    title: "Class 11 Physical Geography Chapter 9: Atmospheric Circulation and Weather Systems",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Pressure Belts and Planetary Winds",
+        notes: [
+          "Global pressure belts form due to unequal heating and dynamic factors.",
+          "Trade winds, westerlies and polar easterlies constitute major planetary wind systems.",
+          "Coriolis force modifies wind direction due to Earth's rotation.",
+          "Seasonal shifts in pressure-wind systems influence monsoon circulation.",
+        ],
+        prelimsFocus: ["Pressure belts and wind names"],
+        mainsFocus: ["Global circulation model"],
+      },
+      {
+        title: "Cyclones, Anticyclones and Air Masses",
+        notes: [
+          "Cyclones are low-pressure systems with converging winds; anticyclones are high-pressure systems.",
+          "Tropical and temperate cyclones differ in origin, structure and impact zone.",
+          "Air masses and fronts generate many mid-latitude weather disturbances.",
+          "Weather forecasting depends on pressure, moisture and circulation analysis.",
+        ],
+        prelimsFocus: ["Cyclone types and characteristics"],
+        mainsFocus: ["Atmospheric systems and extreme weather"],
+      },
+      {
+        title: "Upper Air Circulation and Jet Streams",
+        notes: [
+          "Jet streams are high-speed upper air currents influencing weather systems.",
+          "Subtropical and polar jet positions vary seasonally and affect storm tracks.",
+          "Jet stream dynamics influence monsoon onset and break patterns.",
+          "Upper-air analysis is critical for medium-range forecasting.",
+        ],
+        prelimsFocus: ["Jet stream basics"],
+        mainsFocus: ["Jet streams and monsoon linkage"],
+      },
+    ],
+  },
+  {
+    id: "geo11p1-ch10-water-in-atmosphere",
+    title: "Class 11 Physical Geography Chapter 10: Water in the Atmosphere",
+    weight: "High",
+    topics: [
+      {
+        title: "Humidity, Condensation and Cloud Formation",
+        notes: [
+          "Atmospheric moisture content is measured through absolute and relative humidity.",
+          "Condensation occurs when air cools to dew point temperature.",
+          "Clouds form through condensation on hygroscopic nuclei.",
+          "Cloud type indicates atmospheric stability and likely weather conditions.",
+        ],
+        prelimsFocus: ["Humidity concepts", "Cloud categories"],
+        mainsFocus: ["Moisture processes and weather prediction"],
+      },
+      {
+        title: "Precipitation Forms and Distribution",
+        notes: [
+          "Precipitation includes rain, snow, sleet and hail.",
+          "Main rainfall mechanisms are convectional, orographic and cyclonic.",
+          "Spatial rainfall variation creates hydrological and agricultural contrasts.",
+          "Extreme precipitation events are increasing climate risk in many regions.",
+        ],
+        prelimsFocus: ["Types of rainfall"],
+        mainsFocus: ["Rainfall mechanisms and regional impacts"],
+      },
+      {
+        title: "Condensation Forms and Visibility Phenomena",
+        notes: [
+          "Dew, frost, fog and mist are surface/near-surface condensation forms.",
+          "Temperature, humidity and wind conditions control their occurrence.",
+          "Fog strongly affects transport safety and urban planning.",
+          "Visibility-related weather advisories are crucial for risk reduction.",
+        ],
+        prelimsFocus: ["Dew vs frost vs fog"],
+        mainsFocus: ["Condensation forms and applied climatology"],
+      },
+    ],
+  },
+  {
+    id: "geo11p1-ch11-world-climate-climate-change",
+    title: "Class 11 Physical Geography Chapter 11: World Climate and Climate Change",
+    weight: "Very High",
+    topics: [
+      {
+        title: "World Climate Types and Distribution",
+        notes: [
+          "Climate regions are classified based on temperature and precipitation characteristics.",
+          "Tropical, temperate, polar and highland climates show distinct weather regimes.",
+          "Ocean currents, latitude and continentality strongly affect regional climate types.",
+          "Climate zonation helps explain vegetation and livelihood patterns globally.",
+        ],
+        prelimsFocus: ["Major world climate types"],
+        mainsFocus: ["Climatic controls and global regionalization"],
+      },
+      {
+        title: "Climate Change: Causes and Consequences",
+        notes: [
+          "Natural and anthropogenic factors both influence climate variability.",
+          "Greenhouse gas rise is major driver of recent warming trends.",
+          "Impacts include sea-level rise, extreme events, ecosystem stress and food insecurity.",
+          "Mitigation and adaptation are both required for resilience.",
+        ],
+        prelimsFocus: ["Greenhouse gases and warming basics"],
+        mainsFocus: ["Climate change impacts and response strategies"],
+      },
+      {
+        title: "Mitigation, Adaptation and Global Cooperation",
+        notes: [
+          "Mitigation reduces emissions through energy transition and efficiency measures.",
+          "Adaptation includes climate-resilient infrastructure, water management and agriculture planning.",
+          "International cooperation supports finance, technology and capacity building.",
+          "Local adaptation planning is crucial for vulnerable populations.",
+        ],
+        prelimsFocus: ["Mitigation vs adaptation"],
+        mainsFocus: ["Multi-level climate governance"],
+      },
+    ],
+  },
+  {
+    id: "geo11p1-ch12-oceans",
+    title: "Class 11 Physical Geography Chapter 12: Water (Oceans)",
+    weight: "High",
+    topics: [
+      {
+        title: "Ocean Basin Relief and Salinity",
+        notes: [
+          "Ocean floor has continental shelf, slope, abyssal plains, ridges and trenches.",
+          "Salinity varies with evaporation, precipitation, river inflow and currents.",
+          "Temperature and salinity control ocean water density patterns.",
+          "Oceanic structure influences marine ecosystems and climate interactions.",
+        ],
+        prelimsFocus: ["Ocean floor features", "Salinity controls"],
+        mainsFocus: ["Ocean properties and climatic significance"],
+      },
+      {
+        title: "Marine Resources and Human Dependence",
+        notes: [
+          "Oceans provide fisheries, minerals, energy and transport routes.",
+          "Coastal populations rely heavily on marine ecosystems for livelihoods.",
+          "Pollution and overexploitation threaten long-term ocean productivity.",
+          "Sustainable ocean governance is crucial for blue economy growth.",
+        ],
+        prelimsFocus: ["Marine resource types"],
+        mainsFocus: ["Ocean resources and sustainability"],
+      },
+      {
+        title: "Ocean-Climate Linkages",
+        notes: [
+          "Oceans absorb heat and carbon, buffering atmospheric change.",
+          "Sea surface temperature influences cyclone intensity and rainfall systems.",
+          "Ocean circulation changes can alter regional climate patterns.",
+          "Marine ecosystem health is essential for climate resilience.",
+        ],
+        prelimsFocus: ["Ocean heat storage concept"],
+        mainsFocus: ["Oceans in climate regulation"],
+      },
+    ],
+  },
+  {
+    id: "geo11p1-ch13-movements-of-ocean-water",
+    title: "Class 11 Physical Geography Chapter 13: Movements of Ocean Water",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Waves, Tides and Ocean Currents",
+        notes: [
+          "Waves are oscillatory movements generated mainly by winds.",
+          "Tides occur due to gravitational pull of moon and sun with Earth's rotation.",
+          "Ocean currents redistribute heat and regulate coastal climates.",
+          "Current systems influence fisheries, navigation and weather.",
+        ],
+        prelimsFocus: ["Tide types", "Warm and cold currents"],
+        mainsFocus: ["Ocean circulation and climate linkages"],
+      },
+      {
+        title: "Upwelling, ENSO and Marine Variability",
+        notes: [
+          "Upwelling brings nutrient-rich deep water to surface and supports fisheries.",
+          "ENSO phases modify global circulation and rainfall anomalies.",
+          "Ocean-atmosphere coupling shapes monsoon performance and extremes.",
+          "Monitoring ocean dynamics improves seasonal forecasting.",
+        ],
+        prelimsFocus: ["ENSO concept"],
+        mainsFocus: ["Ocean-atmosphere interactions and climate impacts"],
+      },
+      {
+        title: "Tidal Dynamics and Coastal Implications",
+        notes: [
+          "Spring and neap tides result from relative positions of Earth, Moon and Sun.",
+          "Tides influence navigation, fishing and sediment movement in estuaries.",
+          "Coastal infrastructure planning must account for tidal range and storm surges.",
+          "Tidal energy has potential as a renewable source in specific regions.",
+        ],
+        prelimsFocus: ["Spring vs neap tide"],
+        mainsFocus: ["Tides and coastal planning"],
+      },
+    ],
+  },
+  {
+    id: "geo11p1-ch14-life-on-earth",
+    title: "Class 11 Physical Geography Chapter 14: Life on the Earth",
+    weight: "High",
+    topics: [
+      {
+        title: "Ecosystem Concept and Energy Flow",
+        notes: [
+          "Life exists where lithosphere, atmosphere and hydrosphere interact.",
+          "Ecosystems include biotic and abiotic components linked by energy and nutrient flows.",
+          "Food chains and webs represent trophic interactions.",
+          "Ecological balance depends on biodiversity and stable environmental conditions.",
+        ],
+        prelimsFocus: ["Ecosystem components"],
+        mainsFocus: ["Ecosystem functioning and stability"],
+      },
+      {
+        title: "Biomes and Human-Ecology Interface",
+        notes: [
+          "Biomes are large ecological regions defined by climate and dominant vegetation.",
+          "Human interventions alter ecosystem productivity and resilience.",
+          "Conservation-oriented resource use supports long-term ecological security.",
+          "Geography helps analyze spatial variation in ecological vulnerability.",
+        ],
+        prelimsFocus: ["Biome concept"],
+        mainsFocus: ["Human-ecology interactions"],
+      },
+      {
+        title: "Ecological Succession and Stability",
+        notes: [
+          "Ecological succession is gradual replacement of species in an area over time.",
+          "Primary succession starts on bare surfaces; secondary follows disturbance.",
+          "Climax communities represent relatively stable ecosystem states.",
+          "Human disturbance can interrupt succession and reduce resilience.",
+        ],
+        prelimsFocus: ["Primary vs secondary succession"],
+        mainsFocus: ["Succession and ecosystem restoration"],
+      },
+    ],
+  },
+  {
+    id: "geo11p1-ch15-biodiversity-and-conservation",
+    title: "Class 11 Physical Geography Chapter 15: Biodiversity and Conservation",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Biodiversity Levels and Value",
+        notes: [
+          "Biodiversity includes genetic, species and ecosystem-level variation.",
+          "It provides ecological, economic, cultural and resilience benefits.",
+          "Loss of biodiversity reduces ecosystem services and adaptation capacity.",
+          "Hotspot and endemic regions need targeted conservation.",
+        ],
+        prelimsFocus: ["Levels of biodiversity"],
+        mainsFocus: ["Biodiversity value and ecosystem security"],
+      },
+      {
+        title: "Conservation Approaches and Governance",
+        notes: [
+          "In-situ conservation protects species in natural habitats; ex-situ uses controlled settings.",
+          "Protected area networks and legal frameworks support biodiversity management.",
+          "Local communities are vital stakeholders in successful conservation.",
+          "Mainstreaming biodiversity into development planning is essential.",
+        ],
+        prelimsFocus: ["In-situ vs ex-situ methods"],
+        mainsFocus: ["Biodiversity governance and community role"],
+      },
+      {
+        title: "Threat Assessment and Conservation Prioritization",
+        notes: [
+          "Species vulnerability is assessed through population trends and habitat condition.",
+          "Conservation prioritization focuses on hotspots, keystone species and ecosystem services.",
+          "Landscape connectivity is essential for gene flow and migration.",
+          "Monitoring and adaptive management improve conservation effectiveness.",
+        ],
+        prelimsFocus: ["Hotspot and endemic concepts"],
+        mainsFocus: ["Prioritization in conservation planning"],
+      },
+    ],
+  },
 ];
