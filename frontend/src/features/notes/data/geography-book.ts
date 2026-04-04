@@ -2306,4 +2306,378 @@ export const GEOGRAPHY_NOTES: Chapter[] = [
       },
     ],
   },
+  {
+    id: "geo11map-ch1-world-latitude-longitude",
+    title: "Class 11 Map Book Chapter 1: World Latitudes, Longitudes and Grid Mapping",
+    weight: "Map Practice",
+    topics: [
+      {
+        title: "Global Grid, Equator, Prime Meridian and Time Zones",
+        notes: [
+          "Map work starts with locating key latitude and longitude lines accurately.",
+          "The equator and prime meridian divide Earth into hemispheres used in map referencing.",
+          "Time zones are interpreted through longitude intervals and international date line.",
+          "Accurate grid reading is foundational for all atlas-based UPSC map questions.",
+        ],
+        prelimsFocus: ["Key latitudes and time-zone lines"],
+        mainsFocus: ["Spatial referencing in map-based analysis"],
+        visuals: [
+          {
+            title: "Map Page: Global Grid Layout",
+            src: "/books/geography/11th-part3-maps.pdf#page=2",
+            caption: "Reference page for latitude-longitude practice from the map book.",
+            kind: "pdf",
+          },
+        ],
+      },
+      {
+        title: "Great Circles, Date Line and Coordinate Practice",
+        notes: [
+          "Great circles represent shortest path on globe and are important for navigation mapping.",
+          "International Date Line adjustments should be practiced with crossing examples.",
+          "Coordinate-based location plotting improves precision in atlas and blank map tasks.",
+          "Regular drill with random coordinates builds speed for prelims map questions.",
+        ],
+        prelimsFocus: ["Great circle concept", "Date line adjustments"],
+        mainsFocus: ["Coordinate-based spatial reasoning"],
+        visuals: [
+          {
+            title: "Map Page: Date Line and Coordinate Drills",
+            src: "/books/geography/11th-part3-maps.pdf#page=3",
+            caption: "Use this page to practice coordinate and date-line interpretation.",
+            kind: "pdf",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "geo11map-ch2-world-physical-features",
+    title: "Class 11 Map Book Chapter 2: World Physical Features",
+    weight: "Map Practice",
+    topics: [
+      {
+        title: "Mountains, Plateaus, Plains and Ocean Relief Mapping",
+        notes: [
+          "Marking major mountain ranges and plateaus improves continental spatial memory.",
+          "Physical feature mapping should connect relief with climate and river systems.",
+          "Oceanic features like ridges and trenches help understand plate tectonic zones.",
+          "Repeated labeling practice improves speed and precision in map-based questions.",
+        ],
+        prelimsFocus: ["Major world relief features"],
+        mainsFocus: ["Relief-climate-hydrology linkage through maps"],
+        visuals: [
+          {
+            title: "Map Page: World Relief Features",
+            src: "/books/geography/11th-part3-maps.pdf#page=5",
+            caption: "Physical world map reference from the map workbook.",
+            kind: "pdf",
+          },
+        ],
+      },
+      {
+        title: "Volcanic Belts, Earthquake Zones and Ocean Currents Mapping",
+        notes: [
+          "Map major volcanic belts and seismic zones to connect tectonics with hazard geography.",
+          "Plot warm and cold ocean currents with directional arrows for climate linkage.",
+          "Integrate relief + tectonics + currents for high-value interdisciplinary questions.",
+          "Practice comparative continent-level physical patterns for analytical writing.",
+        ],
+        prelimsFocus: ["Ring of Fire", "Major ocean currents"],
+        mainsFocus: ["Physical geography synthesis using maps"],
+        visuals: [
+          {
+            title: "Map Page: Tectonic and Oceanic Patterns",
+            src: "/books/geography/11th-part3-maps.pdf#page=6",
+            caption: "Reference for global hazards and current systems.",
+            kind: "pdf",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "geo11map-ch3-india-physiography",
+    title: "Class 11 Map Book Chapter 3: India Physiography Map Practice",
+    weight: "Map Practice",
+    topics: [
+      {
+        title: "Himalayas, Plains, Plateau, Desert, Coasts and Islands Mapping",
+        notes: [
+          "India physiography map should be practiced unit-wise with boundary-level accuracy.",
+          "Himalayan ranges, northern plains segments and plateau subdivisions are high-value locations.",
+          "Coastal plains and island groups are frequently asked in map-related prelims questions.",
+          "Use layering approach: outline, physiographic unit, major rivers, and labels.",
+        ],
+        prelimsFocus: ["India physiographic labels"],
+        mainsFocus: ["Map-based physiographic explanation of regional diversity"],
+        visuals: [
+          {
+            title: "Map Page: India Physiographic Regions",
+            src: "/books/geography/11th-part3-maps.pdf#page=9",
+            caption: "Book map page showing major physiographic divisions of India.",
+            kind: "pdf",
+          },
+        ],
+      },
+      {
+        title: "Physiographic Subdivisions and Passes",
+        notes: [
+          "Mark detailed subdivisions: lesser Himalayas, shiwaliks, central highlands and coastal segments.",
+          "Mountain passes and plateaus are frequent map-based UPSC markers.",
+          "Use layer-wise labeling to avoid clutter and improve recall.",
+          "Correlate physiography with transport and strategic significance.",
+        ],
+        prelimsFocus: ["Important passes and plateaus"],
+        mainsFocus: ["Relief-strategy linkage in India"],
+        visuals: [
+          {
+            title: "Map Page: India Relief Subdivisions",
+            src: "/books/geography/11th-part3-maps.pdf#page=10",
+            caption: "Detailed physiographic zone marking reference.",
+            kind: "pdf",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "geo11map-ch4-india-rivers-and-basins",
+    title: "Class 11 Map Book Chapter 4: India Rivers and Basins",
+    weight: "Map Practice",
+    topics: [
+      {
+        title: "Himalayan and Peninsular Rivers Plotting",
+        notes: [
+          "River mapping should include origin, major tributaries, basin spread and outfall.",
+          "Differentiate Himalayan perennial systems from seasonal peninsular drainage.",
+          "Map practice improves answer quality in water resource and basin governance questions.",
+          "Frequent revision of river flow direction avoids common prelims mistakes.",
+        ],
+        prelimsFocus: ["Major rivers and tributary mapping"],
+        mainsFocus: ["River basin analysis using map support"],
+        visuals: [
+          {
+            title: "Map Page: Indian River Systems",
+            src: "/books/geography/11th-part3-maps.pdf#page=12",
+            caption: "Reference page for India drainage map practice.",
+            kind: "pdf",
+          },
+        ],
+      },
+      {
+        title: "River Interlinkages, Deltas and Waterfall Mapping",
+        notes: [
+          "Map major deltas, estuaries, inter-state river links and key waterfalls.",
+          "Practice source-to-mouth tracing to avoid tributary confusion.",
+          "Basin mapping should include western and eastern flowing peninsular systems.",
+          "Combine river mapping with flood-prone zones for applied understanding.",
+        ],
+        prelimsFocus: ["Deltas and waterfalls"],
+        mainsFocus: ["Drainage and basin-based planning"],
+        visuals: [
+          {
+            title: "Map Page: River Basin Detail Practice",
+            src: "/books/geography/11th-part3-maps.pdf#page=13",
+            caption: "Extended river-basin and delta map page.",
+            kind: "pdf",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "geo11map-ch5-climate-vegetation-maps",
+    title: "Class 11 Map Book Chapter 5: Climate and Vegetation Maps",
+    weight: "Map Practice",
+    topics: [
+      {
+        title: "Rainfall, Temperature and Vegetation Zones",
+        notes: [
+          "Climatic maps should be read with isohyets, temperature zones and monsoon pathways.",
+          "Vegetation mapping must connect rainfall belts with forest type distribution.",
+          "This chapter supports both factual prelims and analytical mains climate answers.",
+          "Overlay method helps correlate climate, soils, crops and vegetation zones.",
+        ],
+        prelimsFocus: ["Rainfall and vegetation region mapping"],
+        mainsFocus: ["Climate-vegetation relationship through maps"],
+        visuals: [
+          {
+            title: "Map Page: Climate and Vegetation Reference",
+            src: "/books/geography/11th-part3-maps.pdf#page=16",
+            caption: "Book page for climatic and vegetation map interpretation.",
+            kind: "pdf",
+          },
+        ],
+      },
+      {
+        title: "Monsoon Pathways, Agro-climatic Zones and Soil Overlay",
+        notes: [
+          "Map monsoon branches with progression and retreat sequence.",
+          "Overlay rainfall belts with soil and crop zones for integrated recall.",
+          "Agro-climatic zonation helps answer geography + economy combined questions.",
+          "Use color coding and annotation for faster revision.",
+        ],
+        prelimsFocus: ["Monsoon branch mapping", "Agro-climatic zones"],
+        mainsFocus: ["Climate-soil-crop integrated analysis"],
+        visuals: [
+          {
+            title: "Map Page: Monsoon and Agro-Climatic Overlays",
+            src: "/books/geography/11th-part3-maps.pdf#page=17",
+            caption: "Overlay-based climate and vegetation interpretation page.",
+            kind: "pdf",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "geo11map-ch6-economic-political-maps",
+    title: "Class 11 Map Book Chapter 6: Economic and Political Mapping",
+    weight: "Map Practice",
+    topics: [
+      {
+        title: "Minerals, Industries, Agriculture and Political Units",
+        notes: [
+          "Economic maps require location memory for minerals, industries, ports and crop belts.",
+          "Political mapping should include states, capitals and strategic border points.",
+          "UPSC map questions often combine physical and economic indicators in one frame.",
+          "Practice through blank maps improves retention and recall speed significantly.",
+        ],
+        prelimsFocus: ["Industrial and mineral location map points"],
+        mainsFocus: ["Map-supported economic geography answers"],
+        visuals: [
+          {
+            title: "Map Page: Economic and Political Locations",
+            src: "/books/geography/11th-part3-maps.pdf#page=20",
+            caption: "Reference page for economic and political map marking.",
+            kind: "pdf",
+          },
+        ],
+      },
+      {
+        title: "Infrastructure Corridors, Ports and Strategic Nodes",
+        notes: [
+          "Mark industrial corridors, major ports, airports and logistics hubs.",
+          "Political map practice should include bordering states and key strategic points.",
+          "Economic node mapping improves GS3 and IR-related geographical context.",
+          "Use repeated blank-map drills to improve retention speed.",
+        ],
+        prelimsFocus: ["Ports, corridors and capitals mapping"],
+        mainsFocus: ["Infrastructure geography and development"],
+        visuals: [
+          {
+            title: "Map Page: Corridors and Strategic Locations",
+            src: "/books/geography/11th-part3-maps.pdf#page=21",
+            caption: "Economic corridor and strategic map reference page.",
+            kind: "pdf",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "geo11map-ch7-world-political-map-drills",
+    title: "Class 11 Map Book Chapter 7: World Political Map Drills",
+    weight: "Map Practice",
+    topics: [
+      {
+        title: "Continents, Countries and Capitals Marking",
+        notes: [
+          "Practice continent-wise country location and major capitals for global orientation.",
+          "Mark strategic straits, seas and chokepoints used in UPSC current affairs.",
+          "Frequent labeling drills improve speed in map-based prelims questions.",
+          "Combine political map work with global events for retention.",
+        ],
+        prelimsFocus: ["Countries-capitals and straits"],
+        mainsFocus: ["World political geography for IR answers"],
+        visuals: [
+          {
+            title: "Map Page: World Political Labeling",
+            src: "/books/geography/11th-part3-maps.pdf#page=23",
+            caption: "World political map practice page.",
+            kind: "pdf",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "geo11map-ch8-india-political-map-drills",
+    title: "Class 11 Map Book Chapter 8: India Political and Administrative Drills",
+    weight: "Map Practice",
+    topics: [
+      {
+        title: "States, Capitals and Border District Orientation",
+        notes: [
+          "Map all states/UTs and capitals with neighbouring-country border alignment.",
+          "Practice administrative updates and recently restructured regions carefully.",
+          "State-capital mapping is high-frequency in competitive examinations.",
+          "Political map accuracy strengthens governance and policy answer context.",
+        ],
+        prelimsFocus: ["States and capitals mapping"],
+        mainsFocus: ["Administrative geography and governance"],
+        visuals: [
+          {
+            title: "Map Page: India Political Practice",
+            src: "/books/geography/11th-part3-maps.pdf#page=25",
+            caption: "Political map worksheet for India.",
+            kind: "pdf",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "geo11map-ch9-map-based-pyq-drills",
+    title: "Class 11 Map Book Chapter 9: Map-Based PYQ Drill Set",
+    weight: "Map Practice",
+    topics: [
+      {
+        title: "Prelims-Style Map Questions and Elimination Logic",
+        notes: [
+          "Practice map-based PYQ patterns: identify location, feature mismatch and sequence.",
+          "Use elimination with latitude clues, river flow direction and regional context.",
+          "Time-bound practice improves accuracy under exam pressure.",
+          "Maintain error log by theme: physical, political, economic and climate maps.",
+        ],
+        prelimsFocus: ["PYQ-style map elimination tricks"],
+        mainsFocus: ["Map-supported explanation quality"],
+        visuals: [
+          {
+            title: "Map Page: PYQ Drill Sheets",
+            src: "/books/geography/11th-part3-maps.pdf#page=28",
+            caption: "Question-oriented map drill page.",
+            kind: "pdf",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "geo11map-ch10-revision-atlas-workflow",
+    title: "Class 11 Map Book Chapter 10: Revision and Atlas Workflow",
+    weight: "Map Practice",
+    topics: [
+      {
+        title: "Daily, Weekly and Full-Length Map Revision Plan",
+        notes: [
+          "Adopt daily 20-minute micro-map drills with weekly mixed-topic revision.",
+          "Use blank outline maps for active recall before checking atlas.",
+          "Track weak map themes and revise them in spaced intervals.",
+          "Integrated atlas workflow improves long-term retention and exam confidence.",
+        ],
+        prelimsFocus: ["Map revision strategy"],
+        mainsFocus: ["Systematic map preparation framework"],
+        visuals: [
+          {
+            title: "Map Page: Revision Templates",
+            src: "/books/geography/11th-part3-maps.pdf#page=30",
+            caption: "Revision planning and template page from map book.",
+            kind: "pdf",
+          },
+        ],
+      },
+    ],
+  },
 ];

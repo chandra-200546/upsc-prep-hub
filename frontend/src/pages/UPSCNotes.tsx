@@ -353,6 +353,29 @@ const UPSCNotes = () => {
                 </div>
               </div>
 
+              {Array.isArray(activeTopic?.visuals) && activeTopic.visuals.length > 0 && (
+                <div className="rounded-md border p-3">
+                  <p className="text-xs font-semibold text-primary mb-3">Visual Reference (From Book)</p>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {activeTopic.visuals.map((visual, idx) => (
+                      <div key={`visual-${idx}`} className="rounded-md border bg-background/60 p-2 space-y-2">
+                        <p className="text-xs font-medium">{visual.title}</p>
+                        {(visual.kind || "").toLowerCase() === "pdf" || /\.pdf(#|$)/i.test(visual.src) ? (
+                          <iframe
+                            src={visual.src}
+                            title={visual.title}
+                            className="h-56 w-full rounded border"
+                          />
+                        ) : (
+                          <img src={visual.src} alt={visual.title} className="h-56 w-full rounded border object-contain bg-muted/40" />
+                        )}
+                        {visual.caption && <p className="text-[11px] text-muted-foreground">{visual.caption}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => moveTopic("prev")} disabled={!activeChapter || topicIndex === 0}>Prev Topic</Button>

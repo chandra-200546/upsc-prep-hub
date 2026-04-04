@@ -179,4 +179,28 @@ export const GEOGRAPHY_BOOK_PARTS: BookPart[] = [
       "geo11p2-ch7-natural-hazards-and-disasters",
     ],
   },
+  {
+    id: "geography-part-18",
+    title: "Part 18: Class 11 Map Book - Global and India Base Maps",
+    description: "Map workbook chapters for world and India physical-drainage mapping.",
+    chapterIds: [
+      "geo11map-ch1-world-latitude-longitude",
+      "geo11map-ch2-world-physical-features",
+      "geo11map-ch3-india-physiography",
+      "geo11map-ch4-india-rivers-and-basins",
+    ],
+  },
+  {
+    id: "geography-part-19",
+    title: "Part 19: Class 11 Map Book - Climate, Economic and Political Mapping",
+    description: "Map workbook chapters for climate, economic, political and strategic map drills.",
+    chapterIds: [
+      "geo11map-ch5-climate-vegetation-maps",
+      "geo11map-ch6-economic-political-maps",
+      "geo11map-ch7-world-political-map-drills",
+      "geo11map-ch8-india-political-map-drills",
+      "geo11map-ch9-map-based-pyq-drills",
+      "geo11map-ch10-revision-atlas-workflow",
+    ],
+  },
 ];
