@@ -101,4 +101,25 @@ export const GEOGRAPHY_BOOK_PARTS: BookPart[] = [
       "geo9-ch6-population",
     ],
   },
+  {
+    id: "geography-part-11",
+    title: "Part 11: Class 10 Resources, Ecology and Agriculture",
+    description: "Class 10 chapters 1 to 4 covering resources, conservation, water and agriculture.",
+    chapterIds: [
+      "geo10-ch1-resources-and-development",
+      "geo10-ch2-forest-and-wildlife-resources",
+      "geo10-ch3-water-resources",
+      "geo10-ch4-agriculture",
+    ],
+  },
+  {
+    id: "geography-part-12",
+    title: "Part 12: Class 10 Industry and Economic Lifelines",
+    description: "Class 10 chapters 5 to 7 on minerals-energy, manufacturing and national connectivity.",
+    chapterIds: [
+      "geo10-ch5-minerals-and-energy-resources",
+      "geo10-ch6-manufacturing-industries",
+      "geo10-ch7-lifelines-of-national-economy",
+    ],
+  },
 ];

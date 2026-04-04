@@ -1069,4 +1069,361 @@ export const GEOGRAPHY_NOTES: Chapter[] = [
       },
     ],
   },
+  {
+    id: "geo10-ch1-resources-and-development",
+    title: "Class 10 Chapter 1: Resources and Development",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Resource Types and Planning",
+        notes: [
+          "Resources are classified by origin, ownership, exhaustibility and development status.",
+          "Resource planning involves inventory, development strategy and matching with national priorities.",
+          "Balanced resource use is essential to avoid regional inequality and ecological stress.",
+          "Sustainable development links economic growth with environmental conservation.",
+        ],
+        prelimsFocus: ["Resource classification matrix", "Resource planning steps"],
+        mainsFocus: ["Need for integrated resource planning in India"],
+      },
+      {
+        title: "Land Resources, Degradation and Conservation",
+        notes: [
+          "Land use varies across India based on relief, climate, soil and population pressure.",
+          "Land degradation occurs through deforestation, overgrazing, mining and over-irrigation.",
+          "Conservation includes afforestation, regulated grazing and reclamation of degraded lands.",
+          "Community participation improves effectiveness of land management programs.",
+        ],
+        prelimsFocus: ["Land degradation causes and control"],
+        mainsFocus: ["Land use change and policy response"],
+      },
+      {
+        title: "Soil Resources and Soil Conservation",
+        notes: [
+          "India has alluvial, black, red, laterite, arid and forest soils with distinct properties.",
+          "Soil erosion by water and wind reduces productivity and long-term food security.",
+          "Conservation methods include contour ploughing, strip cropping, terrace farming and shelter belts.",
+          "Scientific soil management is central to sustainable agriculture.",
+        ],
+        prelimsFocus: ["Major soil types and distribution"],
+        mainsFocus: ["Soil degradation and conservation strategy"],
+      },
+      {
+        title: "Case-Based Resource Management and Agenda 21",
+        notes: [
+          "Global and national resource planning frameworks emphasize sustainability, participation and equity.",
+          "Agenda 21 highlights local-level planning and environmental responsibility.",
+          "India's resource challenges include regional disparity, overuse and ecological imbalance.",
+          "Long-term planning needs data systems, community institutions and regulatory enforcement.",
+        ],
+        prelimsFocus: ["Agenda 21 basics"],
+        mainsFocus: ["Local-to-global resource governance"],
+      },
+    ],
+  },
+  {
+    id: "geo10-ch2-forest-and-wildlife-resources",
+    title: "Class 10 Chapter 2: Forest and Wildlife Resources",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Biodiversity and Threats",
+        notes: [
+          "India is a mega-diverse country with rich flora and fauna across ecosystems.",
+          "Habitat loss, poaching, overexploitation and invasive species threaten biodiversity.",
+          "Species are categorized as normal, endangered, vulnerable, rare and endemic.",
+          "Ecological imbalance impacts livelihoods, climate resilience and ecosystem services.",
+        ],
+        prelimsFocus: ["Biodiversity categories", "Threat factors"],
+        mainsFocus: ["Drivers of biodiversity loss in India"],
+      },
+      {
+        title: "Conservation Strategies and Legal Framework",
+        notes: [
+          "Conservation includes protected areas, species recovery plans and legal safeguards.",
+          "National parks, wildlife sanctuaries and biosphere reserves support in-situ conservation.",
+          "Project Tiger and similar programs improved awareness and species protection.",
+          "Forest rights and community stewardship are important for equitable conservation.",
+        ],
+        prelimsFocus: ["Protected area types", "Major conservation projects"],
+        mainsFocus: ["Community-based conservation and policy outcomes"],
+      },
+      {
+        title: "People's Participation in Forest Management",
+        notes: [
+          "Joint forest management models involve local communities in protection and benefit sharing.",
+          "Traditional ecological knowledge supports sustainable resource use.",
+          "Participatory conservation reduces conflict and improves long-term outcomes.",
+          "Inclusive governance is key to balancing livelihoods and ecology.",
+        ],
+        prelimsFocus: ["JFM basics"],
+        mainsFocus: ["Role of local communities in conservation"],
+      },
+      {
+        title: "Conservation Movements and Policy Lessons",
+        notes: [
+          "People's movements against deforestation shaped conservation discourse in India.",
+          "Community resistance highlighted links between forests, livelihoods and ecology.",
+          "Policy lessons include decentralization, rights recognition and participatory management.",
+          "Future conservation requires balancing biodiversity goals with socio-economic justice.",
+        ],
+        prelimsFocus: ["Community-led conservation examples"],
+        mainsFocus: ["Environment movements and policy change"],
+      },
+    ],
+  },
+  {
+    id: "geo10-ch3-water-resources",
+    title: "Class 10 Chapter 3: Water Resources",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Water Scarcity and Need for Management",
+        notes: [
+          "Despite significant rainfall, India faces water stress due to uneven distribution and overuse.",
+          "Population growth, urbanization and intensive irrigation increase demand pressure.",
+          "Water quality degradation further reduces usable freshwater availability.",
+          "Integrated water resource management is critical for long-term security.",
+        ],
+        prelimsFocus: ["Causes of water scarcity"],
+        mainsFocus: ["Water crisis in India and policy approach"],
+      },
+      {
+        title: "Multipurpose Projects and River Valley Development",
+        notes: [
+          "Multipurpose dams support irrigation, hydropower, flood control and water supply.",
+          "Large projects also create social displacement and ecological concerns.",
+          "Debates highlight trade-offs between development and sustainability.",
+          "Need exists for balanced, basin-level planning and rehabilitation frameworks.",
+        ],
+        prelimsFocus: ["Functions of multipurpose projects"],
+        mainsFocus: ["Critical evaluation of large dams"],
+      },
+      {
+        title: "Rainwater Harvesting and Local Solutions",
+        notes: [
+          "Rainwater harvesting captures runoff for domestic and agricultural use.",
+          "Traditional systems like tankas and johads show location-specific water wisdom.",
+          "Watershed management improves recharge and reduces erosion.",
+          "Decentralized water governance strengthens climate resilience.",
+        ],
+        prelimsFocus: ["Traditional water harvesting methods"],
+        mainsFocus: ["Local water governance and sustainability"],
+      },
+      {
+        title: "Inter-State Water Issues and Demand Management",
+        notes: [
+          "River sharing disputes emerge from competing irrigation, urban and industrial demands.",
+          "Demand-side management includes efficiency, crop planning and reuse strategies.",
+          "Aquifer recharge and groundwater regulation are critical for long-term stability.",
+          "Collaborative basin governance is essential to reduce conflicts.",
+        ],
+        prelimsFocus: ["Groundwater stress basics"],
+        mainsFocus: ["Water conflict and cooperative governance"],
+      },
+    ],
+  },
+  {
+    id: "geo10-ch4-agriculture",
+    title: "Class 10 Chapter 4: Agriculture",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Cropping Patterns and Seasons",
+        notes: [
+          "Indian agriculture follows Kharif, Rabi and Zaid crop seasons.",
+          "Major crops include rice, wheat, millets, pulses, sugarcane, cotton and oilseeds.",
+          "Cropping patterns vary with rainfall, temperature, irrigation and soils.",
+          "Crop diversification reduces risk and supports income stability.",
+        ],
+        prelimsFocus: ["Crop-season mapping"],
+        mainsFocus: ["Regional crop pattern determinants"],
+      },
+      {
+        title: "Agricultural Inputs and Technological Change",
+        notes: [
+          "Irrigation, fertilizers, HYV seeds and mechanization increased productivity.",
+          "Green Revolution boosted output but created regional and environmental imbalances.",
+          "Excessive chemical use affects soil health and water quality.",
+          "Sustainable farming requires balanced nutrient and water management.",
+        ],
+        prelimsFocus: ["Green Revolution basics"],
+        mainsFocus: ["Productivity vs sustainability debate"],
+      },
+      {
+        title: "Institutional and Market Challenges",
+        notes: [
+          "Small holdings, indebtedness and market volatility affect farm viability.",
+          "Storage, processing and transport gaps increase post-harvest losses.",
+          "Policy support through MSP, insurance and extension services remains important.",
+          "Value-chain strengthening is key for rural income growth.",
+        ],
+        prelimsFocus: ["Agriculture support mechanisms"],
+        mainsFocus: ["Structural issues in Indian agriculture"],
+      },
+      {
+        title: "Food Processing, Value Addition and Agro-Economy",
+        notes: [
+          "Value addition through processing increases farmer income and reduces wastage.",
+          "Cold chain, storage and logistics are crucial for perishable commodities.",
+          "Agro-based industries generate rural employment and market integration.",
+          "Sustainable value chains need quality standards and farmer collectives.",
+        ],
+        prelimsFocus: ["Post-harvest management concepts"],
+        mainsFocus: ["Agri-value chain and rural development"],
+      },
+    ],
+  },
+  {
+    id: "geo10-ch5-minerals-and-energy-resources",
+    title: "Class 10 Chapter 5: Minerals and Energy Resources",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Mineral Resources and Distribution",
+        notes: [
+          "Minerals are unevenly distributed due to geological history and tectonic processes.",
+          "Ferrous, non-ferrous and non-metallic minerals support industry and infrastructure.",
+          "Extraction is capital-intensive and impacts local ecology and communities.",
+          "Scientific mining and rehabilitation reduce long-term damage.",
+        ],
+        prelimsFocus: ["Mineral classification and examples"],
+        mainsFocus: ["Mineral geography and industrialization"],
+      },
+      {
+        title: "Conventional Energy Resources",
+        notes: [
+          "Coal, petroleum and natural gas are major conventional energy sources.",
+          "They are finite and contribute to emissions and pollution.",
+          "Energy security depends on domestic production and import management.",
+          "Efficiency improvements can reduce demand pressure.",
+        ],
+        prelimsFocus: ["Conventional energy sources"],
+        mainsFocus: ["Energy security and fossil dependency"],
+      },
+      {
+        title: "Non-conventional Energy Transition",
+        notes: [
+          "Solar, wind, tidal, biomass and geothermal are cleaner long-term options.",
+          "Renewables reduce carbon intensity and diversify energy mix.",
+          "Grid integration, storage and financing remain major implementation issues.",
+          "Transition policy must balance affordability, reliability and sustainability.",
+        ],
+        prelimsFocus: ["Renewable energy types"],
+        mainsFocus: ["Energy transition pathway for India"],
+      },
+      {
+        title: "Energy Policy, Access and Regional Equity",
+        notes: [
+          "Energy planning must ensure universal access and affordability.",
+          "Regional disparities in energy infrastructure affect development outcomes.",
+          "Distributed renewable systems can improve rural reliability.",
+          "Policy mix should integrate grid expansion, storage and demand efficiency.",
+        ],
+        prelimsFocus: ["Energy access basics"],
+        mainsFocus: ["Equity dimension of energy transition"],
+      },
+    ],
+  },
+  {
+    id: "geo10-ch6-manufacturing-industries",
+    title: "Class 10 Chapter 6: Manufacturing Industries",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Role of Manufacturing in Development",
+        notes: [
+          "Manufacturing adds value to raw materials and supports income and employment growth.",
+          "Industrial expansion is vital for reducing dependence on primary sector.",
+          "Balanced industrialization supports regional development and export capacity.",
+          "Infrastructure and skilled labor are crucial for competitiveness.",
+        ],
+        prelimsFocus: ["Importance of manufacturing"],
+        mainsFocus: ["Manufacturing and structural transformation"],
+      },
+      {
+        title: "Industrial Location Factors and Sectors",
+        notes: [
+          "Location depends on raw material, labor, power, market, transport and policy.",
+          "Industries include agro-based, mineral-based, heavy, light and consumer sectors.",
+          "Spatial concentration creates clusters with productivity benefits.",
+          "Regional disparities persist due to uneven infrastructure and investment.",
+        ],
+        prelimsFocus: ["Location factors"],
+        mainsFocus: ["Industrial location in Indian context"],
+      },
+      {
+        title: "Industrial Pollution and Control",
+        notes: [
+          "Air, water, land and noise pollution are major industrial externalities.",
+          "Cleaner technologies and waste treatment reduce ecological damage.",
+          "Regulatory compliance and monitoring are required for sustainable growth.",
+          "Corporate responsibility and community awareness improve outcomes.",
+        ],
+        prelimsFocus: ["Types of industrial pollution"],
+        mainsFocus: ["Sustainable industrial policy and regulation"],
+      },
+      {
+        title: "Industrial Relations, Skills and Competitiveness",
+        notes: [
+          "Skilled workforce and technology adoption determine industrial productivity.",
+          "Industrial relations influence continuity, quality and worker welfare.",
+          "MSMEs are vital for employment and localized manufacturing ecosystems.",
+          "Competitiveness requires infrastructure, innovation and export readiness.",
+        ],
+        prelimsFocus: ["MSME role in economy"],
+        mainsFocus: ["Industrial competitiveness and labor dimension"],
+      },
+    ],
+  },
+  {
+    id: "geo10-ch7-lifelines-of-national-economy",
+    title: "Class 10 Chapter 7: Lifelines of National Economy",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Transport Networks: Road, Rail, Water and Air",
+        notes: [
+          "Transport systems connect production centers, markets and people across regions.",
+          "Roads provide last-mile access; railways carry bulk freight and passengers.",
+          "Waterways are cost-effective for heavy cargo; airways are fastest for long distances.",
+          "Integrated multi-modal transport improves logistics efficiency.",
+        ],
+        prelimsFocus: ["Transport modes and key features"],
+        mainsFocus: ["Transport infrastructure and economic integration"],
+      },
+      {
+        title: "Communication and Digital Connectivity",
+        notes: [
+          "Communication systems include postal, telecom, internet and satellite networks.",
+          "Digital connectivity accelerates governance, trade, education and service delivery.",
+          "Information flow reduces transaction costs and supports innovation.",
+          "Inclusive connectivity is crucial for reducing rural-urban divide.",
+        ],
+        prelimsFocus: ["Communication system categories"],
+        mainsFocus: ["Digital infrastructure and development"],
+      },
+      {
+        title: "International Trade and Tourism",
+        notes: [
+          "Trade links domestic economy with global markets through exports and imports.",
+          "Ports and logistics hubs play a major role in external trade competitiveness.",
+          "Tourism generates employment and supports cultural and regional economies.",
+          "Sustainable tourism requires ecological sensitivity and local participation.",
+        ],
+        prelimsFocus: ["Trade and tourism basics"],
+        mainsFocus: ["External connectivity and national economy"],
+      },
+      {
+        title: "Logistics Corridors and National Integration",
+        notes: [
+          "Economic corridors connect production, processing and distribution networks.",
+          "Efficient logistics lowers costs and improves national market integration.",
+          "Backward areas benefit when connectivity is linked with social infrastructure.",
+          "Resilient transport systems are essential for disaster response and strategic security.",
+        ],
+        prelimsFocus: ["Multimodal transport concept"],
+        mainsFocus: ["Connectivity-led regional development"],
+      },
+    ],
+  },
 ];
