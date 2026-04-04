@@ -9,12 +9,14 @@ import { HISTORY_NOTES } from "@/features/notes/data/history-book";
 import { HISTORY_BOOK_PARTS } from "@/features/notes/data/history-parts";
 import { POLITY_NOTES } from "@/features/notes/data/polity-book";
 import { POLITY_BOOK_PARTS } from "@/features/notes/data/polity-parts";
+import { GEOGRAPHY_NOTES } from "@/features/notes/data/geography-book";
+import { GEOGRAPHY_BOOK_PARTS } from "@/features/notes/data/geography-parts";
 import { buildRevisionQueue, buildStudyBlocks, buildTopicId, chaptersForPart, filterChaptersByQuery, paginateChapters, totalPages } from "@/features/notes/lib/engine";
 import { readNotesProgress, topicKey, writeNotesProgress } from "@/features/notes/lib/progress";
 import { readTopicPreferences, toggleBookmark, toggleWeak, writeTopicPreferences } from "@/features/notes/lib/preferences";
 import { Chapter } from "@/features/notes/types";
 
-type SubjectId = "history" | "polity";
+type SubjectId = "history" | "polity" | "geography";
 
 const NOTES_SUBJECTS: Record<SubjectId, { label: string; chapters: Chapter[]; parts: typeof HISTORY_BOOK_PARTS }> = {
   history: {
@@ -26,6 +28,11 @@ const NOTES_SUBJECTS: Record<SubjectId, { label: string; chapters: Chapter[]; pa
     label: "Indian Polity",
     chapters: POLITY_NOTES,
     parts: POLITY_BOOK_PARTS,
+  },
+  geography: {
+    label: "Geography",
+    chapters: GEOGRAPHY_NOTES,
+    parts: GEOGRAPHY_BOOK_PARTS,
   },
 };
 
