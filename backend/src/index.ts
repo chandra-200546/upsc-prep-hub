@@ -6,7 +6,7 @@ import "./db/sqlite.js";
 import { ensureNeonSchema, neonHealthCheck } from "./db/neon.js";
 import { readFile } from "./lib/storage.js";
 import { functionsRouter } from "./routes/functions.js";
-import { seedHistoryBookIfMissing, seedPolityBookIfMissing } from "./rag/subject-rag.js";
+import { seedGeographyBooksIfMissing, seedHistoryBookIfMissing, seedPolityBookIfMissing } from "./rag/subject-rag.js";
 
 const app = new Hono();
 
@@ -65,6 +65,15 @@ const boot = async () => {
       console.log(`Polity book seeded in DB with ${saved} chunks`);
     } else {
       console.log(`Polity seed status: ${politySeed.reason || "skipped"}`);
+    }
+
+    const geographySeed = await seedGeographyBooksIfMissing();
+    if (geographySeed.seeded) {
+      const books = "ingestedBooks" in geographySeed ? geographySeed.ingestedBooks : 0;
+      const chunks = "ingestedChunks" in geographySeed ? geographySeed.ingestedChunks : 0;
+      console.log(`Geography books seeded: ${books} new books, ${chunks} chunks`);
+    } else {
+      console.log(`Geography seed status: ${geographySeed.reason || "skipped"}`);
     }
   } catch (err) {
     console.error("Neon is currently unreachable. Backend API is up, but DB-backed routes will fail until Neon connects.", err);

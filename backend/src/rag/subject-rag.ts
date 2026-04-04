@@ -433,6 +433,13 @@ const DEFAULT_POLITY_PATHS = [
   path.resolve(process.cwd(), "..", "[ENGLISH] M. LAXMIKANT INDIAN POLITY 8TH EDITION.pdf"),
 ].filter(Boolean);
 
+const DEFAULT_GEOGRAPHY_PATHS = [
+  process.env.GEOGRAPHY_BOOK_PDF_PATH || "",
+  process.env.GEOGRAPHY_6TH_BOOK_PDF_PATH || "",
+  String.raw`C:\Users\Chandrashekar\Downloads\6th.pdf`,
+  path.resolve(process.cwd(), "..", "6th.pdf"),
+].filter(Boolean);
+
 const firstExistingPath = (candidates: string[]) => {
   for (const candidate of candidates) {
     try {
@@ -442,6 +449,17 @@ const firstExistingPath = (candidates: string[]) => {
     }
   }
   return "";
+};
+
+const parsePathList = (raw: string) =>
+  raw
+    .split(/[,\n;|]/g)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+const existingSourceNames = async (subjectId: string) => {
+  const chunks = await getSubjectChunks(subjectId);
+  return new Set(chunks.map((c) => c.source_name));
 };
 
 export const seedHistoryBookIfMissing = async () => {
@@ -490,4 +508,67 @@ export const seedPolityBookIfMissing = async () => {
     replaceExisting: true,
   });
   return { seeded: Boolean(result.ok), ...result };
+};
+
+export const seedGeographyBooksIfMissing = async () => {
+  if (!pool) return { seeded: false, reason: "Neon unavailable" };
+
+  const envList = parsePathList(process.env.GEOGRAPHY_BOOK_PDF_PATHS || "");
+  const candidates = Array.from(new Set([...envList, ...DEFAULT_GEOGRAPHY_PATHS]));
+  const existingNames = await existingSourceNames("geography");
+  const foundPaths = candidates.filter((p) => {
+    try {
+      return fs.existsSync(p);
+    } catch {
+      return false;
+    }
+  });
+
+  if (!foundPaths.length) {
+    return {
+      seeded: false,
+      reason: "No geography PDF paths found. Set GEOGRAPHY_BOOK_PDF_PATHS or GEOGRAPHY_6TH_BOOK_PDF_PATH in backend .env.",
+    };
+  }
+
+  let ingestedBooks = 0;
+  let ingestedChunks = 0;
+  const skippedSources: string[] = [];
+  const errors: string[] = [];
+
+  for (const pdfPath of foundPaths) {
+    const sourceName = path.basename(pdfPath);
+    if (existingNames.has(sourceName)) {
+      skippedSources.push(sourceName);
+      continue;
+    }
+    try {
+      const pdfBase64 = fs.readFileSync(pdfPath).toString("base64");
+      const result = await ingestSubjectPdf({
+        subjectId: "geography",
+        subjectName: "Geography",
+        sourceName,
+        pdfBase64,
+        replaceExisting: false,
+      });
+      if (result.ok) {
+        ingestedBooks += 1;
+        ingestedChunks += Number(result.saved || 0);
+        existingNames.add(sourceName);
+      } else {
+        errors.push(`${sourceName}: ${result.reason || "ingest failed"}`);
+      }
+    } catch (error: any) {
+      errors.push(`${sourceName}: ${error?.message || "ingest failed"}`);
+    }
+  }
+
+  return {
+    seeded: ingestedBooks > 0,
+    subjectId: "geography",
+    ingestedBooks,
+    ingestedChunks,
+    skippedSources,
+    errors,
+  };
 };
