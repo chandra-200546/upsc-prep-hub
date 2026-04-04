@@ -233,4 +233,184 @@ export const GEOGRAPHY_NOTES: Chapter[] = [
       },
     ],
   },
+  {
+    id: "geo7-ch1-environment",
+    title: "Class 7 Chapter 1: Environment",
+    weight: "Foundation",
+    topics: [
+      {
+        title: "Natural, Human-made and Human Environment",
+        notes: [
+          "Environment is the surroundings where living organisms interact with physical and human factors.",
+          "Natural environment includes lithosphere, hydrosphere, atmosphere and biosphere.",
+          "Human-made environment includes settlements, roads, industries and technology systems.",
+          "Human environment includes individuals, communities, culture and institutions.",
+        ],
+        prelimsFocus: ["Types of environment", "Components of natural environment"],
+        mainsFocus: ["Human-environment interaction"],
+      },
+    ],
+  },
+  {
+    id: "geo7-ch2-inside-our-earth",
+    title: "Class 7 Chapter 2: Inside Our Earth",
+    weight: "High",
+    topics: [
+      {
+        title: "Earth Structure, Rocks and Minerals",
+        notes: [
+          "Earth has three major layers: crust, mantle and core.",
+          "Rocks are classified as igneous, sedimentary and metamorphic based on formation.",
+          "Minerals are naturally occurring substances that form the basis of many industries.",
+          "Rock cycle explains transformation among rock types over geologic time.",
+        ],
+        prelimsFocus: ["Layers of Earth", "Rock types"],
+        mainsFocus: ["Importance of rocks and minerals in economy"],
+      },
+    ],
+  },
+  {
+    id: "geo7-ch3-our-changing-earth",
+    title: "Class 7 Chapter 3: Our Changing Earth",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Endogenic/Exogenic Forces and Landform Evolution",
+        notes: [
+          "Earth's surface changes due to internal forces and external geomorphic processes.",
+          "Processes like weathering, erosion and deposition shape landscapes over time.",
+          "Rivers, wind, glaciers and sea waves are key agents of denudation.",
+          "Sudden events such as earthquakes and volcanoes also transform relief.",
+        ],
+        prelimsFocus: ["Agents of erosion", "Earthquake and volcano basics"],
+        mainsFocus: ["Landform evolution and hazard geography"],
+      },
+    ],
+  },
+  {
+    id: "geo7-ch4-air",
+    title: "Class 7 Chapter 4: Air",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Composition, Structure and Weather",
+        notes: [
+          "Atmosphere is a mixture of gases, mainly nitrogen and oxygen, with water vapor and dust.",
+          "Air pressure and temperature vary with altitude and control weather systems.",
+          "Wind is movement of air from high pressure to low pressure areas.",
+          "Weather forecasts rely on pressure, humidity, temperature and wind data.",
+        ],
+        prelimsFocus: ["Atmospheric gases", "Air pressure and wind basics"],
+        mainsFocus: ["Atmospheric processes and weather variability"],
+      },
+    ],
+  },
+  {
+    id: "geo7-ch5-water",
+    title: "Class 7 Chapter 5: Water",
+    weight: "High",
+    topics: [
+      {
+        title: "Water Cycle, Ocean Circulation and Conservation",
+        notes: [
+          "Water cycle continuously circulates water through evaporation, condensation and precipitation.",
+          "Oceans influence climate through currents and heat distribution.",
+          "Waves, tides and currents are major oceanic movements.",
+          "Sustainable water use and conservation are essential for human development.",
+        ],
+        prelimsFocus: ["Hydrological cycle", "Waves-tides-currents"],
+        mainsFocus: ["Water resource management and climate linkages"],
+      },
+    ],
+  },
+  {
+    id: "geo7-ch6-natural-vegetation-wildlife",
+    title: "Class 7 Chapter 6: Natural Vegetation and Wildlife",
+    weight: "High",
+    topics: [
+      {
+        title: "Vegetation Types, Ecosystems and Conservation",
+        notes: [
+          "Natural vegetation depends on climate, soil and relief conditions.",
+          "Forests, grasslands, shrubs and tundra represent major world vegetation types.",
+          "Wildlife distribution is linked to habitat quality and ecological balance.",
+          "Deforestation and habitat loss threaten biodiversity and ecosystem services.",
+        ],
+        prelimsFocus: ["Vegetation regions", "Wildlife conservation basics"],
+        mainsFocus: ["Human impact on ecosystems"],
+      },
+    ],
+  },
+  {
+    id: "geo7-ch7-human-environment-settlement-transport",
+    title: "Class 7 Chapter 7: Human Environment - Settlement, Transport and Communication",
+    weight: "High",
+    topics: [
+      {
+        title: "Settlements and Connectivity Systems",
+        notes: [
+          "Human settlements are rural or urban based on occupation and infrastructure.",
+          "Transport systems include road, rail, water and air routes for movement of people and goods.",
+          "Communication networks enable information flow and economic integration.",
+          "Modern connectivity strongly affects regional development and social mobility.",
+        ],
+        prelimsFocus: ["Types of settlements", "Modes of transport"],
+        mainsFocus: ["Transport-communication and development"],
+      },
+    ],
+  },
+  {
+    id: "geo7-ch8-tropical-subtropical-region",
+    title: "Class 7 Chapter 8: Human Environment Interactions - Tropical and Subtropical Region",
+    weight: "High",
+    topics: [
+      {
+        title: "Amazon Basin and Ganga-Brahmaputra Basin",
+        notes: [
+          "Tropical and subtropical regions show distinct climate, vegetation and livelihood patterns.",
+          "Amazon basin is characterized by dense forests, high rainfall and riverine life.",
+          "Ganga-Brahmaputra basin supports dense population with fertile plains and mixed economy.",
+          "Environment strongly shapes culture, occupation and settlement in both basins.",
+        ],
+        prelimsFocus: ["Amazon vs Ganga-Brahmaputra features"],
+        mainsFocus: ["Comparative human-environment interactions"],
+      },
+    ],
+  },
+  {
+    id: "geo7-ch9-life-in-temperate-grasslands",
+    title: "Class 7 Chapter 9: Life in the Temperate Grasslands",
+    weight: "Medium",
+    topics: [
+      {
+        title: "Prairies and Veld: Climate and Livelihood",
+        notes: [
+          "Temperate grasslands occur in interiors of continents with moderate rainfall.",
+          "Prairies (North America) and Veld (South Africa) support commercial farming and ranching.",
+          "Mechanized agriculture and livestock rearing are key economic activities.",
+          "Regional climate and soils influence productivity and settlement density.",
+        ],
+        prelimsFocus: ["Prairies and Veld locations"],
+        mainsFocus: ["Temperate grasslands economy and adaptation"],
+      },
+    ],
+  },
+  {
+    id: "geo7-ch10-life-in-deserts",
+    title: "Class 7 Chapter 10: Life in the Deserts",
+    weight: "Medium",
+    topics: [
+      {
+        title: "Hot and Cold Desert Adaptations",
+        notes: [
+          "Deserts receive very low precipitation and have sparse vegetation.",
+          "Hot desert example: Sahara; cold desert example: Ladakh.",
+          "Human life adapts through specialized housing, clothing, transport and livelihoods.",
+          "Modern infrastructure and tourism are reshaping desert economies.",
+        ],
+        prelimsFocus: ["Sahara and Ladakh characteristics"],
+        mainsFocus: ["Human adaptation in extreme environments"],
+      },
+    ],
+  },
 ];
