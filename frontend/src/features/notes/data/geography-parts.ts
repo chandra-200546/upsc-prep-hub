@@ -158,4 +158,25 @@ export const GEOGRAPHY_BOOK_PARTS: BookPart[] = [
       "geo11p1-ch15-biodiversity-and-conservation",
     ],
   },
+  {
+    id: "geography-part-16",
+    title: "Part 16: Class 11 India Physical Environment - I",
+    description: "Chapters 1 to 4: location, physiography, drainage and climate of India.",
+    chapterIds: [
+      "geo11p2-ch1-india-location",
+      "geo11p2-ch2-structure-and-physiography",
+      "geo11p2-ch3-drainage-system",
+      "geo11p2-ch4-climate",
+    ],
+  },
+  {
+    id: "geography-part-17",
+    title: "Part 17: Class 11 India Physical Environment - II",
+    description: "Chapters 5 to 7: natural vegetation, soils and natural hazards.",
+    chapterIds: [
+      "geo11p2-ch5-natural-vegetation",
+      "geo11p2-ch6-soils",
+      "geo11p2-ch7-natural-hazards-and-disasters",
+    ],
+  },
 ];

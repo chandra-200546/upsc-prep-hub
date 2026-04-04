@@ -2026,4 +2026,284 @@ export const GEOGRAPHY_NOTES: Chapter[] = [
       },
     ],
   },
+  {
+    id: "geo11p2-ch1-india-location",
+    title: "Class 11 India Physical Environment Chapter 1: India - Location",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Absolute and Relative Location of India",
+        notes: [
+          "India lies in South Asia between key latitudes and longitudes in the Northern Hemisphere.",
+          "Its central location in the Indian Ocean enhances maritime connectivity.",
+          "Neighbouring countries and sea boundaries give India strategic regional importance.",
+          "Spatial location influences climate, trade, security and cultural exchange.",
+        ],
+        prelimsFocus: ["Latitudinal and longitudinal extent", "IST basis"],
+        mainsFocus: ["Geostrategic relevance of India's location"],
+      },
+      {
+        title: "Physical Setting and Geopolitical Linkages",
+        notes: [
+          "India connects West Asia, Central Asia, Southeast Asia and Indian Ocean routes.",
+          "Peninsular shape supports extensive coastline and port development.",
+          "Location shapes foreign trade, energy routes and defence posture.",
+          "Geography underpins India's role in Indo-Pacific and neighbourhood diplomacy.",
+        ],
+        prelimsFocus: ["Coastline and island groups"],
+        mainsFocus: ["Location and strategic autonomy"],
+      },
+      {
+        title: "Time, Latitude Effects and Maritime Reach",
+        notes: [
+          "East-west extent creates local time differences addressed by a single IST standard.",
+          "Latitudinal spread contributes to climatic diversity from tropical to subtropical conditions.",
+          "Island territories extend India's maritime domain deep into the Indian Ocean.",
+          "Sea lanes and chokepoints near Indian waters influence strategic planning.",
+        ],
+        prelimsFocus: ["IST and standard meridian"],
+        mainsFocus: ["Maritime geography and strategic depth"],
+      },
+    ],
+  },
+  {
+    id: "geo11p2-ch2-structure-and-physiography",
+    title: "Class 11 India Physical Environment Chapter 2: Structure and Physiography",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Geological Structure and Tectonic Evolution",
+        notes: [
+          "India's geological history reflects ancient shield areas and younger fold mountains.",
+          "Plate tectonics explains uplift of Himalayas and development of peninsular block.",
+          "Different rock systems influence relief, mineralization and hazard patterns.",
+          "Structural diversity underlies regional physiographic variation.",
+        ],
+        prelimsFocus: ["Geological divisions of India"],
+        mainsFocus: ["Tectonics and India's physiography"],
+      },
+      {
+        title: "Major Physiographic Divisions",
+        notes: [
+          "Major divisions include Himalayas, Northern Plains, Peninsular Plateau, Desert, Coasts and Islands.",
+          "Each division has specific geomorphic origin and resource potential.",
+          "Relief controls climate, drainage and settlement distribution.",
+          "Regional planning must account for physiographic constraints and opportunities.",
+        ],
+        prelimsFocus: ["Subdivisions and characteristic features"],
+        mainsFocus: ["Physiography-development relationship"],
+      },
+      {
+        title: "Regional Relief, Resources and Human Use",
+        notes: [
+          "Relief differences control soil formation, drainage behavior and settlement pattern.",
+          "Mountain regions support hydropower and horticulture but face accessibility constraints.",
+          "Plateau regions provide minerals and energy resources for industrial growth.",
+          "Plains and coasts support dense population, agriculture and transport corridors.",
+        ],
+        prelimsFocus: ["Resource profile by physiographic region"],
+        mainsFocus: ["Relief-resource-development nexus"],
+      },
+    ],
+  },
+  {
+    id: "geo11p2-ch3-drainage-system",
+    title: "Class 11 India Physical Environment Chapter 3: Drainage System",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Himalayan and Peninsular Drainage",
+        notes: [
+          "Indian rivers are broadly grouped into Himalayan and Peninsular systems.",
+          "Himalayan rivers are perennial with high sediment load and extensive floodplains.",
+          "Peninsular rivers are generally seasonal with stable channels over hard rocks.",
+          "Drainage differences shape irrigation, hydropower and flood risks.",
+        ],
+        prelimsFocus: ["Major river basins and tributaries"],
+        mainsFocus: ["Comparative analysis of Indian river systems"],
+      },
+      {
+        title: "River Basin Management and Challenges",
+        notes: [
+          "River basins support agriculture, domestic supply, ecosystems and transport.",
+          "Pollution, encroachment and over-extraction degrade basin health.",
+          "Inter-state water disputes highlight governance and allocation complexity.",
+          "Integrated basin planning is essential for sustainable water management.",
+        ],
+        prelimsFocus: ["Important lakes and interlinkages"],
+        mainsFocus: ["River governance and water security"],
+      },
+      {
+        title: "Drainage Patterns, Floodplains and River Health",
+        notes: [
+          "Drainage pattern reflects underlying structure, slope and lithology.",
+          "Floodplains are fertile but vulnerable to seasonal inundation and erosion.",
+          "River regulation through dams alters sediment flow and channel morphology.",
+          "Sustainable river policy needs ecological flow, pollution control and floodplain zoning.",
+        ],
+        prelimsFocus: ["Drainage pattern categories"],
+        mainsFocus: ["Floodplain management and ecological flow"],
+      },
+    ],
+  },
+  {
+    id: "geo11p2-ch4-climate",
+    title: "Class 11 India Physical Environment Chapter 4: Climate",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Climatic Controls and Monsoon Dynamics",
+        notes: [
+          "Indian climate is controlled by latitude, relief, pressure patterns and oceanic influence.",
+          "Monsoon circulation is shaped by land-sea thermal contrast and seasonal pressure shift.",
+          "Jet streams and ITCZ migration play major roles in monsoon onset and variability.",
+          "Topography causes strong regional rainfall contrasts.",
+        ],
+        prelimsFocus: ["Monsoon mechanism and controls"],
+        mainsFocus: ["Determinants of Indian climate"],
+      },
+      {
+        title: "Seasonal Regime and Climate Variability",
+        notes: [
+          "India experiences winter, pre-monsoon summer, southwest monsoon and retreating monsoon seasons.",
+          "Interannual variability causes droughts, floods and agricultural uncertainty.",
+          "Extreme weather events are increasing in frequency and intensity in some regions.",
+          "Adaptation requires improved forecasting, resilient farming and water planning.",
+        ],
+        prelimsFocus: ["Seasonal rainfall pattern"],
+        mainsFocus: ["Climate risk and adaptation in India"],
+      },
+      {
+        title: "Regional Climate Contrasts and Extreme Events",
+        notes: [
+          "Western coast and northeast receive heavy rainfall while interiors may be relatively dry.",
+          "Heatwaves, intense rainfall and cyclones show rising disaster implications.",
+          "Urban heat islands and land-use change amplify local climate stress.",
+          "Risk-informed planning should integrate forecasting, resilient infrastructure and ecosystem restoration.",
+        ],
+        prelimsFocus: ["Rainfall contrast regions"],
+        mainsFocus: ["Extreme climate events and resilience planning"],
+      },
+    ],
+  },
+  {
+    id: "geo11p2-ch5-natural-vegetation",
+    title: "Class 11 India Physical Environment Chapter 5: Natural Vegetation",
+    weight: "High",
+    topics: [
+      {
+        title: "Forest Types and Distribution",
+        notes: [
+          "Natural vegetation in India varies by rainfall, temperature, altitude and soils.",
+          "Major categories include evergreen, deciduous, thorn, montane and mangrove forests.",
+          "Vegetation patterns reflect eco-climatic zones and hydrological regimes.",
+          "Forest distribution influences biodiversity and livelihood systems.",
+        ],
+        prelimsFocus: ["Forest type and region matching"],
+        mainsFocus: ["Vegetation patterns and ecological services"],
+      },
+      {
+        title: "Human Impacts and Conservation Needs",
+        notes: [
+          "Deforestation and habitat fragmentation reduce ecosystem resilience.",
+          "Conservation requires restoration, protected areas and sustainable livelihoods.",
+          "Joint management with local communities improves long-term outcomes.",
+          "Vegetation policy is linked with climate mitigation and adaptation goals.",
+        ],
+        prelimsFocus: ["Conservation measures"],
+        mainsFocus: ["Forest governance and sustainability"],
+      },
+      {
+        title: "Vegetation-Livelihood Linkages",
+        notes: [
+          "Forests support fuel, fodder, non-timber products and watershed functions.",
+          "Rural and tribal livelihoods often depend directly on local ecosystem productivity.",
+          "Degradation increases livelihood vulnerability and ecological instability.",
+          "Participatory restoration can improve both biodiversity and income security.",
+        ],
+        prelimsFocus: ["Non-timber forest products basics"],
+        mainsFocus: ["Forest-livelihood interface"],
+      },
+    ],
+  },
+  {
+    id: "geo11p2-ch6-soils",
+    title: "Class 11 India Physical Environment Chapter 6: Soils",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Soil Formation and Major Soil Types",
+        notes: [
+          "Soil forms through weathering, biological activity and time-dependent processes.",
+          "Major Indian soils include alluvial, black, red-yellow, laterite, arid and forest soils.",
+          "Soil characteristics determine crop suitability and moisture retention.",
+          "Spatial soil variation is linked to parent rock, climate and relief.",
+        ],
+        prelimsFocus: ["Soil type characteristics"],
+        mainsFocus: ["Soil geography and agricultural planning"],
+      },
+      {
+        title: "Soil Degradation and Management",
+        notes: [
+          "Erosion, salinity, nutrient depletion and waterlogging degrade soil quality.",
+          "Conservation includes contouring, terracing, shelterbelts and balanced fertilization.",
+          "Integrated nutrient and watershed management improve long-term fertility.",
+          "Soil health cards and scientific extension can support sustainable land use.",
+        ],
+        prelimsFocus: ["Soil degradation forms"],
+        mainsFocus: ["Soil conservation policy and practice"],
+      },
+      {
+        title: "Soil-Crop Suitability and Productivity Planning",
+        notes: [
+          "Different crops require specific texture, nutrient profile and moisture conditions.",
+          "Alluvial soils support cereals; black soils are suitable for cotton regions.",
+          "Balanced fertilization and organic enrichment improve long-term soil health.",
+          "Soil testing and localized nutrient plans raise productivity sustainably.",
+        ],
+        prelimsFocus: ["Soil-crop matching"],
+        mainsFocus: ["Soil management for sustainable agriculture"],
+      },
+    ],
+  },
+  {
+    id: "geo11p2-ch7-natural-hazards-and-disasters",
+    title: "Class 11 India Physical Environment Chapter 7: Natural Hazards and Disasters",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Major Natural Hazards in India",
+        notes: [
+          "India faces earthquakes, floods, droughts, cyclones, landslides and heat waves.",
+          "Hazard intensity and exposure vary by physiography, climate and settlement patterns.",
+          "Disaster risk is product of hazard, vulnerability and adaptive capacity.",
+          "Urbanization and ecosystem degradation can amplify disaster impacts.",
+        ],
+        prelimsFocus: ["Hazard-prone regions of India"],
+        mainsFocus: ["Hazard vulnerability profile of India"],
+      },
+      {
+        title: "Risk Reduction and Disaster Management",
+        notes: [
+          "Preparedness, mitigation and early warning reduce disaster losses.",
+          "Land-use planning and resilient infrastructure are core risk reduction tools.",
+          "Community awareness and local institutions improve response effectiveness.",
+          "Integrated disaster management links science, governance and social inclusion.",
+        ],
+        prelimsFocus: ["Disaster management cycle"],
+        mainsFocus: ["From relief-centric to resilience-centric disaster policy"],
+      },
+      {
+        title: "Hazard Zonation and Community Preparedness",
+        notes: [
+          "Hazard zonation maps identify high-risk areas for targeted interventions.",
+          "Early warning, evacuation planning and drills improve response readiness.",
+          "Local institutions, schools and community groups are central to preparedness.",
+          "Mainstreaming DRR in development planning reduces future disaster losses.",
+        ],
+        prelimsFocus: ["Hazard zonation concept"],
+        mainsFocus: ["Community-centric disaster resilience"],
+      },
+    ],
+  },
 ];
