@@ -476,6 +476,23 @@ export const supabase: any = {
       emitAuth("SIGNED_IN", session);
       return { data: { session, user: session?.user ?? null }, error: null };
     },
+    resetPasswordForEmail: async (email: string, options?: any) => {
+      const newPassword = String(options?.newPassword || "").trim();
+      if (!newPassword) {
+        return { data: null, error: { message: "newPassword is required" } };
+      }
+      const { data, error } = await apiPost("/functions/v1/auth/forgot-password", { email, newPassword });
+      if (error) return { data: null, error };
+      return { data: data ?? { ok: true }, error: null };
+    },
+    updateUser: async ({ password, currentPassword }: any) => {
+      const { data, error } = await apiPost("/functions/v1/auth/update-password", {
+        currentPassword: String(currentPassword || ""),
+        newPassword: String(password || ""),
+      });
+      if (error) return { data: null, error };
+      return { data: data ?? { ok: true }, error: null };
+    },
     signOut: async () => {
       await apiPost("/functions/v1/auth/logout", {});
       storeSession(null);

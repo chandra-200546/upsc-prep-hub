@@ -134,6 +134,45 @@ export const loginOrCreateGoogleUser = async (email: string, name: string) => {
   return createSession(userId, normalizedEmail);
 };
 
+export const resetPasswordByEmail = async (email: string, newPassword: string) => {
+  const db = requirePool();
+  const normalizedEmail = email.trim().toLowerCase();
+  const passHash = hashPassword(newPassword);
+
+  const existing = await db.query<{ id: string }>(
+    "SELECT id FROM user_accounts WHERE email = $1 LIMIT 1",
+    [normalizedEmail],
+  );
+
+  const userId = existing.rows[0]?.id;
+  if (!userId) {
+    // Do not reveal account existence details.
+    return { updated: false };
+  }
+
+  await db.query("UPDATE user_accounts SET password_hash = $1 WHERE id = $2", [passHash, userId]);
+  await db.query("DELETE FROM auth_sessions WHERE user_id = $1", [userId]);
+  return { updated: true };
+};
+
+export const updatePasswordForUser = async (userId: string, currentPassword: string, newPassword: string) => {
+  const db = requirePool();
+  const currentHash = hashPassword(currentPassword);
+  const nextHash = hashPassword(newPassword);
+
+  const existing = await db.query<{ id: string }>(
+    "SELECT id FROM user_accounts WHERE id = $1 AND password_hash = $2 LIMIT 1",
+    [userId, currentHash],
+  );
+
+  if (!existing.rows[0]) {
+    throw new Error("Current password is incorrect");
+  }
+
+  await db.query("UPDATE user_accounts SET password_hash = $1 WHERE id = $2", [nextHash, userId]);
+  return { updated: true };
+};
+
 export const createSession = async (userId: string, email: string) => {
   const db = requirePool();
   const token = `upsc_${randomUUID().replace(/-/g, "")}`;

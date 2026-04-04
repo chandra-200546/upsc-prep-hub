@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
-import { dbDelete, dbInsert, dbSelect, dbUpdate, dbUpsert, loginOrCreateGoogleUser, loginUser, resolveSession, revokeSession, signUpUser } from "../db/app-db.js";
+import { dbDelete, dbInsert, dbSelect, dbUpdate, dbUpsert, loginOrCreateGoogleUser, loginUser, resetPasswordByEmail, resolveSession, revokeSession, signUpUser, updatePasswordForUser } from "../db/app-db.js";
 import { cacheGet, cacheSet, logRequest } from "../db/sqlite.js";
 import { neonAdminStats, neonCacheGet, neonCacheSet, neonLogRequest } from "../db/neon.js";
 import { getProfileById, listProfiles, parseProfilesCsv, upsertProfiles } from "../db/profiles.js";
@@ -132,6 +132,43 @@ functionsRouter.post("/auth/google", async (c) => {
     return c.json({ session, user: session.user });
   } catch (error: any) {
     return c.json({ message: error?.message || "Google authentication failed" }, 401);
+  }
+});
+
+functionsRouter.post("/auth/forgot-password", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const email = String(body?.email ?? "").trim().toLowerCase();
+  const newPassword = String(body?.newPassword ?? "");
+
+  if (!email || !newPassword || newPassword.length < 6) {
+    return c.json({ message: "email and newPassword (min 6 chars) are required" }, 400);
+  }
+
+  try {
+    await resetPasswordByEmail(email, newPassword);
+    return c.json({ ok: true });
+  } catch (error: any) {
+    return c.json({ message: error?.message || "Failed to reset password" }, 400);
+  }
+});
+
+functionsRouter.post("/auth/update-password", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const currentPassword = String(body?.currentPassword ?? "");
+  const newPassword = String(body?.newPassword ?? "");
+  if (!currentPassword || !newPassword || newPassword.length < 6) {
+    return c.json({ message: "currentPassword and newPassword (min 6 chars) are required" }, 400);
+  }
+
+  const token = authTokenFromHeader(c.req.header("Authorization"));
+  const session = await resolveSession(token);
+  if (!session?.user?.id) return c.json({ message: "Unauthorized" }, 401);
+
+  try {
+    await updatePasswordForUser(session.user.id, currentPassword, newPassword);
+    return c.json({ ok: true });
+  } catch (error: any) {
+    return c.json({ message: error?.message || "Failed to update password" }, 400);
   }
 });
 

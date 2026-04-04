@@ -30,6 +30,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error?: string }>;
   signInWithGoogle: (idToken: string) => Promise<{ error?: string }>;
+  forgotPassword: (email: string, newPassword: string) => Promise<{ error?: string }>;
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   saveProfile: (profile: Omit<LocalProfile, "id" | "current_streak" | "total_xp" | "level" | "language" | "profile_photo_url" | "last_login_date">) => void;
   refreshProfile: () => void;
@@ -290,6 +292,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const forgotPassword = async (email: string, newPassword: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { newPassword });
+      if (!error) return {};
+      if (!ALLOW_LOCAL_FALLBACK) {
+        return { error: error.message || "Failed to reset password" };
+      }
+    } catch {
+      if (!ALLOW_LOCAL_FALLBACK) {
+        return { error: "Failed to reset password. Backend is required." };
+      }
+    }
+
+    if (!ALLOW_LOCAL_FALLBACK) return { error: "Failed to reset password." };
+    const usersDB = getLocalUsersDB();
+    const entry = Object.entries(usersDB).find(([_, v]) => v.email.toLowerCase() === email.toLowerCase());
+    if (!entry) return {};
+    usersDB[entry[0]] = { ...usersDB[entry[0]], password: newPassword };
+    localStorage.setItem(LOCAL_USERS_DB_KEY, JSON.stringify(usersDB));
+    return {};
+  };
+
+  const updatePassword = async (currentPassword: string, newPassword: string) => {
+    if (!user) return { error: "Not logged in" };
+    try {
+      const { error } = await supabase.auth.updateUser({ currentPassword, password: newPassword });
+      if (!error) return {};
+      if (!ALLOW_LOCAL_FALLBACK) {
+        return { error: error.message || "Failed to update password" };
+      }
+    } catch {
+      if (!ALLOW_LOCAL_FALLBACK) {
+        return { error: "Failed to update password. Backend is required." };
+      }
+    }
+
+    if (!ALLOW_LOCAL_FALLBACK) return { error: "Failed to update password." };
+    const usersDB = getLocalUsersDB();
+    const entry = Object.entries(usersDB).find(([id, v]) => id === user.id || v.email.toLowerCase() === (user.email || "").toLowerCase());
+    if (!entry) return { error: "Account not found" };
+    if (entry[1].password !== currentPassword) return { error: "Current password is incorrect" };
+    usersDB[entry[0]] = { ...usersDB[entry[0]], password: newPassword };
+    localStorage.setItem(LOCAL_USERS_DB_KEY, JSON.stringify(usersDB));
+    return {};
+  };
+
   const signOut = async () => {
     try { await supabase.auth.signOut(); } catch { /* ignore */ }
     setUser(null);
@@ -328,7 +376,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, isReady, isLocalMode, signIn, signUp, signInWithGoogle, signOut, saveProfile, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, isReady, isLocalMode, signIn, signUp, signInWithGoogle, forgotPassword, updatePassword, signOut, saveProfile, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
