@@ -437,10 +437,13 @@ const DEFAULT_GEOGRAPHY_PATHS = [
   process.env.GEOGRAPHY_BOOK_PDF_PATH || "",
   process.env.GEOGRAPHY_6TH_BOOK_PDF_PATH || "",
   process.env.GEOGRAPHY_7TH_BOOK_PDF_PATH || "",
+  process.env.GEOGRAPHY_8TH_BOOK_PDF_PATH || "",
   String.raw`C:\Users\Chandrashekar\Downloads\6th.pdf`,
   String.raw`C:\Users\Chandrashekar\Downloads\7th.pdf`,
+  String.raw`C:\Users\Chandrashekar\Downloads\8th.pdf`,
   path.resolve(process.cwd(), "..", "6th.pdf"),
   path.resolve(process.cwd(), "..", "7th.pdf"),
+  path.resolve(process.cwd(), "..", "8th.pdf"),
 ].filter(Boolean);
 
 const firstExistingPath = (candidates: string[]) => {
@@ -530,7 +533,7 @@ export const seedGeographyBooksIfMissing = async () => {
   if (!foundPaths.length) {
     return {
       seeded: false,
-      reason: "No geography PDF paths found. Set GEOGRAPHY_BOOK_PDF_PATHS / GEOGRAPHY_6TH_BOOK_PDF_PATH / GEOGRAPHY_7TH_BOOK_PDF_PATH in backend .env.",
+      reason: "No geography PDF paths found. Set GEOGRAPHY_BOOK_PDF_PATHS / GEOGRAPHY_6TH_BOOK_PDF_PATH / GEOGRAPHY_7TH_BOOK_PDF_PATH / GEOGRAPHY_8TH_BOOK_PDF_PATH in backend .env.",
     };
   }
 

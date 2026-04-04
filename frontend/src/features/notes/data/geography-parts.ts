@@ -61,4 +61,24 @@ export const GEOGRAPHY_BOOK_PARTS: BookPart[] = [
       "geo7-ch10-life-in-deserts",
     ],
   },
+  {
+    id: "geography-part-7",
+    title: "Part 7: Class 8 Resources and Development",
+    description: "Class 8 chapters 1 to 3: resources, resource base and energy systems.",
+    chapterIds: [
+      "geo8-ch1-resources",
+      "geo8-ch2-land-soil-water-natural-vegetation-wildlife",
+      "geo8-ch3-mineral-and-power-resources",
+    ],
+  },
+  {
+    id: "geography-part-8",
+    title: "Part 8: Class 8 Economic and Human Geography",
+    description: "Class 8 chapters 4 to 6: agriculture, industries and human resources.",
+    chapterIds: [
+      "geo8-ch4-agriculture",
+      "geo8-ch5-industries",
+      "geo8-ch6-human-resources",
+    ],
+  },
 ];
