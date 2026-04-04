@@ -81,4 +81,24 @@ export const GEOGRAPHY_BOOK_PARTS: BookPart[] = [
       "geo8-ch6-human-resources",
     ],
   },
+  {
+    id: "geography-part-9",
+    title: "Part 9: Class 9 India Geography Core",
+    description: "Class 9 chapters 1 to 3: location, physical features and drainage.",
+    chapterIds: [
+      "geo9-ch1-india-size-location",
+      "geo9-ch2-physical-features-of-india",
+      "geo9-ch3-drainage",
+    ],
+  },
+  {
+    id: "geography-part-10",
+    title: "Part 10: Class 9 Climate, Ecology and Population",
+    description: "Class 9 chapters 4 to 6: climate, vegetation-wildlife and population.",
+    chapterIds: [
+      "geo9-ch4-climate",
+      "geo9-ch5-natural-vegetation-wildlife",
+      "geo9-ch6-population",
+    ],
+  },
 ];

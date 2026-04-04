@@ -829,4 +829,244 @@ export const GEOGRAPHY_NOTES: Chapter[] = [
       },
     ],
   },
+  {
+    id: "geo9-ch1-india-size-location",
+    title: "Class 9 Chapter 1: India - Size and Location",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Absolute and Relative Location of India",
+        notes: [
+          "India lies in the Northern and Eastern hemispheres with strategic centrality in South Asia.",
+          "Latitudinal and longitudinal extent influence climate diversity and day-length variation.",
+          "India's location in the Indian Ocean connects it to major maritime trade routes.",
+          "Neighbouring countries and sea boundaries shape regional geopolitical significance.",
+        ],
+        prelimsFocus: ["Latitudinal/longitudinal extent", "Indian Standard Time meridian"],
+        mainsFocus: ["Geostrategic significance of India's location"],
+      },
+      {
+        title: "Size, Time and Geopolitical Importance",
+        notes: [
+          "India is the seventh largest country by area with diverse physiographic regions.",
+          "East-west extent causes local time differences handled through uniform IST.",
+          "Central location at the head of Indian Ocean gives maritime and economic advantage.",
+          "Historical trade and cultural exchange were enabled by India's location.",
+        ],
+        prelimsFocus: ["Area rank and coastline basics"],
+        mainsFocus: ["Location and strategic autonomy"],
+      },
+      {
+        title: "India and the World: Maritime and Continental Linkages",
+        notes: [
+          "India's peninsular position gives strategic advantage in the Indian Ocean sea lanes.",
+          "The Suez route and Indo-Pacific connectivity increase India's global trade relevance.",
+          "Land boundaries shape regional cooperation and security challenges with neighbours.",
+          "Location supports India's role in energy routes, shipping and regional diplomacy.",
+        ],
+        prelimsFocus: ["Neighbouring countries and seas"],
+        mainsFocus: ["India's maritime geography and geopolitics"],
+      },
+    ],
+  },
+  {
+    id: "geo9-ch2-physical-features-of-india",
+    title: "Class 9 Chapter 2: Physical Features of India",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Major Physiographic Divisions",
+        notes: [
+          "India has six major physiographic divisions: Himalayas, Northern Plains, Peninsular Plateau, Indian Desert, Coastal Plains and Islands.",
+          "Each division has distinct origin, relief, resources and settlement pattern.",
+          "Tectonic processes and river action shaped India's present physical landscape.",
+          "Relief diversity influences agriculture, transport, disasters and livelihoods.",
+        ],
+        prelimsFocus: ["Physiographic division mapping"],
+        mainsFocus: ["Relief diversity and regional planning"],
+      },
+      {
+        title: "Relief and Development Linkages",
+        notes: [
+          "Himalayas influence climate and river systems and act as natural barrier.",
+          "Northern plains are fertile and densely populated due to alluvial soils.",
+          "Peninsular plateau is mineral-rich and important for industry and energy.",
+          "Coasts and islands are key for fisheries, ports, tourism and strategic security.",
+        ],
+        prelimsFocus: ["Sub-divisions and characteristic features"],
+        mainsFocus: ["Physiography and economic geography of India"],
+      },
+      {
+        title: "Himalayas, Plains and Plateau: Internal Subdivisions",
+        notes: [
+          "Himalayas are divided into Himadri, Himachal and Shiwalik with distinct relief and ecology.",
+          "Northern plains include Punjab, Ganga and Brahmaputra plains with rich alluvium.",
+          "Peninsular plateau includes Central Highlands and Deccan Plateau with old crystalline rocks.",
+          "Relief subdivisions explain regional climate, rivers and settlement concentration.",
+        ],
+        prelimsFocus: ["Himalayan and plain subdivisions"],
+        mainsFocus: ["Subregional relief and developmental implications"],
+      },
+    ],
+  },
+  {
+    id: "geo9-ch3-drainage",
+    title: "Class 9 Chapter 3: Drainage",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Himalayan and Peninsular River Systems",
+        notes: [
+          "Indian drainage is broadly divided into Himalayan and Peninsular river systems.",
+          "Himalayan rivers are perennial and carry higher sediment due to glacial and rain sources.",
+          "Peninsular rivers are mainly seasonal and flow over older hard rock terrain.",
+          "Drainage patterns influence irrigation, settlements and flood risk.",
+        ],
+        prelimsFocus: ["Major river systems and tributaries"],
+        mainsFocus: ["Comparative river system analysis"],
+      },
+      {
+        title: "Lakes, River Basins and Water Governance",
+        notes: [
+          "India has natural and man-made lakes with ecological and economic significance.",
+          "River basins support agriculture, drinking water, hydropower and transport.",
+          "Pollution, over-extraction and conflicts challenge river health and governance.",
+          "Integrated river basin management is essential for water security.",
+        ],
+        prelimsFocus: ["Important lakes and basin names"],
+        mainsFocus: ["Drainage and integrated water resource management"],
+      },
+      {
+        title: "Drainage Patterns and River Pollution Concerns",
+        notes: [
+          "Common drainage patterns include dendritic, trellis, radial and rectangular systems.",
+          "Drainage patterns reflect geological structure, slope and rock type.",
+          "Urban sewage, industrial discharge and solid waste degrade river ecosystems.",
+          "Restoration requires basin-based planning, treatment infrastructure and policy enforcement.",
+        ],
+        prelimsFocus: ["Drainage pattern types"],
+        mainsFocus: ["River health and governance challenges"],
+      },
+    ],
+  },
+  {
+    id: "geo9-ch4-climate",
+    title: "Class 9 Chapter 4: Climate",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Climate Controls and Monsoon Mechanism",
+        notes: [
+          "Latitude, altitude, pressure-winds, distance from sea, and relief are key climate controls.",
+          "Indian climate is largely monsoonal with seasonal reversal of winds.",
+          "Monsoon behavior is influenced by ITCZ shift, pressure gradients and jet streams.",
+          "Relief barriers like Himalayas and Western Ghats shape rainfall distribution.",
+        ],
+        prelimsFocus: ["Climate controls", "Monsoon onset/withdrawal"],
+        mainsFocus: ["Monsoon dynamics and variability"],
+      },
+      {
+        title: "Seasonal Pattern and Climate Challenges",
+        notes: [
+          "India experiences cold weather, hot weather, southwest monsoon and retreating monsoon seasons.",
+          "Rainfall is uneven spatially and temporally, causing floods and droughts.",
+          "Climate influences cropping pattern, water availability and public health.",
+          "Climate resilience requires forecasting, water management and adaptive agriculture.",
+        ],
+        prelimsFocus: ["Seasonal characteristics of India"],
+        mainsFocus: ["Climate variability and socio-economic impact"],
+      },
+      {
+        title: "Monsoon Onset, Retreat and Regional Rainfall Contrasts",
+        notes: [
+          "Southwest monsoon generally advances from Kerala and covers the country in stages.",
+          "Monsoon retreat starts from northwest and withdraws toward the peninsula.",
+          "Western coast and northeast India receive high rainfall, while interiors may face deficits.",
+          "Orographic effect and monsoon trough behavior influence extreme rainfall events.",
+        ],
+        prelimsFocus: ["Monsoon advance and retreat sequence"],
+        mainsFocus: ["Regional rainfall inequality and planning response"],
+      },
+    ],
+  },
+  {
+    id: "geo9-ch5-natural-vegetation-wildlife",
+    title: "Class 9 Chapter 5: Natural Vegetation and Wildlife",
+    weight: "High",
+    topics: [
+      {
+        title: "Vegetation Types in India",
+        notes: [
+          "Natural vegetation depends on temperature, precipitation, relief and soil conditions.",
+          "Major types include tropical evergreen, deciduous, thorn, montane and mangrove forests.",
+          "Forest types vary regionally and support different economic and ecological functions.",
+          "Vegetation is critical for carbon balance, soil protection and hydrological stability.",
+        ],
+        prelimsFocus: ["Forest type distribution in India"],
+        mainsFocus: ["Vegetation diversity and ecological services"],
+      },
+      {
+        title: "Wildlife Diversity and Conservation",
+        notes: [
+          "India is a biodiversity-rich country with diverse fauna across ecosystems.",
+          "Habitat loss, poaching and fragmentation threaten species survival.",
+          "Conservation tools include protected areas, legal protection and community participation.",
+          "Landscape-level conservation is needed to connect habitats and sustain biodiversity.",
+        ],
+        prelimsFocus: ["Protected area categories"],
+        mainsFocus: ["Wildlife conservation challenges and strategy"],
+      },
+      {
+        title: "Forest Depletion Drivers and Biodiversity Management",
+        notes: [
+          "Deforestation is driven by expansion of agriculture, infrastructure and urban pressure.",
+          "Fragmentation reduces habitat continuity and affects species movement.",
+          "In-situ and ex-situ conservation approaches complement each other.",
+          "Community-led forest management improves long-term conservation outcomes.",
+        ],
+        prelimsFocus: ["In-situ vs ex-situ conservation"],
+        mainsFocus: ["Community participation in biodiversity conservation"],
+      },
+    ],
+  },
+  {
+    id: "geo9-ch6-population",
+    title: "Class 9 Chapter 6: Population",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Population Size, Distribution and Density",
+        notes: [
+          "Population distribution is uneven due to relief, climate, water and economic opportunity.",
+          "Northern plains and coastal regions are generally denser than mountains and deserts.",
+          "Density reflects pressure on land, services and infrastructure.",
+          "Spatial demography is essential for planning and resource allocation.",
+        ],
+        prelimsFocus: ["Population distribution factors"],
+        mainsFocus: ["Regional population imbalance in India"],
+      },
+      {
+        title: "Growth, Composition and Human Development",
+        notes: [
+          "Population change depends on birth rate, death rate and migration.",
+          "Age structure, sex ratio and literacy are important population composition indicators.",
+          "Human resource quality depends on education, health and skill systems.",
+          "Demographic transition influences labor markets and development policy.",
+        ],
+        prelimsFocus: ["Census indicators basics"],
+        mainsFocus: ["Population and development interrelationship"],
+      },
+      {
+        title: "Population Policies and Regional Demographic Diversity",
+        notes: [
+          "Population growth rates vary regionally due to social, economic and educational factors.",
+          "Policy priorities include health access, women's education and skill development.",
+          "Urban concentration creates pressure on housing, transport and basic services.",
+          "Demographic planning must align with employment and infrastructure expansion.",
+        ],
+        prelimsFocus: ["Demographic indicators and trends"],
+        mainsFocus: ["Population policy and balanced regional development"],
+      },
+    ],
+  },
 ];
