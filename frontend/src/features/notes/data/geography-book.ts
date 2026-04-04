@@ -2680,4 +2680,862 @@ export const GEOGRAPHY_NOTES: Chapter[] = [
       },
     ],
   },
+  {
+    id: "geo12-ch1-population-distribution-density-growth-composition",
+    title: "Class 12 Chapter 1: Population Distribution, Density, Growth and Composition",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Spatial Distribution and Density Patterns in India",
+        notes: [
+          "Population distribution in India is highly uneven because physical factors and economic opportunities differ across regions.",
+          "High-density belts are seen in river plains, coastal zones and urban-industrial corridors due to fertile land, jobs and connectivity.",
+          "Low-density regions include high mountains, deserts and forested interiors where terrain, climate and infrastructure constraints reduce concentration.",
+          "UPSC preparation should link density patterns with resource pressure, migration and regional planning outcomes.",
+        ],
+        prelimsFocus: ["Census concepts: distribution vs density", "High-density and low-density regions"],
+        mainsFocus: ["Regional imbalance in population distribution and policy implications"],
+      },
+      {
+        title: "Population Growth Phases and Demographic Composition",
+        notes: [
+          "India's demographic transition shows changing birth and death rates with strong regional variation.",
+          "Population composition is studied by age, sex ratio, literacy, occupational structure and social groups.",
+          "Demographic dividend potential depends on quality education, skill formation and health investments.",
+          "A balanced analysis should compare growth management with human development and employment generation.",
+        ],
+        prelimsFocus: ["Age structure, sex ratio, literacy indicators"],
+        mainsFocus: ["Demographic dividend and demographic burden debate"],
+      },
+    ],
+  },
+  {
+    id: "geo12-ch2-migration-types-causes-consequences",
+    title: "Class 12 Chapter 2: Migration - Types, Causes and Consequences",
+    weight: "High",
+    topics: [
+      {
+        title: "Types and Patterns of Migration in India",
+        notes: [
+          "Migration can be internal or international, and internal migration includes rural-rural, rural-urban, urban-urban and urban-rural streams.",
+          "It may be temporary, seasonal, circular or permanent based on duration and purpose.",
+          "Census and NSS patterns show major migration drivers such as marriage, work, education and family movement.",
+          "Regional migration corridors reveal links between backward source areas and developed destination regions.",
+        ],
+        prelimsFocus: ["Types of internal migration streams"],
+        mainsFocus: ["Migration corridors and regional development linkages"],
+      },
+      {
+        title: "Push-Pull Factors and Socio-Economic Impacts",
+        notes: [
+          "Push factors include unemployment, agrarian stress, disasters and social exclusion in source regions.",
+          "Pull factors include jobs, services, safety nets, social networks and better infrastructure in destination areas.",
+          "Migration can increase remittances and mobility but may also create urban congestion, housing stress and informal labour exploitation.",
+          "Policy should focus on portability of welfare, migrant rights, skilling and inclusive urban planning.",
+        ],
+        prelimsFocus: ["Push and pull factor identification"],
+        mainsFocus: ["Migration governance and migrant-inclusive development"],
+      },
+    ],
+  },
+  {
+    id: "geo12-ch3-human-development-india",
+    title: "Class 12 Chapter 3: Human Development in India",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Human Development Concept and Indicators",
+        notes: [
+          "Human development emphasizes expansion of capabilities and choices, not only growth in income.",
+          "Core dimensions include health, education and standard of living represented through HDI-type indicators.",
+          "Quality of life analysis requires attention to gender, social equity and regional disparities.",
+          "UPSC answers should connect human development with constitutional values and welfare state objectives.",
+        ],
+        prelimsFocus: ["HDI dimensions and meaning"],
+        mainsFocus: ["Growth versus human development perspective"],
+      },
+      {
+        title: "Inter-State and Intra-State Human Development Gaps",
+        notes: [
+          "Indian states show marked variation in health outcomes, learning levels and social infrastructure.",
+          "Urban-rural and gender gaps persist in access to quality education, healthcare and dignified livelihoods.",
+          "Targeted public policy, fiscal support and local governance reforms are central to reducing inequalities.",
+          "Human development strategy should combine inclusion, productivity and sustainability.",
+        ],
+        prelimsFocus: ["Regional variation in social indicators"],
+        mainsFocus: ["Policy pathways for reducing HD inequalities in India"],
+      },
+    ],
+  },
+  {
+    id: "geo12-ch4-human-settlements",
+    title: "Class 12 Chapter 4: Human Settlements",
+    weight: "High",
+    topics: [
+      {
+        title: "Rural Settlements: Forms, Functions and Change",
+        notes: [
+          "Rural settlements are shaped by terrain, water availability, social organization and occupational base.",
+          "Settlement forms include clustered, semi-clustered, hamleted and dispersed patterns.",
+          "Agrarian transformation, roads and digital access are changing rural settlement hierarchy and services.",
+          "Rural geography analysis should include landholding, mobility and local institutions.",
+        ],
+        prelimsFocus: ["Rural settlement types"],
+        mainsFocus: ["Changing rural settlement morphology in India"],
+      },
+      {
+        title: "Urban Settlements, Hierarchy and Urbanization Issues",
+        notes: [
+          "Urban settlements are classified by size, function and administrative criteria.",
+          "Urbanization in India is linked to industrialization, service sector expansion and migration.",
+          "Major challenges include housing deficits, informal employment, congestion, pollution and service inequality.",
+          "Solutions require integrated planning, metropolitan governance and climate-resilient infrastructure.",
+        ],
+        prelimsFocus: ["Urban classification concepts"],
+        mainsFocus: ["Urbanization challenges and policy responses"],
+      },
+    ],
+  },
+  {
+    id: "geo12-ch5-land-resources-agriculture",
+    title: "Class 12 Chapter 5: Land Resources and Agriculture",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Land Resource Base, Land Use and Degradation",
+        notes: [
+          "Land is a finite resource and land-use categories reflect agriculture, forests, pastures, settlements and wasteland.",
+          "Competing demands from population growth, urbanization and industry create land-use pressure.",
+          "Land degradation in India includes soil erosion, salinity, desertification and mining-related damage.",
+          "Restoration needs watershed management, sustainable farming and community-based resource governance.",
+        ],
+        prelimsFocus: ["Land-use categories and degradation types"],
+        mainsFocus: ["Land degradation and sustainable land management"],
+      },
+      {
+        title: "Agricultural Patterns, Cropping and Regional Diversity",
+        notes: [
+          "Indian agriculture varies by climate, soil, irrigation, technology and market access.",
+          "Cropping patterns include food grains, pulses, oilseeds, commercial crops and horticulture systems.",
+          "Key structural issues are fragmented holdings, water stress, price volatility and post-harvest gaps.",
+          "Reforms should align productivity, farmer incomes, climate adaptation and agro-ecological sustainability.",
+        ],
+        prelimsFocus: ["Cropping pattern and major crop regions"],
+        mainsFocus: ["Agrarian transformation with sustainability lens"],
+      },
+    ],
+  },
+  {
+    id: "geo12-ch6-water-resources",
+    title: "Class 12 Chapter 6: Water Resources",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Water Availability, Utilization and Regional Imbalance",
+        notes: [
+          "India's water resources include surface and groundwater with strong temporal and spatial variability.",
+          "Demand from irrigation, industry and domestic sectors is rising faster than sustainable supply in many basins.",
+          "Over-extraction, contamination and inefficient use create serious water-security risks.",
+          "Basin-level planning and demand management are essential for long-term resilience.",
+        ],
+        prelimsFocus: ["Surface water vs groundwater basics"],
+        mainsFocus: ["Water stress and regional disparities in India"],
+      },
+      {
+        title: "Water Conservation and Integrated Water Management",
+        notes: [
+          "Rainwater harvesting, watershed development and aquifer recharge are key conservation tools.",
+          "Micro-irrigation and crop-water alignment improve efficiency in water-scarce regions.",
+          "River basin coordination, pollution control and community participation improve governance outcomes.",
+          "UPSC-ready analysis should combine ecological sustainability with equity and livelihood concerns.",
+        ],
+        prelimsFocus: ["Water conservation techniques"],
+        mainsFocus: ["Integrated water resources management in India"],
+      },
+    ],
+  },
+  {
+    id: "geo12-ch7-mineral-energy-resources",
+    title: "Class 12 Chapter 7: Mineral and Energy Resources",
+    weight: "High",
+    topics: [
+      {
+        title: "Mineral Resources: Distribution and Development Issues",
+        notes: [
+          "India has varied metallic and non-metallic mineral resources distributed unevenly across geological belts.",
+          "Mining supports industrialization but raises concerns of displacement, ecological loss and health impacts.",
+          "Resource extraction requires environmental safeguards, rehabilitation and district-level value addition.",
+          "Strategic mineral security is increasingly important for manufacturing and clean-energy transitions.",
+        ],
+        prelimsFocus: ["Major mineral belts and resource types"],
+        mainsFocus: ["Mining-development-environment balance"],
+      },
+      {
+        title: "Energy Mix, Security and Transition",
+        notes: [
+          "India's energy profile includes coal, petroleum, gas, hydro, nuclear and renewables.",
+          "Energy security requires diversification, grid upgrades, storage and domestic resource optimization.",
+          "Renewable expansion creates opportunities for green growth but needs land, transmission and financing solutions.",
+          "A balanced transition should ensure affordability, reliability and climate commitments together.",
+        ],
+        prelimsFocus: ["Conventional and non-conventional energy sources"],
+        mainsFocus: ["Energy transition and security challenges in India"],
+      },
+    ],
+  },
+  {
+    id: "geo12-ch8-manufacturing-industries",
+    title: "Class 12 Chapter 8: Manufacturing Industries",
+    weight: "High",
+    topics: [
+      {
+        title: "Industrial Location Factors and Spatial Patterns",
+        notes: [
+          "Industrial location depends on raw materials, power, labour, market access, transport and policy ecosystem.",
+          "Agglomeration economies create industrial clusters and growth corridors across selected regions.",
+          "Legacy industrial belts coexist with emerging sectors driven by technology and logistics reforms.",
+          "Regional industrial imbalance remains a key concern for inclusive development.",
+        ],
+        prelimsFocus: ["Industrial location factor questions"],
+        mainsFocus: ["Industrial geography and regional disparities"],
+      },
+      {
+        title: "Manufacturing Challenges and Competitiveness",
+        notes: [
+          "Manufacturing faces constraints from logistics costs, skills gap, MSME fragility and technology diffusion limits.",
+          "Global value chains, standards compliance and innovation capacity influence competitiveness.",
+          "Industrial policy must integrate sustainability, labour formalization and infrastructure quality.",
+          "UPSC answers should connect manufacturing growth with employment and export performance.",
+        ],
+        prelimsFocus: ["Types of industries and examples"],
+        mainsFocus: ["Manufacturing-led growth in India"],
+      },
+    ],
+  },
+  {
+    id: "geo12-ch9-planning-sustainable-development",
+    title: "Class 12 Chapter 9: Planning and Sustainable Development in Indian Context",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Planning in India: Rationale and Regional Perspective",
+        notes: [
+          "Planning addresses regional disparities, resource allocation and long-term development priorities.",
+          "Area development and targeted interventions are used where ecological fragility and socio-economic backwardness overlap.",
+          "Case-study approach is important to explain context-specific planning success and limitations.",
+          "Effective planning needs convergence across sectors, institutions and scales of governance.",
+        ],
+        prelimsFocus: ["Regional planning concept"],
+        mainsFocus: ["Need for balanced regional development planning"],
+      },
+      {
+        title: "Sustainable Development Strategies",
+        notes: [
+          "Sustainable development balances economic growth, social equity and environmental conservation.",
+          "Indian context requires livelihood-sensitive strategies in fragile ecosystems and high-pressure urban zones.",
+          "Carrying capacity, local participation and climate resilience should guide policy design.",
+          "UPSC framing should include way forward using SDGs, local governance and data-backed monitoring.",
+        ],
+        prelimsFocus: ["Sustainable development pillars"],
+        mainsFocus: ["Operationalizing sustainability in Indian planning"],
+      },
+    ],
+  },
+  {
+    id: "geo12-ch10-transport-communication",
+    title: "Class 12 Chapter 10: Transport and Communication",
+    weight: "High",
+    topics: [
+      {
+        title: "Transport Networks and Regional Connectivity",
+        notes: [
+          "Transport systems include road, rail, waterways, airways and pipelines with distinct cost-distance efficiency.",
+          "Connectivity determines market integration, service delivery and national cohesion.",
+          "Infrastructure gaps in difficult terrain and peripheral regions affect development outcomes.",
+          "Multimodal integration is central for logistics efficiency and balanced growth.",
+        ],
+        prelimsFocus: ["Modes of transport and comparative traits"],
+        mainsFocus: ["Connectivity and regional development relationship"],
+      },
+      {
+        title: "Communication Systems and Digital Geography",
+        notes: [
+          "Communication networks transform governance, markets, education and social interaction.",
+          "Digital infrastructure can reduce spatial barriers but digital divides persist by region and class.",
+          "Resilient communication systems are critical during disasters and public emergencies.",
+          "Policy should strengthen universal access, quality of service and cybersecurity readiness.",
+        ],
+        prelimsFocus: ["Communication infrastructure basics"],
+        mainsFocus: ["Digital inclusion as development geography issue"],
+      },
+    ],
+  },
+  {
+    id: "geo12-ch11-international-trade",
+    title: "Class 12 Chapter 11: International Trade",
+    weight: "High",
+    topics: [
+      {
+        title: "Trade Structure, Composition and Direction",
+        notes: [
+          "International trade reflects comparative advantage, domestic capability and global demand patterns.",
+          "India's trade basket includes merchandise and services with evolving sectoral composition.",
+          "Trade direction is shaped by geography, diplomacy, logistics and market access agreements.",
+          "UPSC analysis should combine trade data trends with strategic and developmental implications.",
+        ],
+        prelimsFocus: ["Exports, imports and balance concepts"],
+        mainsFocus: ["Changing composition of India's international trade"],
+      },
+      {
+        title: "Ports, Trade Corridors and External Sector Challenges",
+        notes: [
+          "Ports, corridors and hinterland connectivity determine transaction costs and trade competitiveness.",
+          "External vulnerabilities include commodity shocks, supply-chain disruptions and currency fluctuations.",
+          "Diversification, value addition and logistics modernization are critical for trade resilience.",
+          "Geography of trade should be linked with manufacturing policy and regional infrastructure planning.",
+        ],
+        prelimsFocus: ["Major ports and trade route relevance"],
+        mainsFocus: ["Strategies for improving external trade resilience"],
+      },
+    ],
+  },
+  {
+    id: "geo12-ch12-selected-geographical-issues-problems",
+    title: "Class 12 Chapter 12: Geographical Perspective on Selected Issues and Problems",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Environmental Degradation, Pollution and Resource Stress",
+        notes: [
+          "Rapid urbanization and industrialization create pollution hotspots and ecosystem stress zones.",
+          "Land, water and air quality degradation directly affects health, productivity and social welfare.",
+          "Regional vulnerability differs by ecology, poverty levels and governance capacity.",
+          "Issue-based answers should use prevention, regulation, restoration and behavioural change framework.",
+        ],
+        prelimsFocus: ["Types of pollution and resource stress indicators"],
+        mainsFocus: ["Geographical dimensions of environmental problems in India"],
+      },
+      {
+        title: "Urban Challenges, Social Vulnerability and Way Forward",
+        notes: [
+          "Urban poverty, slum concentration, waste burden and service inequality are spatial governance challenges.",
+          "Disaster risk and climate impacts increase vulnerability of informal settlements and fragile regions.",
+          "Integrated planning, social protection and local participation improve problem-solving effectiveness.",
+          "Conclude with actionable reforms: data-driven planning, decentralized institutions and climate-resilient infrastructure.",
+        ],
+        prelimsFocus: ["Urban issue mapping and vulnerability concepts"],
+        mainsFocus: ["Geography-led solutions for contemporary development issues"],
+      },
+    ],
+  },
+  {
+    id: "geo12h-ch1-human-geography-nature-scope",
+    title: "Class 12 Human Geography Chapter 1: Human Geography - Nature and Scope",
+    weight: "Foundation",
+    topics: [
+      {
+        title: "Meaning, Nature and Scope of Human Geography",
+        notes: [
+          "Human geography studies the relationship between people and their physical, social and economic environment.",
+          "It explains how culture, technology, institutions and choices shape spatial patterns over time.",
+          "The subject bridges natural sciences and social sciences through regional and thematic analysis.",
+          "UPSC preparation should connect human geography concepts with governance and development questions.",
+        ],
+        prelimsFocus: ["Definition and scope of human geography"],
+        mainsFocus: ["Human-environment interaction in spatial context"],
+      },
+      {
+        title: "Approaches and Contemporary Relevance",
+        notes: [
+          "Important approaches include environmental determinism, possibilism, regional approach and humanistic perspectives.",
+          "Modern human geography uses data, GIS and field studies to explain migration, urbanization and inequalities.",
+          "Globalization, climate risks and digital transformation have increased policy relevance of human geography.",
+          "Balanced answers should include both theory and real-world applications.",
+        ],
+        prelimsFocus: ["Determinism vs possibilism basics"],
+        mainsFocus: ["Utility of human geography in public policy"],
+      },
+      {
+        title: "Branches, Themes and Methods in Human Geography",
+        notes: [
+          "Core branches include population geography, settlement geography, economic geography, cultural geography and political geography.",
+          "Theme-based analysis uses distribution, interaction, diffusion, hierarchy and regional differentiation.",
+          "Human geographers apply census data, thematic maps, field surveys and geospatial tools for interpretation.",
+          "Methodological clarity improves answer-writing precision in UPSC mains.",
+        ],
+        prelimsFocus: ["Major branches of human geography"],
+        mainsFocus: ["How methods and themes shape human geography analysis"],
+      },
+      {
+        title: "Human Geography Relevance for UPSC GS and Essay",
+        notes: [
+          "Topics like migration, urbanization, inequality, resource use and globalization directly map to GS papers.",
+          "Interdisciplinary linkage with polity, economy, environment and ethics enriches multidimensional answers.",
+          "Use spatial examples and region-specific evidence to make arguments grounded and practical.",
+          "Conclude with policy-oriented and people-centric geographical reasoning.",
+        ],
+        prelimsFocus: ["Applied geography examples in current affairs"],
+        mainsFocus: ["Interdisciplinary use of human geography in UPSC"],
+      },
+    ],
+  },
+  {
+    id: "geo12h-ch2-world-population-distribution-density-growth",
+    title: "Class 12 Human Geography Chapter 2: World Population - Distribution, Density and Growth",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Distribution and Density of World Population",
+        notes: [
+          "World population is unevenly distributed due to climate, relief, water, resources and historical development.",
+          "Population density indicates pressure on land and differs sharply across continents and regions.",
+          "High concentration zones usually align with fertile plains, industrial belts and coastal urban regions.",
+          "Geographic explanation must combine physical and socio-economic factors.",
+        ],
+        prelimsFocus: ["Distribution and density concepts"],
+        mainsFocus: ["Determinants of global population distribution"],
+      },
+      {
+        title: "Population Growth and Demographic Transition",
+        notes: [
+          "Population growth depends on fertility, mortality and migration patterns.",
+          "Demographic transition model explains movement from high birth-high death to low birth-low death stages.",
+          "Developed and developing regions show distinct demographic trajectories.",
+          "Population policies should address ageing, youth bulge, migration and human development together.",
+        ],
+        prelimsFocus: ["Demographic transition stages"],
+        mainsFocus: ["Population growth challenges and opportunities"],
+      },
+      {
+        title: "Fertility, Mortality and Migration Indicators",
+        notes: [
+          "Key fertility indicators include crude birth rate, total fertility rate and replacement-level fertility.",
+          "Mortality indicators include crude death rate, infant mortality and life expectancy.",
+          "Migration modifies regional age structure, labour supply and dependency patterns.",
+          "Indicator-based interpretation is essential for demographic analysis in exams.",
+        ],
+        prelimsFocus: ["Fertility and mortality indicators"],
+        mainsFocus: ["Interpreting demographic indicators for policy"],
+      },
+      {
+        title: "Population Policies and Regional Case Comparisons",
+        notes: [
+          "Population policy tools include family planning, education, women empowerment and health interventions.",
+          "Different countries follow varied strategies depending on demographic stage and socio-cultural context.",
+          "Policy outcomes improve when linked with human development, social security and livelihood opportunities.",
+          "Comparative case references strengthen analytical answers.",
+        ],
+        prelimsFocus: ["Population policy concepts"],
+        mainsFocus: ["Effectiveness of population policies across regions"],
+      },
+    ],
+  },
+  {
+    id: "geo12h-ch3-population-composition",
+    title: "Class 12 Human Geography Chapter 3: Population Composition",
+    weight: "High",
+    topics: [
+      {
+        title: "Age-Sex Structure and Dependency",
+        notes: [
+          "Population composition examines age structure, sex ratio and dependency burden.",
+          "Age pyramids help compare growth trend, labour force potential and social service demand.",
+          "Sex composition reflects socio-cultural and health conditions across societies.",
+          "Dependency analysis is important for welfare planning and employment policy.",
+        ],
+        prelimsFocus: ["Age pyramid interpretation"],
+        mainsFocus: ["Dependency ratio and development outcomes"],
+      },
+      {
+        title: "Literacy, Occupation and Rural-Urban Structure",
+        notes: [
+          "Educational attainment and occupational composition shape productivity and social mobility.",
+          "Rural-urban composition reveals transition from agrarian to industrial-service economies.",
+          "Skills mismatch and unequal access to education can reduce demographic advantages.",
+          "UPSC answers should link population composition with inclusive growth.",
+        ],
+        prelimsFocus: ["Occupational structure basics"],
+        mainsFocus: ["Human capital and structural transformation"],
+      },
+      {
+        title: "Language, Religion and Ethnic Composition",
+        notes: [
+          "Cultural composition includes language groups, religious communities and ethnic identities.",
+          "Cultural diversity shapes social cohesion, political mobilization and policy design.",
+          "Geographical concentration of groups can influence development priorities and conflict patterns.",
+          "Balanced treatment should emphasize pluralism and constitutional values.",
+        ],
+        prelimsFocus: ["Population composition dimensions"],
+        mainsFocus: ["Cultural diversity and development planning"],
+      },
+      {
+        title: "Population Pyramids and Comparative Interpretation",
+        notes: [
+          "Expansive pyramids indicate youthful population, while constrictive pyramids indicate ageing societies.",
+          "Stationary pyramids represent demographic stabilization with balanced age distribution.",
+          "Pyramid interpretation helps infer labour force trends, welfare burden and social service demand.",
+          "Practicing diagram-based interpretation improves prelims and mains performance.",
+        ],
+        prelimsFocus: ["Population pyramid types"],
+        mainsFocus: ["Using age pyramids for policy inference"],
+      },
+    ],
+  },
+  {
+    id: "geo12h-ch4-human-development",
+    title: "Class 12 Human Geography Chapter 4: Human Development",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Concept and Indicators of Human Development",
+        notes: [
+          "Human development means enlarging people's choices and capabilities for a dignified life.",
+          "Key indicators include health, education and income with equality and sustainability dimensions.",
+          "Development is not only economic growth; it includes social justice and quality of life.",
+          "Comparative HD analysis helps understand regional and national disparities.",
+        ],
+        prelimsFocus: ["HDI components"],
+        mainsFocus: ["Difference between growth and human development"],
+      },
+      {
+        title: "Global and Regional Human Development Gaps",
+        notes: [
+          "Human development levels differ by governance quality, social policy and historical context.",
+          "Conflict, poverty, gender inequality and weak institutions reduce capability expansion.",
+          "Policy focus should include education quality, public health and social protection.",
+          "Sustainable human development combines equity, productivity and resilience.",
+        ],
+        prelimsFocus: ["Causes of low HD regions"],
+        mainsFocus: ["Pathways to inclusive human development"],
+      },
+      {
+        title: "Human Development Thought and Capability Approach",
+        notes: [
+          "Capability approach stresses what people are able to be and do rather than only what they earn.",
+          "Human development discourse was strengthened by contributions of Mahbub ul Haq and Amartya Sen.",
+          "Public action, social opportunity and institutional quality are central to capability expansion.",
+          "The framework is useful in evaluating development quality beyond GDP growth.",
+        ],
+        prelimsFocus: ["Capability approach basics"],
+        mainsFocus: ["Relevance of capability approach for policy evaluation"],
+      },
+      {
+        title: "Human Development, SDGs and Governance",
+        notes: [
+          "SDGs provide measurable targets for poverty reduction, health, education and inequality reduction.",
+          "Local governance capacity and public finance quality determine implementation effectiveness.",
+          "Data-driven monitoring helps identify lagging regions and social groups.",
+          "Integrating SDG outcomes with human development planning improves accountability.",
+        ],
+        prelimsFocus: ["Human development and SDG linkage"],
+        mainsFocus: ["Governance reforms for better human development outcomes"],
+      },
+    ],
+  },
+  {
+    id: "geo12h-ch5-primary-activities",
+    title: "Class 12 Human Geography Chapter 5: Primary Activities",
+    weight: "High",
+    topics: [
+      {
+        title: "Nature and Types of Primary Activities",
+        notes: [
+          "Primary activities directly depend on natural resources, including agriculture, fishing, forestry and mining.",
+          "Their structure varies by technology, climate, landholding and market access.",
+          "Resource extraction supports livelihoods but may create environmental stress if unmanaged.",
+          "Spatial differences in primary activities explain regional economic diversity.",
+        ],
+        prelimsFocus: ["Examples of primary activities"],
+        mainsFocus: ["Primary sector and livelihood security"],
+      },
+      {
+        title: "Agricultural Systems and Contemporary Challenges",
+        notes: [
+          "Agriculture ranges from subsistence to commercial and plantation systems globally.",
+          "Major concerns include climate variability, soil degradation, water stress and price risks.",
+          "Sustainable practices improve productivity while protecting ecological balance.",
+          "UPSC framing should include technology, institutions and market reforms.",
+        ],
+        prelimsFocus: ["Types of agriculture"],
+        mainsFocus: ["Sustainable agriculture and resilience"],
+      },
+      {
+        title: "Gathering, Pastoralism and Fishing Economies",
+        notes: [
+          "Traditional primary activities include hunting-gathering, nomadic herding and artisanal fishing.",
+          "These systems are adapted to local ecology, seasons and resource cycles.",
+          "Commercial pressure and climate change threaten viability of traditional livelihoods.",
+          "Policy must protect community rights while enabling diversified income opportunities.",
+        ],
+        prelimsFocus: ["Traditional primary activities"],
+        mainsFocus: ["Livelihood transition in traditional economies"],
+      },
+      {
+        title: "Commercial Farming, Plantations and Agro-Industry",
+        notes: [
+          "Commercial farming integrates mechanization, input intensity and market orientation.",
+          "Plantation agriculture is export-oriented and labour-intensive in suitable tropical climates.",
+          "Agro-processing and value chains determine farmer incomes and regional development.",
+          "Balanced reform should combine efficiency, equity and sustainability.",
+        ],
+        prelimsFocus: ["Plantation and commercial farming differences"],
+        mainsFocus: ["Agro-value chains and rural transformation"],
+      },
+    ],
+  },
+  {
+    id: "geo12h-ch6-secondary-activities",
+    title: "Class 12 Human Geography Chapter 6: Secondary Activities",
+    weight: "High",
+    topics: [
+      {
+        title: "Manufacturing and Industrial Systems",
+        notes: [
+          "Secondary activities transform raw materials into finished products through manufacturing and processing.",
+          "Industrial location depends on raw materials, labour, power, transport and market factors.",
+          "Industrial clusters and agglomeration economies improve efficiency and innovation.",
+          "Regional industrial imbalance remains a key developmental issue.",
+        ],
+        prelimsFocus: ["Industrial location factors"],
+        mainsFocus: ["Industrialization and regional disparities"],
+      },
+      {
+        title: "Construction, Value Addition and Employment",
+        notes: [
+          "Construction and manufacturing generate large-scale employment and urban growth.",
+          "Value addition chains connect local resources with national and global markets.",
+          "Technology adoption and skill development determine competitiveness.",
+          "Policy should integrate productivity, labour welfare and sustainability.",
+        ],
+        prelimsFocus: ["Secondary sector components"],
+        mainsFocus: ["Manufacturing-led growth strategy"],
+      },
+      {
+        title: "Industrial Classification and Location Theory",
+        notes: [
+          "Industries are classified as agro-based, mineral-based, chemical, engineering, consumer and high-tech sectors.",
+          "Location theory considers transport cost, labour, market threshold and agglomeration economies.",
+          "Footloose industries are less raw-material dependent and often cluster around innovation ecosystems.",
+          "Applying location theory improves spatial explanation in mains answers.",
+        ],
+        prelimsFocus: ["Industry classification and footloose concept"],
+        mainsFocus: ["Use of location theory in industrial geography"],
+      },
+      {
+        title: "Industrial Regions, Clusters and Environmental Governance",
+        notes: [
+          "Industrial clusters enhance productivity through shared infrastructure, suppliers and labour pools.",
+          "Pollution hotspots and industrial waste demand strict environmental regulation and cleaner technology.",
+          "Regional policy should support MSME modernization and green industrial transformation.",
+          "Competitiveness and sustainability must be pursued together.",
+        ],
+        prelimsFocus: ["Industrial cluster concept"],
+        mainsFocus: ["Balancing industrial growth with environmental safeguards"],
+      },
+    ],
+  },
+  {
+    id: "geo12h-ch7-tertiary-quaternary-activities",
+    title: "Class 12 Human Geography Chapter 7: Tertiary and Quaternary Activities",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Service Economy and Tertiary Activities",
+        notes: [
+          "Tertiary activities include transport, trade, banking, insurance, education and healthcare services.",
+          "Services support all sectors by reducing transaction costs and improving market integration.",
+          "Rapid urbanization and digitalization are expanding service-sector dominance.",
+          "Quality, accessibility and affordability of services shape social outcomes.",
+        ],
+        prelimsFocus: ["Examples of tertiary activities"],
+        mainsFocus: ["Service sector role in structural transformation"],
+      },
+      {
+        title: "Knowledge Economy and Quaternary Functions",
+        notes: [
+          "Quaternary activities involve research, IT, analytics, design and advanced decision-making functions.",
+          "Innovation ecosystems and skilled workforce drive knowledge-based competitiveness.",
+          "Digital divide and unequal human capital can widen regional inequality.",
+          "Future-ready policy requires skilling, R&D and digital infrastructure expansion.",
+        ],
+        prelimsFocus: ["Tertiary vs quaternary distinction"],
+        mainsFocus: ["Knowledge economy and development"],
+      },
+      {
+        title: "Quinary Activities and Advanced Decision Systems",
+        notes: [
+          "Quinary activities include top-level policy decisions, strategic management and high-end consultancy.",
+          "These functions concentrate in global cities and knowledge-intensive metropolitan hubs.",
+          "Decision ecosystems rely on data systems, institutions and specialized human capital.",
+          "Their expansion influences urban hierarchy and regional inequality.",
+        ],
+        prelimsFocus: ["Quaternary vs quinary activities"],
+        mainsFocus: ["Role of high-order services in global economy"],
+      },
+      {
+        title: "Service-Led Growth: Opportunities and Risks",
+        notes: [
+          "Service-led growth can accelerate GDP and employment in modern economies.",
+          "Uneven skill distribution may produce dualism between high-end and informal services.",
+          "Social sector services like health and education remain crucial for inclusive outcomes.",
+          "Policy must combine productivity gains with broad-based access and worker protection.",
+        ],
+        prelimsFocus: ["Features of service-led growth"],
+        mainsFocus: ["Inclusive strategy for service-sector expansion"],
+      },
+    ],
+  },
+  {
+    id: "geo12h-ch8-transport-and-communication",
+    title: "Class 12 Human Geography Chapter 8: Transport and Communication",
+    weight: "High",
+    topics: [
+      {
+        title: "Transport Networks and Mobility",
+        notes: [
+          "Transport includes roads, railways, waterways, airways and pipelines with different cost-time profiles.",
+          "Efficient connectivity improves trade, migration, service delivery and regional integration.",
+          "Geographical barriers and uneven infrastructure create accessibility gaps.",
+          "Multimodal planning is essential for resilient and inclusive growth.",
+        ],
+        prelimsFocus: ["Transport mode characteristics"],
+        mainsFocus: ["Transport as driver of development"],
+      },
+      {
+        title: "Communication Systems and Spatial Integration",
+        notes: [
+          "Communication networks connect people, markets and institutions across distances.",
+          "Telecom and internet expansion have transformed governance, education and business.",
+          "Digital exclusion remains a challenge in remote and marginalized regions.",
+          "Policy must ensure universal and secure communication infrastructure.",
+        ],
+        prelimsFocus: ["Traditional vs modern communication"],
+        mainsFocus: ["Digital connectivity and inclusive development"],
+      },
+      {
+        title: "Transport Patterns, Corridors and Nodal Regions",
+        notes: [
+          "Transport networks form hierarchies of hubs, corridors and peripheral linkages.",
+          "Corridor development reduces logistics costs and stimulates regional industrialization.",
+          "Geographical constraints, climate vulnerability and funding gaps affect network quality.",
+          "Integrated spatial planning is required for equitable accessibility.",
+        ],
+        prelimsFocus: ["Transport corridor and nodal region concepts"],
+        mainsFocus: ["Network planning and regional development"],
+      },
+      {
+        title: "Satellite, Digital and Emerging Communication Systems",
+        notes: [
+          "Satellite systems support broadcasting, navigation, disaster alerts and remote sensing applications.",
+          "Digital platforms have expanded fintech, e-governance, telemedicine and online education.",
+          "Cybersecurity and misinformation are key governance challenges in digital spaces.",
+          "Robust regulation and infrastructure resilience are essential for secure connectivity.",
+        ],
+        prelimsFocus: ["Satellite communication applications"],
+        mainsFocus: ["Digital communication governance challenges"],
+      },
+    ],
+  },
+  {
+    id: "geo12h-ch9-international-trade",
+    title: "Class 12 Human Geography Chapter 9: International Trade",
+    weight: "High",
+    topics: [
+      {
+        title: "Basis and Patterns of International Trade",
+        notes: [
+          "International trade occurs due to resource differences, specialization and comparative advantage.",
+          "Trade pattern depends on production capacity, technology, logistics and policy frameworks.",
+          "Merchandise and services trade together shape national external-sector performance.",
+          "Geographical position and connectivity significantly affect trade competitiveness.",
+        ],
+        prelimsFocus: ["Comparative advantage concept"],
+        mainsFocus: ["Determinants of global trade patterns"],
+      },
+      {
+        title: "Trade Organization and Contemporary Challenges",
+        notes: [
+          "Trade is influenced by multilateral rules, regional agreements and bilateral arrangements.",
+          "Current challenges include protectionism, supply-chain shocks and geopolitical risk.",
+          "Diversification and value addition are key for resilient trade strategy.",
+          "UPSC answers should integrate economic and strategic dimensions of trade.",
+        ],
+        prelimsFocus: ["Trade terms and basics"],
+        mainsFocus: ["Trade resilience in uncertain global environment"],
+      },
+      {
+        title: "Trade Metrics, Balance and Terms of Trade",
+        notes: [
+          "Key trade metrics include trade volume, trade balance, current account and export competitiveness.",
+          "Terms of trade changes affect purchasing power and macroeconomic stability.",
+          "Commodity dependence can expose economies to price and demand shocks.",
+          "Data-based interpretation improves quality of external sector analysis.",
+        ],
+        prelimsFocus: ["Balance of trade and terms of trade"],
+        mainsFocus: ["External vulnerability and trade structure"],
+      },
+      {
+        title: "WTO, Trading Blocs and New Trade Architecture",
+        notes: [
+          "WTO framework governs dispute settlement, tariff commitments and trade rules.",
+          "Regional blocs and bilateral FTAs reshape market access and supply-chain organization.",
+          "Digital trade, services trade and standards regimes are increasingly strategic.",
+          "A resilient approach combines competitiveness, diversification and fair trade safeguards.",
+        ],
+        prelimsFocus: ["WTO and FTA basics"],
+        mainsFocus: ["Evolving global trade architecture"],
+      },
+    ],
+  },
+  {
+    id: "geo12h-ch10-human-settlements",
+    title: "Class 12 Human Geography Chapter 10: Human Settlements",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Rural Settlements and Settlement Morphology",
+        notes: [
+          "Rural settlement patterns are influenced by relief, water, occupation, culture and security.",
+          "Settlement forms include compact, scattered, linear and planned patterns.",
+          "Infrastructure and market access are reshaping traditional rural settlement systems.",
+          "Regional study helps explain variations in livelihood and social structure.",
+        ],
+        prelimsFocus: ["Types of rural settlements"],
+        mainsFocus: ["Determinants of rural settlement patterns"],
+      },
+      {
+        title: "Urban Settlements, Hierarchy and Challenges",
+        notes: [
+          "Urban settlements are classified by size, function and administrative status.",
+          "Urban growth brings opportunities but also housing shortage, congestion and environmental stress.",
+          "Functional hierarchy includes megacities, metropolitan areas and smaller urban centers.",
+          "Sustainable urban planning requires transport integration, affordable housing and service equity.",
+        ],
+        prelimsFocus: ["Urban classification basics"],
+        mainsFocus: ["Urbanization challenges and policy response"],
+      },
+      {
+        title: "Urban Morphology and Functional Classification",
+        notes: [
+          "Urban morphology studies city form through land use, street patterns and built-up structure.",
+          "Cities can be administrative, industrial, commercial, educational, cultural or multifunctional.",
+          "Functional specialization influences employment structure and migration attraction.",
+          "Morphological understanding supports better urban governance and planning.",
+        ],
+        prelimsFocus: ["Urban functional classification"],
+        mainsFocus: ["Urban morphology and planning relevance"],
+      },
+      {
+        title: "Sustainable Settlements and Future Urban Strategy",
+        notes: [
+          "Sustainable settlements prioritize compact growth, public transport and green-blue infrastructure.",
+          "Climate adaptation requires heat-resilient design, flood management and ecological buffers.",
+          "Affordable housing, waste systems and universal services are central to social equity.",
+          "Future strategy should align economic dynamism with environmental and social sustainability.",
+        ],
+        prelimsFocus: ["Features of sustainable settlements"],
+        mainsFocus: ["Long-term strategy for inclusive and resilient cities"],
+      },
+    ],
+  },
 ];

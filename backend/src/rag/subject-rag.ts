@@ -443,6 +443,8 @@ const DEFAULT_GEOGRAPHY_PATHS = [
   process.env.GEOGRAPHY_11TH_PHYSICAL_BOOK_PDF_PATH || "",
   process.env.GEOGRAPHY_11TH_ENVIRONMENT_BOOK_PDF_PATH || "",
   process.env.GEOGRAPHY_11TH_MAPS_BOOK_PDF_PATH || "",
+  process.env.GEOGRAPHY_12TH_INDIA_BOOK_PDF_PATH || "",
+  process.env.GEOGRAPHY_12TH_HUMAN_BOOK_PDF_PATH || "",
   String.raw`C:\Users\Chandrashekar\Downloads\6th.pdf`,
   String.raw`C:\Users\Chandrashekar\Downloads\7th.pdf`,
   String.raw`C:\Users\Chandrashekar\Downloads\8th.pdf`,
@@ -450,6 +452,8 @@ const DEFAULT_GEOGRAPHY_PATHS = [
   String.raw`C:\Users\Chandrashekar\Downloads\10th (1).pdf`,
   String.raw`C:\Users\Chandrashekar\Downloads\11th-part1-physical.pdf`,
   String.raw`C:\Users\Chandrashekar\Downloads\11th-part2-environment.pdf`,
+  String.raw`C:\Users\Chandrashekar\Downloads\12th-part1-india (2).pdf`,
+  String.raw`C:\Users\Chandrashekar\Downloads\12th-part2-human.pdf`,
   path.resolve(process.cwd(), "..", "6th.pdf"),
   path.resolve(process.cwd(), "..", "7th.pdf"),
   path.resolve(process.cwd(), "..", "8th.pdf"),
@@ -457,6 +461,8 @@ const DEFAULT_GEOGRAPHY_PATHS = [
   path.resolve(process.cwd(), "..", "10th (1).pdf"),
   path.resolve(process.cwd(), "..", "11th-part1-physical.pdf"),
   path.resolve(process.cwd(), "..", "11th-part2-environment.pdf"),
+  path.resolve(process.cwd(), "..", "12th-part1-india (2).pdf"),
+  path.resolve(process.cwd(), "..", "12th-part2-human.pdf"),
 ].filter(Boolean);
 
 const firstExistingPath = (candidates: string[]) => {
@@ -546,7 +552,7 @@ export const seedGeographyBooksIfMissing = async () => {
   if (!foundPaths.length) {
     return {
       seeded: false,
-      reason: "No geography PDF paths found. Set GEOGRAPHY_BOOK_PDF_PATHS / GEOGRAPHY_6TH_BOOK_PDF_PATH / GEOGRAPHY_7TH_BOOK_PDF_PATH / GEOGRAPHY_8TH_BOOK_PDF_PATH / GEOGRAPHY_9TH_BOOK_PDF_PATH / GEOGRAPHY_10TH_BOOK_PDF_PATH / GEOGRAPHY_11TH_PHYSICAL_BOOK_PDF_PATH / GEOGRAPHY_11TH_ENVIRONMENT_BOOK_PDF_PATH / GEOGRAPHY_11TH_MAPS_BOOK_PDF_PATH in backend .env.",
+      reason: "No geography PDF paths found. Set GEOGRAPHY_BOOK_PDF_PATHS / GEOGRAPHY_6TH_BOOK_PDF_PATH / GEOGRAPHY_7TH_BOOK_PDF_PATH / GEOGRAPHY_8TH_BOOK_PDF_PATH / GEOGRAPHY_9TH_BOOK_PDF_PATH / GEOGRAPHY_10TH_BOOK_PDF_PATH / GEOGRAPHY_11TH_PHYSICAL_BOOK_PDF_PATH / GEOGRAPHY_11TH_ENVIRONMENT_BOOK_PDF_PATH / GEOGRAPHY_11TH_MAPS_BOOK_PDF_PATH / GEOGRAPHY_12TH_INDIA_BOOK_PDF_PATH / GEOGRAPHY_12TH_HUMAN_BOOK_PDF_PATH in backend .env.",
     };
   }
 

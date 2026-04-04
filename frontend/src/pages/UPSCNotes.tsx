@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, BookMarked, BookOpen, ChevronLeft, ChevronRight, Search, Target } from "lucide-react";
+import { ArrowLeft, BookMarked, BookOpen, ChevronLeft, ChevronRight, Maximize2, Search, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,27 @@ import { readTopicPreferences, toggleBookmark, toggleWeak, writeTopicPreferences
 import { Chapter } from "@/features/notes/types";
 
 type SubjectId = "history" | "polity" | "geography";
+
+const SUBJECT_REFERENCE_BOOKS: Record<SubjectId, { title: string; src: string }[]> = {
+  history: [
+    { title: "A Brief History of Modern India (Spectrum)", src: "/books/history/modern-history-spectrum.pdf" },
+  ],
+  polity: [
+    { title: "Indian Polity (M. Laxmikanth 8th Edition)", src: "/books/polity/indian-polity-laxmikant-8th.pdf" },
+  ],
+  geography: [
+    { title: "Geography 6th Standard", src: "/books/geography/6th.pdf" },
+    { title: "Geography 7th Standard", src: "/books/geography/7th.pdf" },
+    { title: "Geography 8th Standard", src: "/books/geography/8th.pdf" },
+    { title: "Geography 9th Standard", src: "/books/geography/9th.pdf" },
+    { title: "Geography 10th Standard", src: "/books/geography/10th-1.pdf" },
+    { title: "11th Physical Geography", src: "/books/geography/11th-part1-physical.pdf" },
+    { title: "11th Environment", src: "/books/geography/11th-part2-environment.pdf" },
+    { title: "11th Map Practice", src: "/books/geography/11th-part3-maps.pdf" },
+    { title: "12th India: People and Economy", src: "/books/geography/12th-part1-india-2.pdf" },
+    { title: "12th Human Geography", src: "/books/geography/12th-part2-human.pdf" },
+  ],
+};
 
 const NOTES_SUBJECTS: Record<SubjectId, { label: string; chapters: Chapter[]; parts: typeof HISTORY_BOOK_PARTS }> = {
   history: {
@@ -48,10 +69,14 @@ const UPSCNotes = () => {
   const [progress, setProgress] = useState(readNotesProgress());
   const [preferences, setPreferences] = useState(readTopicPreferences());
   const [viewFilter, setViewFilter] = useState<"all" | "weak" | "bookmarked" | "incomplete">("all");
+  const [activeReferenceBookIndex, setActiveReferenceBookIndex] = useState(0);
+  const referenceViewerRef = useRef<HTMLDivElement | null>(null);
   const CHAPTERS_PER_PAGE = 6;
   const activeSubject = NOTES_SUBJECTS[activeSubjectId];
   const currentParts = activeSubject.parts;
   const currentNotes = activeSubject.chapters;
+  const referenceBooks = SUBJECT_REFERENCE_BOOKS[activeSubjectId] || [];
+  const activeReferenceBook = referenceBooks[activeReferenceBookIndex] || referenceBooks[0] || null;
 
   const activePart = useMemo(
     () => currentParts.find((part) => part.id === activePartId) || currentParts[0],
@@ -150,6 +175,15 @@ const UPSCNotes = () => {
     setBlockIndex(0);
     setActivePartId(next.parts[0]?.id || "");
     setChapterId(next.chapters[0]?.id || "");
+    setActiveReferenceBookIndex(0);
+  };
+
+  const openReferenceFullScreen = () => {
+    const el = referenceViewerRef.current;
+    if (!el) return;
+    if (typeof el.requestFullscreen === "function") {
+      void el.requestFullscreen();
+    }
   };
 
   useEffect(() => {
@@ -413,6 +447,45 @@ const UPSCNotes = () => {
             </CardContent>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5" />Reference Book Viewer</CardTitle>
+            <CardDescription>Full reference material for {activeSubject.label} after your slide study.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {referenceBooks.map((book, idx) => (
+                <Button
+                  key={`${book.src}-${idx}`}
+                  size="sm"
+                  variant={idx === activeReferenceBookIndex ? "default" : "outline"}
+                  onClick={() => setActiveReferenceBookIndex(idx)}
+                >
+                  {book.title}
+                </Button>
+              ))}
+            </div>
+            {activeReferenceBook ? (
+              <div ref={referenceViewerRef} className="rounded-md border bg-background">
+                <div className="flex items-center justify-between gap-2 border-b p-2">
+                  <p className="text-sm font-medium">{activeReferenceBook.title}</p>
+                  <Button size="sm" variant="outline" onClick={openReferenceFullScreen}>
+                    <Maximize2 className="mr-1 h-4 w-4" />
+                    Full Screen
+                  </Button>
+                </div>
+                <iframe
+                  src={activeReferenceBook.src}
+                  title={activeReferenceBook.title}
+                  className="h-[88vh] w-full rounded-b-md"
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Reference PDF is not available for this subject yet.</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

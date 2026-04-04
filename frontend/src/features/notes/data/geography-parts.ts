@@ -203,4 +203,68 @@ export const GEOGRAPHY_BOOK_PARTS: BookPart[] = [
       "geo11map-ch10-revision-atlas-workflow",
     ],
   },
+  {
+    id: "geography-part-20",
+    title: "Part 20: Class 12 India: People and Economy - Population and Settlements",
+    description: "Chapters 1 to 4 on population patterns, migration, human development and settlement geography.",
+    chapterIds: [
+      "geo12-ch1-population-distribution-density-growth-composition",
+      "geo12-ch2-migration-types-causes-consequences",
+      "geo12-ch3-human-development-india",
+      "geo12-ch4-human-settlements",
+    ],
+  },
+  {
+    id: "geography-part-21",
+    title: "Part 21: Class 12 India: People and Economy - Resources and Industries",
+    description: "Chapters 5 to 8 on land-water resources, minerals-energy and manufacturing systems.",
+    chapterIds: [
+      "geo12-ch5-land-resources-agriculture",
+      "geo12-ch6-water-resources",
+      "geo12-ch7-mineral-energy-resources",
+      "geo12-ch8-manufacturing-industries",
+    ],
+  },
+  {
+    id: "geography-part-22",
+    title: "Part 22: Class 12 India: People and Economy - Planning, Connectivity and Trade",
+    description: "Chapters 9 to 12 on planning, transport, trade and selected geographic issues.",
+    chapterIds: [
+      "geo12-ch9-planning-sustainable-development",
+      "geo12-ch10-transport-communication",
+      "geo12-ch11-international-trade",
+      "geo12-ch12-selected-geographical-issues-problems",
+    ],
+  },
+  {
+    id: "geography-part-23",
+    title: "Part 23: Class 12 Human Geography - Foundations",
+    description: "Chapters 1 to 3 covering nature of human geography, world population and composition.",
+    chapterIds: [
+      "geo12h-ch1-human-geography-nature-scope",
+      "geo12h-ch2-world-population-distribution-density-growth",
+      "geo12h-ch3-population-composition",
+    ],
+  },
+  {
+    id: "geography-part-24",
+    title: "Part 24: Class 12 Human Geography - Development and Activities",
+    description: "Chapters 4 to 7 covering human development and economic activities.",
+    chapterIds: [
+      "geo12h-ch4-human-development",
+      "geo12h-ch5-primary-activities",
+      "geo12h-ch6-secondary-activities",
+      "geo12h-ch7-tertiary-quaternary-activities",
+    ],
+  },
+  {
+    id: "geography-part-25",
+    title: "Part 25: Class 12 Human Geography - Networks, Trade and Settlements",
+    description: "Chapters 8 to 10 covering transport, communication, trade and settlements.",
+    chapterIds: [
+      "geo12h-ch8-transport-and-communication",
+      "geo12h-ch9-international-trade",
+      "geo12h-ch10-human-settlements",
+    ],
+  },
 ];
