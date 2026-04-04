@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/use-local-auth";
 import { Button } from "@/components/ui/button";
@@ -9,45 +9,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, User } from "lucide-react";
 import upscMentorLogo from "@/assets/upsc-mentor-logo.jpeg";
 
-declare global {
-  interface Window {
-    google?: any;
-  }
-}
-
-const GOOGLE_SCRIPT_ID = "google-gsi-client";
-const GOOGLE_CLIENT_ID = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
-
-const loadGoogleScript = () =>
-  new Promise<void>((resolve, reject) => {
-    if (window.google?.accounts?.id) {
-      resolve();
-      return;
-    }
-    const existing = document.getElementById(GOOGLE_SCRIPT_ID) as HTMLScriptElement | null;
-    if (existing) {
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error("Failed to load Google script")), { once: true });
-      return;
-    }
-    const script = document.createElement("script");
-    script.id = GOOGLE_SCRIPT_ID;
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Failed to load Google script"));
-    document.head.appendChild(script);
-  });
-
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const googleBtnRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, isReady, profile } = useAuth();
@@ -82,53 +49,6 @@ const Auth = () => {
     }
   };
 
-  useEffect(() => {
-    if (!GOOGLE_CLIENT_ID || !googleBtnRef.current) return;
-    let mounted = true;
-    setGoogleLoading(true);
-
-    loadGoogleScript()
-      .then(() => {
-        if (!mounted || !window.google?.accounts?.id || !googleBtnRef.current) return;
-        window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: async (response: { credential?: string }) => {
-            try {
-              const token = String(response?.credential || "").trim();
-              if (!token) throw new Error("Google did not return credential");
-              const result = await auth.signInWithGoogle(token);
-              if (result.error) throw new Error(result.error);
-              toast({ title: "Welcome!", description: "Signed in with Google successfully." });
-              navigate("/dashboard");
-            } catch (error: any) {
-              toast({ title: "Error", description: error?.message || "Google sign-in failed", variant: "destructive" });
-            }
-          },
-          auto_select: false,
-          cancel_on_tap_outside: true,
-        });
-
-        googleBtnRef.current.innerHTML = "";
-        window.google.accounts.id.renderButton(googleBtnRef.current, {
-          theme: "outline",
-          size: "large",
-          width: 360,
-          text: "continue_with",
-          shape: "pill",
-        });
-      })
-      .catch((error: any) => {
-        if (!mounted) return;
-        toast({ title: "Error", description: error?.message || "Google sign-in failed", variant: "destructive" });
-      })
-      .finally(() => {
-        if (mounted) setGoogleLoading(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [auth, navigate, toast]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-accent/20 p-4">
@@ -166,18 +86,6 @@ const Auth = () => {
             {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
           </Button>
         </form>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">or</span>
-          </div>
-        </div>
-
-        <div className="flex w-full justify-center">
-          <div ref={googleBtnRef} className="min-h-[44px]" />
-        </div>
-        {googleLoading && <p className="text-center text-xs text-muted-foreground">Loading Google sign-in...</p>}
 
         <div className="text-center">
           <button onClick={() => setIsLogin(!isLogin)} className="text-sm text-primary hover:underline font-medium">
