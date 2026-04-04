@@ -2,56 +2,155 @@ import { Chapter } from "../types";
 
 export const POLITY_NOTES: Chapter[] = [
   {
-    id: "polity-constitutional-framework",
-    title: "Constitutional Framework",
+    id: "polity-historical-background",
+    title: "Historical Background",
     weight: "Very High",
     topics: [
       {
-        title: "Historical Background and Making of the Constitution",
+        title: "Constitutional Development and National Movement Influence",
         notes: [
-          "Constitution emerged from colonial constitutional evolution: Regulating Act 1773 to Government of India Act 1935.",
-          "Constituent Assembly (1946-1949) prepared a detailed written constitution balancing rights, governance, and diversity.",
-          "Objectives Resolution shaped constitutional philosophy of justice, liberty, equality, and fraternity.",
+          "Colonial constitutional acts from 1773 to 1935 laid administrative and legislative foundations.",
+          "National movement resolutions gradually shifted demand from reforms to complete self-rule.",
+          "Post-independence constitution absorbed lessons from both colonial governance and freedom struggle.",
         ],
-        prelimsFocus: ["Constituent Assembly committees", "Sources of the Constitution"],
-        mainsFocus: ["How historical context shaped constitutional design"],
-      },
-      {
-        title: "Preamble, Features, Rights, DPSP, Duties and Amendment",
-        notes: [
-          "Preamble reflects constitutional vision and basic philosophy of the Republic.",
-          "Fundamental Rights protect liberty; DPSP guide state policy; Fundamental Duties reinforce civic responsibility.",
-          "Amendment procedure (Article 368) allows change but Basic Structure limits destructive constitutional alteration.",
-        ],
-        prelimsFocus: ["Articles on rights and duties", "Amendment types"],
-        mainsFocus: ["Balance between flexibility and constitutional supremacy"],
+        prelimsFocus: ["Major acts timeline and features"],
+        mainsFocus: ["Historical evolution of constitutionalism in India"],
       },
     ],
   },
   {
-    id: "polity-system-of-government",
-    title: "System of Government",
+    id: "polity-making-constitution",
+    title: "Making of the Constitution",
     weight: "Very High",
     topics: [
       {
-        title: "Parliamentary, Federal and Centre-State Architecture",
+        title: "Constituent Assembly: Structure, Committees and Drafting",
         notes: [
-          "India follows parliamentary government with executive accountability to legislature.",
-          "Federal structure has unitary tilt with strong Union powers in national interest.",
-          "Seventh Schedule and constitutional institutions regulate legislative and administrative relations.",
+          "Constituent Assembly worked through multiple committees with Drafting Committee under Dr. B.R. Ambedkar.",
+          "Debates balanced rights, representation, governance stability and social justice.",
+          "Constitution was adopted on 26 November 1949 and enforced on 26 January 1950.",
         ],
-        prelimsFocus: ["Union, State, Concurrent lists", "Parliamentary features"],
-        mainsFocus: ["Nature of Indian federalism: cooperative vs competitive dimensions"],
+        prelimsFocus: ["Assembly timeline and committee names"],
+        mainsFocus: ["Constituent Assembly as instrument of nation building"],
       },
+    ],
+  },
+  {
+    id: "polity-salient-features",
+    title: "Salient Features of the Constitution",
+    weight: "Very High",
+    topics: [
       {
-        title: "Inter-State Relations and Emergency Provisions",
+        title: "Core Constitutional Design",
         notes: [
-          "Inter-State Council, Finance Commission, and tribunals support coordination across units.",
-          "Emergency provisions alter federal balance during security, constitutional, or financial crises.",
-          "Judicial review acts as safeguard against misuse of emergency powers.",
+          "India has a written, detailed constitution with parliamentary democracy and federal structure.",
+          "Independent judiciary, universal franchise and single citizenship are defining features.",
+          "Rights, directive principles and duties create a balanced constitutional value framework.",
         ],
-        prelimsFocus: ["Articles on National, State, Financial emergency"],
-        mainsFocus: ["Federal implications of emergency framework"],
+        prelimsFocus: ["Salient feature keywords"],
+        mainsFocus: ["Uniqueness of Indian constitutional model"],
+      },
+    ],
+  },
+  {
+    id: "polity-preamble",
+    title: "Preamble",
+    weight: "High",
+    topics: [
+      {
+        title: "Philosophy, Keywords and Constitutional Significance",
+        notes: [
+          "Preamble reflects constitutional ideals of justice, liberty, equality and fraternity.",
+          "Sovereign, Socialist, Secular, Democratic Republic defines state character.",
+          "Judiciary uses preamble as interpretive guide for constitutional meaning.",
+        ],
+        prelimsFocus: ["Keywords and amendment facts"],
+        mainsFocus: ["Preamble and constitutional morality"],
+      },
+    ],
+  },
+  {
+    id: "polity-union-territory-citizenship",
+    title: "Union and its Territory; Citizenship",
+    weight: "High",
+    topics: [
+      {
+        title: "Territorial Framework and Citizenship Law",
+        notes: [
+          "Article 1 defines India as Union of States; Parliament may alter state boundaries under Article 3.",
+          "Citizenship is governed by constitutional provisions and Citizenship Act mechanisms.",
+          "Single citizenship model supports national integration in a federal framework.",
+        ],
+        prelimsFocus: ["Articles 1-4 and citizenship modes"],
+        mainsFocus: ["Federal unity and citizenship debates"],
+      },
+    ],
+  },
+  {
+    id: "polity-fundamental-rights",
+    title: "Fundamental Rights",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Rights Framework and Judicial Protection",
+        notes: [
+          "Part III protects equality, freedom, life, religion, culture and legal remedies.",
+          "Rights are enforceable through writs under Articles 32 and 226.",
+          "Judicial interpretation expanded rights through dignity, privacy and due process reasoning.",
+        ],
+        prelimsFocus: ["Rights articles and writs"],
+        mainsFocus: ["Rights jurisprudence and democratic safeguards"],
+      },
+    ],
+  },
+  {
+    id: "polity-dpsp-duties-amendment-basic",
+    title: "DPSP, Fundamental Duties, Amendment and Basic Structure",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Welfare Goals and Constitutional Limits",
+        notes: [
+          "DPSP guide state toward socio-economic justice and welfare orientation.",
+          "Fundamental Duties encourage civic constitutional responsibility.",
+          "Amendment power under Article 368 is limited by Basic Structure doctrine.",
+        ],
+        prelimsFocus: ["DPSP articles, duties clauses, amendment types"],
+        mainsFocus: ["Balancing rights, welfare and constitutional continuity"],
+      },
+    ],
+  },
+  {
+    id: "polity-system-government-federal",
+    title: "System of Government and Federal Relations",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Parliamentary Model, Federalism and Inter-State Relations",
+        notes: [
+          "India follows parliamentary executive accountability and cabinet responsibility.",
+          "Federal structure has unitary features with strong Union powers in key domains.",
+          "Inter-state mechanisms and constitutional bodies mediate coordination and disputes.",
+        ],
+        prelimsFocus: ["Parliamentary features and list system"],
+        mainsFocus: ["Cooperative federalism in practice"],
+      },
+    ],
+  },
+  {
+    id: "polity-emergency-provisions",
+    title: "Emergency Provisions",
+    weight: "Very High",
+    topics: [
+      {
+        title: "National, State and Financial Emergency Framework",
+        notes: [
+          "Articles 352, 356 and 360 define emergency conditions and consequences.",
+          "Emergencies alter normal distribution of powers and may affect rights framework.",
+          "Judicial safeguards and constitutional amendments reduced scope for misuse.",
+        ],
+        prelimsFocus: ["Emergency articles and effects"],
+        mainsFocus: ["Security needs vs constitutional liberty"],
       },
     ],
   },
@@ -61,24 +160,14 @@ export const POLITY_NOTES: Chapter[] = [
     weight: "Very High",
     topics: [
       {
-        title: "President, Vice-President, PM and Council of Ministers",
+        title: "President, Vice-President, PM, Council, Parliament and AGI",
         notes: [
-          "President is constitutional head; real executive power lies with PM and Council under parliamentary conventions.",
-          "Cabinet is core decision-making body driving policy and governance coordination.",
-          "Collective responsibility to Lok Sabha is central to democratic accountability.",
+          "President is constitutional head; PM and Council are real executive under parliamentary conventions.",
+          "Parliament legislates, scrutinizes executive and controls public finance.",
+          "Attorney General serves as top legal advisor to Union government.",
         ],
-        prelimsFocus: ["Election and powers of President", "Cabinet responsibility"],
-        mainsFocus: ["Constitutional head vs real executive dynamics"],
-      },
-      {
-        title: "Parliament, Committees and Constitutional Law Officers",
-        notes: [
-          "Parliament legislates, controls executive, approves finances, and represents democratic debate.",
-          "Committee system improves scrutiny of bills, budgets, and departmental performance.",
-          "Attorney General advises Union on legal-constitutional matters.",
-        ],
-        prelimsFocus: ["Money bill vs financial bill", "Parliamentary committee types"],
-        mainsFocus: ["Declining deliberation and committee reform needs"],
+        prelimsFocus: ["Constitutional offices and parliamentary procedure"],
+        mainsFocus: ["Institutional accountability at Union level"],
       },
     ],
   },
@@ -88,78 +177,65 @@ export const POLITY_NOTES: Chapter[] = [
     weight: "High",
     topics: [
       {
-        title: "Governor, Chief Minister and State Council of Ministers",
+        title: "Governor, CM, State Legislature, High Court and Advocate General",
         notes: [
-          "Governor is constitutional head in states; CM and council hold real executive authority.",
-          "Discretionary powers of Governor remain a major constitutional debate area.",
-          "State executive functions within federal-constitutional boundaries and judicial review.",
+          "Governor is constitutional head; CM and council hold real executive authority in states.",
+          "State legislature ensures law-making and executive control within federal framework.",
+          "High Court and subordinate judiciary protect rights and legal order at state level.",
         ],
-        prelimsFocus: ["Governor appointment and tenure", "CM powers"],
-        mainsFocus: ["Governor role in coalition and hung assembly scenarios"],
-      },
-      {
-        title: "State Legislature, High Court and Subordinate Judiciary",
-        notes: [
-          "State legislature performs lawmaking, finance approval, and executive oversight.",
-          "High Courts protect constitutional rights and supervise subordinate courts.",
-          "Judicial independence at state level is essential for rule of law.",
-        ],
-        prelimsFocus: ["Legislative councils", "Writ jurisdiction of High Courts"],
-        mainsFocus: ["Judicial federalism and access to justice"],
+        prelimsFocus: ["State executive and legislature facts"],
+        mainsFocus: ["Federal balance and governor-related debates"],
       },
     ],
   },
   {
     id: "polity-local-government",
     title: "Local Government",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Panchayati Raj, Municipalities and Local Democracy",
+        notes: [
+          "73rd and 74th Amendments gave constitutional status to rural and urban local bodies.",
+          "Decentralization depends on devolution of functions, funds and functionaries.",
+          "Grassroots governance is central for inclusive development and accountability.",
+        ],
+        prelimsFocus: ["Schedules and constitutional amendments"],
+        mainsFocus: ["Challenges in effective decentralization"],
+      },
+    ],
+  },
+  {
+    id: "polity-scheduled-tribal-areas",
+    title: "Scheduled and Tribal Areas",
     weight: "High",
     topics: [
       {
-        title: "Panchayati Raj and Urban Local Bodies",
+        title: "Fifth Schedule, Sixth Schedule and PESA",
         notes: [
-          "73rd and 74th Amendments constitutionalized decentralization and local self-government.",
-          "Gram Sabha and municipal institutions are foundational for grassroots democracy.",
-          "Devolution of 3Fs (functions, funds, functionaries) remains uneven across states.",
+          "Constitution provides differentiated governance framework for tribal and scheduled areas.",
+          "Autonomous councils and Gram Sabha-centered mechanisms protect local autonomy.",
+          "Implementation quality and rights-based governance remain major concerns.",
         ],
-        prelimsFocus: ["Eleventh and Twelfth Schedules", "State Finance Commission"],
-        mainsFocus: ["Why decentralization outcomes vary across states"],
-      },
-      {
-        title: "Scheduled and Tribal Area Governance",
-        notes: [
-          "Fifth and Sixth Schedule frameworks provide differentiated governance for tribal regions.",
-          "Autonomous councils and protective mechanisms aim to preserve local identity and rights.",
-          "Implementation gaps persist in land rights, representation, and resource governance.",
-        ],
-        prelimsFocus: ["Fifth vs Sixth Schedule features"],
+        prelimsFocus: ["Fifth vs Sixth Schedule"],
         mainsFocus: ["Tribal self-governance and development balance"],
       },
     ],
   },
   {
-    id: "polity-ut-special-areas",
-    title: "Union Territories and Special Areas",
+    id: "polity-union-territories-special",
+    title: "Union Territories and Special Provisions for States",
     weight: "Medium",
     topics: [
       {
-        title: "Union Territories and Special Constitutional Arrangements",
+        title: "UT Governance and Asymmetric Federalism",
         notes: [
-          "Union Territories are directly administered by Union, with varying legislative arrangements.",
-          "Special provisions for certain states reflect historical, social, and geographic considerations.",
-          "Constitution allows asymmetric federal design where needed.",
+          "Union Territories are administered by Union, with different legislative arrangements.",
+          "Article 371 series gives state-specific special provisions based on regional needs.",
+          "Asymmetric design enables diversity accommodation within constitutional unity.",
         ],
-        prelimsFocus: ["UTs with/without legislature", "Special provisions under Article 371 series"],
+        prelimsFocus: ["UTs with legislature", "Article 371 scope"],
         mainsFocus: ["Asymmetric federalism in India"],
-      },
-      {
-        title: "Scheduled Areas and Tribal Areas",
-        notes: [
-          "Protective constitutional design addresses vulnerability of indigenous communities.",
-          "Governor and President have special roles in administration of these areas.",
-          "Policy challenge is balancing autonomy, rights, and development.",
-        ],
-        prelimsFocus: ["Administrative control provisions"],
-        mainsFocus: ["Rights-based governance in protected areas"],
       },
     ],
   },
@@ -169,131 +245,166 @@ export const POLITY_NOTES: Chapter[] = [
     weight: "Very High",
     topics: [
       {
-        title: "ECI, UPSC, SPSC, Finance Commission, CAG",
+        title: "ECI, UPSC, SPSC, Finance Commission, CAG and Law Officers",
         notes: [
-          "These bodies ensure constitutional governance, accountability, and institutional stability.",
-          "Independence, tenure security, and functional autonomy are key design principles.",
-          "Their reports and recommendations shape policy and public administration.",
+          "Constitutional bodies ensure accountability, election integrity and fiscal governance.",
+          "Security of tenure and institutional autonomy are essential for credibility.",
+          "AGI and Advocate General provide constitutional legal advice to Union and states.",
         ],
-        prelimsFocus: ["Composition and tenure details"],
-        mainsFocus: ["Institutional autonomy vs executive influence"],
+        prelimsFocus: ["Body-wise constitutional provisions"],
+        mainsFocus: ["Autonomy and reform of constitutional institutions"],
       },
+    ],
+  },
+  {
+    id: "polity-national-commissions",
+    title: "National Commissions",
+    weight: "High",
+    topics: [
       {
-        title: "AGI, Advocate General and National Commissions",
+        title: "Commissions for SC, ST, BC, Women, Children and Minorities",
         notes: [
-          "Law officers provide legal advice to Union and States in constitutional matters.",
-          "Commissions for SC/ST/BC address social justice through monitoring and recommendations.",
-          "Effectiveness depends on powers, data systems, and implementation follow-up.",
+          "These commissions monitor safeguards, investigate grievances and advise policy.",
+          "They are crucial for social justice and rights-protection architecture.",
+          "Effective outcomes need stronger enforcement and institutional coordination.",
         ],
-        prelimsFocus: ["Constitutional status of commissions"],
-        mainsFocus: ["Social justice institutions and governance outcomes"],
+        prelimsFocus: ["Constitutional/statutory status of commissions"],
+        mainsFocus: ["Social justice institutions and implementation gaps"],
       },
     ],
   },
   {
     id: "polity-non-constitutional-bodies",
     title: "Non-Constitutional Bodies",
-    weight: "High",
-    topics: [
-      {
-        title: "NITI Aayog, NHRC, SHRC, CIC, CVC",
-        notes: [
-          "These bodies are statutory/executive institutions supporting governance, rights, and transparency.",
-          "They influence policy coordination, grievance redress, and integrity systems.",
-          "Mandate overlaps and enforcement limits affect outcomes.",
-        ],
-        prelimsFocus: ["Statutory basis and mandates"],
-        mainsFocus: ["Reform of accountability institutions"],
-      },
-      {
-        title: "CBI, Lokpal-Lokayuktas and Oversight Ecosystem",
-        notes: [
-          "Anti-corruption and investigative institutions are central to rule-based governance.",
-          "Operational autonomy, federal coordination, and legal clarity remain major challenges.",
-          "Institutional credibility depends on transparent process and timely outcomes.",
-        ],
-        prelimsFocus: ["Lokpal Act basics", "CBI legal context"],
-        mainsFocus: ["Institutional design for anti-corruption architecture"],
-      },
-    ],
-  },
-  {
-    id: "polity-other-dimensions",
-    title: "Other Constitutional Dimensions",
-    weight: "High",
-    topics: [
-      {
-        title: "Official Language, Public Services, Tribunals",
-        notes: [
-          "Language policy balances national integration with linguistic diversity.",
-          "Public services framework shapes bureaucracy, recruitment, and administrative continuity.",
-          "Tribunals were introduced for specialized adjudication and faster dispute resolution.",
-        ],
-        prelimsFocus: ["Language provisions", "CAT and tribunal framework"],
-        mainsFocus: ["Tribunalization and judicial independence debate"],
-      },
-      {
-        title: "Rights and Liabilities of Government; Cooperative Societies",
-        notes: [
-          "Constitution defines legal personality and accountability standards for state action.",
-          "Cooperative movement gained constitutional recognition to strengthen grassroots economy.",
-          "Implementation quality varies across sectors and states.",
-        ],
-        prelimsFocus: ["97th Amendment essentials"],
-        mainsFocus: ["State liability and administrative accountability"],
-      },
-    ],
-  },
-  {
-    id: "polity-political-dynamics",
-    title: "Political Dynamics",
     weight: "Very High",
     topics: [
       {
-        title: "Anti-Defection, Election Laws and Representation",
+        title: "NITI Aayog, NHRC, SHRC, CIC, CVC, CBI, Lokpal-Lokayuktas",
         notes: [
-          "Anti-defection law aims to curb political instability but raises concerns on intra-party democracy.",
-          "Election laws regulate candidacy, campaign process, and electoral conduct.",
-          "Representation framework shapes legitimacy of democratic outcomes.",
+          "These bodies support policy planning, rights protection, transparency and anti-corruption.",
+          "Most are statutory/executive bodies with varying powers and enforcement capacity.",
+          "Institutional strengthening is key for trust in governance.",
         ],
-        prelimsFocus: ["Tenth Schedule", "RPA provisions"],
-        mainsFocus: ["Balancing stability and deliberative democracy"],
-      },
-      {
-        title: "Pressure Groups, National Integration and Foreign Policy Linkages",
-        notes: [
-          "Pressure groups influence policy through negotiation, advocacy, and public mobilization.",
-          "National integration requires constitutional values, inclusion, and institutional trust.",
-          "Domestic constitutional principles often interact with external policy positions.",
-        ],
-        prelimsFocus: ["Pressure group types", "Integration-related constitutional tools"],
-        mainsFocus: ["Democratic pluralism and state response"],
+        prelimsFocus: ["Mandates and legal basis"],
+        mainsFocus: ["Institutional design and governance outcomes"],
       },
     ],
   },
   {
-    id: "polity-advanced-topics",
-    title: "Advanced and Value-Addition Topics",
+    id: "polity-language-services-tribunals",
+    title: "Official Language, Public Services and Tribunals",
+    weight: "High",
+    topics: [
+      {
+        title: "Language Policy, Civil Services and Specialized Adjudication",
+        notes: [
+          "Language provisions balance integration with linguistic diversity.",
+          "Public services framework ensures administrative continuity and merit recruitment.",
+          "Tribunals provide specialized dispute resolution under judicial supervision.",
+        ],
+        prelimsFocus: ["Language provisions and tribunal facts"],
+        mainsFocus: ["Administrative reform and justice delivery"],
+      },
+    ],
+  },
+  {
+    id: "polity-rights-liabilities-cooperatives",
+    title: "Rights and Liabilities of Government; Co-operative Societies",
+    weight: "Medium",
+    topics: [
+      {
+        title: "State Liability, Administrative Fairness and Cooperative Governance",
+        notes: [
+          "Government action is bound by legality, fairness and judicial review.",
+          "Cooperatives received constitutional recognition to strengthen democratic economic institutions.",
+          "Policy effectiveness depends on accountability and transparent regulation.",
+        ],
+        prelimsFocus: ["Government liability principles", "97th Amendment"],
+        mainsFocus: ["Administrative accountability and cooperative federalism"],
+      },
+    ],
+  },
+  {
+    id: "polity-anti-defection-election-laws",
+    title: "Anti-Defection Law and Election Laws",
+    weight: "Very High",
+    topics: [
+      {
+        title: "Tenth Schedule, RPA Framework and Electoral Integrity",
+        notes: [
+          "Anti-defection law seeks stability but raises concerns around legislative independence.",
+          "Election laws govern candidacy, disqualification, campaign regulation and dispute process.",
+          "Reforms focus on transparency, criminalization and internal party democracy.",
+        ],
+        prelimsFocus: ["Defection disqualification rules", "RPA basics"],
+        mainsFocus: ["Electoral reform and democratic quality"],
+      },
+    ],
+  },
+  {
+    id: "polity-pressure-groups-national-integration",
+    title: "Pressure Groups, National Integration and Foreign Policy",
+    weight: "High",
+    topics: [
+      {
+        title: "Political Dynamics and Constitutional Governance",
+        notes: [
+          "Pressure groups shape policy discourse through advocacy and mobilization.",
+          "National integration relies on constitutional values, inclusion and institutional trust.",
+          "Domestic constitutional strength often shapes foreign policy credibility.",
+        ],
+        prelimsFocus: ["Pressure group types and roles"],
+        mainsFocus: ["Pluralism, integration and state response"],
+      },
+    ],
+  },
+  {
+    id: "polity-concept-world-constitutions",
+    title: "Concept of Constitution and World Constitutions",
     weight: "Exam Booster",
     topics: [
       {
-        title: "Basic Structure, Doctrines and Landmark Judgments",
+        title: "Constitutionalism and Comparative Learning",
         notes: [
-          "Judicial doctrines interpret constitutional limits and preserve democratic fundamentals.",
-          "Landmark judgments shape rights jurisprudence and institutional balance.",
-          "UPSC answers require linking doctrine with contemporary governance questions.",
+          "Constitutionalism means limited government, rule of law and rights protection.",
+          "Indian Constitution borrowed features from multiple countries with contextual adaptation.",
+          "Comparative understanding adds depth to polity analysis for UPSC mains.",
         ],
-        prelimsFocus: ["Kesavananda Bharati and related cases"],
-        mainsFocus: ["Judicial review and constitutional morality"],
+        prelimsFocus: ["Sources of Indian Constitution"],
+        mainsFocus: ["Comparative constitutional perspective in Indian context"],
       },
+    ],
+  },
+  {
+    id: "polity-landmark-judgments-doctrines",
+    title: "Landmark Judgments and Important Doctrines",
+    weight: "Very High",
+    topics: [
       {
-        title: "Commissions and Institutions for Governance Deepening",
+        title: "Judicial Doctrines and Constitutional Interpretation",
         notes: [
-          "Law Commission, Delimitation Commission, NCW, NCPCR, NCM and Consumer Commissions add policy depth.",
-          "These institutions expand rights-protection and governance responsiveness.",
-          "Use them as value-add examples in GS2 mains answers.",
+          "Major judgments shaped rights, federalism, parliamentary powers and judicial review boundaries.",
+          "Key doctrines include basic structure, pith and substance, harmonious construction and colorable legislation.",
+          "Case-law based value addition is essential for high-quality polity answers.",
         ],
-        prelimsFocus: ["Mandates of key commissions"],
+        prelimsFocus: ["Doctrine definitions and case mapping"],
+        mainsFocus: ["Judiciary as constitutional guardian"],
+      },
+    ],
+  },
+  {
+    id: "polity-law-barcouncil-delimitation-consumer",
+    title: "Law Commission, Bar Council, Delimitation and Consumer Commissions",
+    weight: "Exam Booster",
+    topics: [
+      {
+        title: "Advanced Governance Institutions",
+        notes: [
+          "Law Commission recommendations support legal modernization and policy reform.",
+          "Bar Council regulates legal profession standards and ethics.",
+          "Delimitation and consumer commissions impact representation quality and citizen grievance redress.",
+        ],
+        prelimsFocus: ["Institution-wise function recall"],
         mainsFocus: ["Institutional ecosystem and democratic deepening"],
       },
     ],
