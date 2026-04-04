@@ -465,6 +465,17 @@ export const supabase: any = {
       emitAuth("SIGNED_IN", session);
       return { data: { session, user: session?.user ?? null }, error: null };
     },
+    signInWithIdToken: async ({ provider, token }: any) => {
+      if (String(provider || "").toLowerCase() !== "google") {
+        return { data: { session: null, user: null }, error: { message: "Unsupported provider" } };
+      }
+      const { data, error } = await apiPost("/functions/v1/auth/google", { idToken: token });
+      if (error) return { data: { session: null, user: null }, error };
+      const session = normalizeSession(data?.session ?? null);
+      storeSession(session);
+      emitAuth("SIGNED_IN", session);
+      return { data: { session, user: session?.user ?? null }, error: null };
+    },
     signOut: async () => {
       await apiPost("/functions/v1/auth/logout", {});
       storeSession(null);

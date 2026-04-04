@@ -79,6 +79,61 @@ export const loginUser = async (email: string, password: string) => {
   return createSession(user.id, user.email);
 };
 
+export const loginOrCreateGoogleUser = async (email: string, name: string) => {
+  const db = requirePool();
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) throw new Error("Google account email is required");
+
+  const existing = await db.query<{ id: string; email: string; name: string }>(
+    "SELECT id, email, name FROM user_accounts WHERE email = $1 LIMIT 1",
+    [normalizedEmail],
+  );
+
+  let userId = existing.rows[0]?.id;
+  let userName = existing.rows[0]?.name || name || "Aspirant";
+
+  if (!userId) {
+    userId = randomUUID();
+    const randomPass = hashPassword(`google-oauth-${randomUUID()}`);
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        "INSERT INTO user_accounts (id, email, password_hash, name) VALUES ($1, $2, $3, $4)",
+        [userId, normalizedEmail, randomPass, userName],
+      );
+      await client.query(
+        `
+        INSERT INTO profiles (
+          id, name, target_year, optional_subject, study_hours_per_day, language,
+          profile_photo_url, mentor_personality, current_streak, total_xp, level, last_login_date
+        )
+        VALUES ($1, $2, 2027, 'Public Administration', 4, 'English', NULL, 'friendly', 0, 0, 1, CURRENT_DATE)
+        ON CONFLICT (id) DO NOTHING
+        `,
+        [userId, userName],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  } else {
+    await db.query(
+      "UPDATE user_accounts SET name = $1 WHERE id = $2 AND COALESCE(name, '') <> $1",
+      [userName, userId],
+    );
+    await db.query(
+      "UPDATE profiles SET name = $1, last_login_date = CURRENT_DATE, updated_at = NOW() WHERE id = $2",
+      [userName, userId],
+    );
+  }
+
+  return createSession(userId, normalizedEmail);
+};
+
 export const createSession = async (userId: string, email: string) => {
   const db = requirePool();
   const token = `upsc_${randomUUID().replace(/-/g, "")}`;

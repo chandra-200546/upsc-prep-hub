@@ -9,12 +9,44 @@ import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, User } from "lucide-react";
 import upscMentorLogo from "@/assets/upsc-mentor-logo.jpeg";
 
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
+
+const GOOGLE_SCRIPT_ID = "google-gsi-client";
+const GOOGLE_CLIENT_ID = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
+
+const loadGoogleScript = () =>
+  new Promise<void>((resolve, reject) => {
+    if (window.google?.accounts?.id) {
+      resolve();
+      return;
+    }
+    const existing = document.getElementById(GOOGLE_SCRIPT_ID) as HTMLScriptElement | null;
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Failed to load Google script")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = GOOGLE_SCRIPT_ID;
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Google script"));
+    document.head.appendChild(script);
+  });
+
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, isReady, profile } = useAuth();
@@ -46,6 +78,48 @@ const Auth = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    if (!GOOGLE_CLIENT_ID) {
+      toast({
+        title: "Google login is not configured",
+        description: "Set VITE_GOOGLE_CLIENT_ID in frontend env.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setGoogleLoading(true);
+    try {
+      await loadGoogleScript();
+      if (!window.google?.accounts?.id) throw new Error("Google SDK unavailable");
+      const token = await new Promise<string>((resolve, reject) => {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: (response: { credential?: string }) => {
+            const cred = String(response?.credential || "").trim();
+            if (!cred) reject(new Error("Google did not return credential"));
+            else resolve(cred);
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+        window.google.accounts.id.prompt((notification: any) => {
+          if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
+            reject(new Error("Google sign-in prompt was not displayed"));
+          }
+        });
+      });
+
+      const result = await auth.signInWithGoogle(token);
+      if (result.error) throw new Error(result.error);
+      toast({ title: "Welcome!", description: "Signed in with Google successfully." });
+      navigate("/dashboard");
+    } catch (error: any) {
+      toast({ title: "Error", description: error?.message || "Google sign-in failed", variant: "destructive" });
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -85,6 +159,17 @@ const Auth = () => {
             {loading ? "Loading..." : isLogin ? "Sign In" : "Create Account"}
           </Button>
         </form>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-2 text-muted-foreground">or</span>
+          </div>
+        </div>
+
+        <Button type="button" variant="outline" className="w-full rounded-xl h-11" onClick={handleGoogleAuth} disabled={googleLoading}>
+          {googleLoading ? "Connecting Google..." : "Continue with Google"}
+        </Button>
 
         <div className="text-center">
           <button onClick={() => setIsLogin(!isLogin)} className="text-sm text-primary hover:underline font-medium">

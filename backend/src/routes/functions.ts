@@ -1,13 +1,13 @@
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
-import { dbDelete, dbInsert, dbSelect, dbUpdate, dbUpsert, loginUser, resolveSession, revokeSession, signUpUser } from "../db/app-db.js";
+import { dbDelete, dbInsert, dbSelect, dbUpdate, dbUpsert, loginOrCreateGoogleUser, loginUser, resolveSession, revokeSession, signUpUser } from "../db/app-db.js";
 import { cacheGet, cacheSet, logRequest } from "../db/sqlite.js";
 import { neonAdminStats, neonCacheGet, neonCacheSet, neonLogRequest } from "../db/neon.js";
 import { getProfileById, listProfiles, parseProfilesCsv, upsertProfiles } from "../db/profiles.js";
 import { getHistoryRagStats, ingestHistoryChunks, queryHistoryRag } from "../rag/history-rag.js";
 import { generateSubjectBookAnswer, generateSubjectRagNotes, getSubjectRagStats, ingestSubjectPdf } from "../rag/subject-rag.js";
 import { generateJson, generateText } from "../lib/gemini.js";
-import { hasGemini } from "../config.js";
+import { config, hasGemini } from "../config.js";
 import { deleteFile, getStoragePublicPath, saveBase64File } from "../lib/storage.js";
 import { hashPayload } from "../lib/utils.js";
 
@@ -70,6 +70,28 @@ const authTokenFromHeader = (authHeader?: string | null) => {
   return match?.[1]?.trim() || "";
 };
 
+const verifyGoogleIdToken = async (idToken: string) => {
+  const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+  const tokenInfo = await tokenInfoRes.json().catch(() => ({}));
+  if (!tokenInfoRes.ok) {
+    const reason = String(tokenInfo?.error_description || tokenInfo?.error || "Invalid Google token");
+    throw new Error(reason);
+  }
+
+  const aud = String(tokenInfo?.aud || "");
+  if (config.googleClientId && aud && aud !== config.googleClientId) {
+    throw new Error("Google token audience mismatch");
+  }
+
+  const email = String(tokenInfo?.email || "").trim().toLowerCase();
+  const emailVerified = String(tokenInfo?.email_verified || "").toLowerCase() === "true";
+  const name = String(tokenInfo?.name || "Aspirant").trim() || "Aspirant";
+  if (!email || !emailVerified) {
+    throw new Error("Google account email is not verified");
+  }
+  return { email, name };
+};
+
 functionsRouter.post("/auth/signup", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const email = String(body?.email ?? "").trim().toLowerCase();
@@ -96,6 +118,20 @@ functionsRouter.post("/auth/login", async (c) => {
     return c.json({ session, user: session.user });
   } catch (error: any) {
     return c.json({ message: error?.message || "Login failed" }, 401);
+  }
+});
+
+functionsRouter.post("/auth/google", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const idToken = String(body?.idToken ?? "").trim();
+  if (!idToken) return c.json({ message: "idToken is required" }, 400);
+
+  try {
+    const google = await verifyGoogleIdToken(idToken);
+    const session = await loginOrCreateGoogleUser(google.email, google.name);
+    return c.json({ session, user: session.user });
+  } catch (error: any) {
+    return c.json({ message: error?.message || "Google authentication failed" }, 401);
   }
 });
 

@@ -29,6 +29,7 @@ interface AuthContextType {
   isLocalMode: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error?: string }>;
+  signInWithGoogle: (idToken: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   saveProfile: (profile: Omit<LocalProfile, "id" | "current_streak" | "total_xp" | "level" | "language" | "profile_photo_url" | "last_login_date">) => void;
   refreshProfile: () => void;
@@ -265,6 +266,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {};
   };
 
+  const signInWithGoogle = async (idToken: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: "google",
+        token: idToken,
+      });
+      if (error) {
+        return { error: error.message || "Google sign-in failed" };
+      }
+      const sessionUser = data?.user || data?.session?.user;
+      if (!sessionUser?.id) {
+        return { error: "Google sign-in did not return a valid user." };
+      }
+      const nextUser = { id: sessionUser.id, email: sessionUser.email || "" };
+      setUser(nextUser);
+      setIsLocalMode(false);
+      const profileData = await ensureRemoteProfile(nextUser);
+      if (profileData) setProfile(profileData);
+      return {};
+    } catch (error: any) {
+      return { error: error?.message || "Google sign-in failed" };
+    }
+  };
+
   const signOut = async () => {
     try { await supabase.auth.signOut(); } catch { /* ignore */ }
     setUser(null);
@@ -303,7 +328,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, isReady, isLocalMode, signIn, signUp, signOut, saveProfile, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, isReady, isLocalMode, signIn, signUp, signInWithGoogle, signOut, saveProfile, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
