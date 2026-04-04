@@ -47,6 +47,16 @@ type NotesDeck = {
   citations: string[];
 };
 
+type BookAnswer = {
+  topic: string;
+  subject: string;
+  summary: string;
+  keyPoints: string[];
+  examFocus: string[];
+  citations: string[];
+  sourceSnippets: string[];
+};
+
 const clean = (v: string) => v.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 
 const scoreChunk = (chunkText: string, query: string) => {
@@ -197,6 +207,23 @@ export const getSubjectRagStats = async (subjectId: string) => {
   return { subjectId, chunks: chunks.length, sources };
 };
 
+const buildFallbackAnswer = (subjectName: string, topic: string, contextChunks: SubjectChunk[]): BookAnswer => {
+  const snippets = contextChunks.map((c) => compactNote(c.chunk_text, 220)).filter(Boolean).slice(0, 6);
+  return {
+    topic,
+    subject: subjectName,
+    summary: snippets[0] || `Source-backed notes for ${topic}.`,
+    keyPoints: snippets.slice(1, 6),
+    examFocus: [
+      "Prelims: factual anchors and chronology",
+      "Mains: causes, effects, and analytical linkage",
+      "Use source-backed terminology from the book",
+    ],
+    citations: Array.from(new Set(contextChunks.map((c) => c.source_name))),
+    sourceSnippets: snippets,
+  };
+};
+
 const extractJson = (raw: string) => {
   const text = raw.trim();
   if (text.startsWith("{")) return text;
@@ -330,10 +357,80 @@ export const generateSubjectRagNotes = async ({
   return { ok: true, deck: { ...generated, citations } };
 };
 
+export const generateSubjectBookAnswer = async ({
+  subjectId,
+  subjectName,
+  topic,
+}: {
+  subjectId: string;
+  subjectName: string;
+  topic: string;
+}) => {
+  const chunks = await getSubjectChunks(subjectId);
+  if (!chunks.length) {
+    return {
+      ok: false,
+      reason: `No source book available for ${subjectName} in database.`,
+    };
+  }
+
+  const ranked = chunks
+    .map((chunk) => ({ chunk, score: scoreChunk(chunk.chunk_text, topic) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 24);
+
+  const selected = ranked.filter((x) => x.score > 0).map((x) => x.chunk);
+  const contextChunks = selected.length ? selected : ranked.slice(0, 12).map((x) => x.chunk);
+  const context = contextChunks
+    .map((c, idx) => `Chunk ${idx + 1} [${c.source_name}]: ${c.chunk_text}`)
+    .join("\n\n");
+
+  let answer: BookAnswer | null = null;
+  try {
+    const raw = await generateText(
+      [
+        {
+          role: "system",
+          content:
+            "You are a strict UPSC tutor. Use ONLY given source context. Return only JSON. Do not invent facts.",
+        },
+        {
+          role: "user",
+          content:
+            `Subject: ${subjectName}\nTopic: ${topic}\n` +
+            "Return JSON exactly with keys: topic, subject, summary, keyPoints (5-10), examFocus (3-6), citations, sourceSnippets (3-6).\n" +
+            "Keep answer specific to source text and UPSC-ready.\n\n" +
+            `Source context:\n${context}`,
+        },
+      ],
+      0.1,
+    );
+    answer = JSON.parse(extractJson(raw)) as BookAnswer;
+  } catch {
+    answer = null;
+  }
+
+  const safeAnswer = answer && Array.isArray(answer.keyPoints) && answer.keyPoints.length
+    ? {
+        ...answer,
+        citations: Array.from(new Set([...(answer.citations || []), ...contextChunks.map((c) => c.source_name)])),
+        sourceSnippets: (answer.sourceSnippets || []).slice(0, 6),
+      }
+    : buildFallbackAnswer(subjectName, topic, contextChunks);
+
+  return { ok: true, answer: safeAnswer };
+};
+
 const DEFAULT_HISTORY_PATHS = [
   process.env.HISTORY_BOOK_PDF_PATH || "",
   String.raw`C:\Users\Chandrashekar\Downloads\COPY - A Brief History of Modern India Spectrum 2019-20 Edition Rajiv Ahir .pdf`,
   path.resolve(process.cwd(), "..", "COPY - A Brief History of Modern India Spectrum 2019-20 Edition Rajiv Ahir .pdf"),
+].filter(Boolean);
+
+const DEFAULT_POLITY_PATHS = [
+  process.env.POLITY_BOOK_PDF_PATH || "",
+  String.raw`C:\Users\Chandrashekar\Downloads\[ENGLISH] M. LAXMIKANT INDIAN POLITY 8TH EDITION.pdf`,
+  path.resolve(process.cwd(), "..", "[ENGLISH] M. LAXMIKANT INDIAN POLITY 8TH EDITION.pdf"),
 ].filter(Boolean);
 
 const firstExistingPath = (candidates: string[]) => {
@@ -364,6 +461,30 @@ export const seedHistoryBookIfMissing = async () => {
   const result = await ingestSubjectPdf({
     subjectId: "history",
     subjectName: "History",
+    sourceName: path.basename(pdfPath),
+    pdfBase64,
+    replaceExisting: true,
+  });
+  return { seeded: Boolean(result.ok), ...result };
+};
+
+export const seedPolityBookIfMissing = async () => {
+  if (!pool) return { seeded: false, reason: "Neon unavailable" };
+  const existing = await getSubjectChunks("polity");
+  if (existing.length > 0) return { seeded: false, reason: "Polity chunks already present", count: existing.length };
+
+  const pdfPath = firstExistingPath(DEFAULT_POLITY_PATHS);
+  if (!pdfPath) {
+    return {
+      seeded: false,
+      reason: "Polity PDF path not found. Set POLITY_BOOK_PDF_PATH in backend .env.",
+    };
+  }
+
+  const pdfBase64 = fs.readFileSync(pdfPath).toString("base64");
+  const result = await ingestSubjectPdf({
+    subjectId: "polity",
+    subjectName: "Indian Polity",
     sourceName: path.basename(pdfPath),
     pdfBase64,
     replaceExisting: true,

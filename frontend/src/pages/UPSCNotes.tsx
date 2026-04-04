@@ -7,16 +7,34 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { HISTORY_NOTES } from "@/features/notes/data/history-book";
 import { HISTORY_BOOK_PARTS } from "@/features/notes/data/history-parts";
+import { POLITY_NOTES } from "@/features/notes/data/polity-book";
+import { POLITY_BOOK_PARTS } from "@/features/notes/data/polity-parts";
 import { buildRevisionQueue, buildStudyBlocks, buildTopicId, chaptersForPart, filterChaptersByQuery, paginateChapters, totalPages } from "@/features/notes/lib/engine";
 import { readNotesProgress, topicKey, writeNotesProgress } from "@/features/notes/lib/progress";
 import { readTopicPreferences, toggleBookmark, toggleWeak, writeTopicPreferences } from "@/features/notes/lib/preferences";
 import { Chapter } from "@/features/notes/types";
 
+type SubjectId = "history" | "polity";
+
+const NOTES_SUBJECTS: Record<SubjectId, { label: string; chapters: Chapter[]; parts: typeof HISTORY_BOOK_PARTS }> = {
+  history: {
+    label: "History",
+    chapters: HISTORY_NOTES,
+    parts: HISTORY_BOOK_PARTS,
+  },
+  polity: {
+    label: "Indian Polity",
+    chapters: POLITY_NOTES,
+    parts: POLITY_BOOK_PARTS,
+  },
+};
+
 const UPSCNotes = () => {
   const navigate = useNavigate();
+  const [activeSubjectId, setActiveSubjectId] = useState<SubjectId>("history");
   const [query, setQuery] = useState("");
-  const [activePartId, setActivePartId] = useState(HISTORY_BOOK_PARTS[0]?.id || "");
-  const [chapterId, setChapterId] = useState(HISTORY_NOTES[0]?.id || "");
+  const [activePartId, setActivePartId] = useState(NOTES_SUBJECTS.history.parts[0]?.id || "");
+  const [chapterId, setChapterId] = useState(NOTES_SUBJECTS.history.chapters[0]?.id || "");
   const [topicIndex, setTopicIndex] = useState(0);
   const [blockIndex, setBlockIndex] = useState(0);
   const [chapterPage, setChapterPage] = useState(1);
@@ -24,15 +42,18 @@ const UPSCNotes = () => {
   const [preferences, setPreferences] = useState(readTopicPreferences());
   const [viewFilter, setViewFilter] = useState<"all" | "weak" | "bookmarked" | "incomplete">("all");
   const CHAPTERS_PER_PAGE = 6;
+  const activeSubject = NOTES_SUBJECTS[activeSubjectId];
+  const currentParts = activeSubject.parts;
+  const currentNotes = activeSubject.chapters;
 
   const activePart = useMemo(
-    () => HISTORY_BOOK_PARTS.find((part) => part.id === activePartId) || HISTORY_BOOK_PARTS[0],
-    [activePartId],
+    () => currentParts.find((part) => part.id === activePartId) || currentParts[0],
+    [currentParts, activePartId],
   );
 
   const chaptersInPart = useMemo(
-    () => (activePart ? chaptersForPart(HISTORY_NOTES, activePart) : HISTORY_NOTES),
-    [activePart],
+    () => (activePart ? chaptersForPart(currentNotes, activePart) : currentNotes),
+    [activePart, currentNotes],
   );
 
   const filteredChapters = useMemo(() => {
@@ -108,9 +129,20 @@ const UPSCNotes = () => {
     setActivePartId(partId);
     setQuery("");
     setChapterPage(1);
-    const nextPart = HISTORY_BOOK_PARTS.find((part) => part.id === partId);
-    const nextChapterId = nextPart?.chapterIds?.[0] || HISTORY_NOTES[0]?.id || "";
+    const nextPart = currentParts.find((part) => part.id === partId);
+    const nextChapterId = nextPart?.chapterIds?.[0] || currentNotes[0]?.id || "";
     resetForChapter(nextChapterId);
+  };
+
+  const switchSubject = (subjectId: SubjectId) => {
+    const next = NOTES_SUBJECTS[subjectId];
+    setActiveSubjectId(subjectId);
+    setQuery("");
+    setChapterPage(1);
+    setTopicIndex(0);
+    setBlockIndex(0);
+    setActivePartId(next.parts[0]?.id || "");
+    setChapterId(next.chapters[0]?.id || "");
   };
 
   useEffect(() => {
@@ -165,19 +197,31 @@ const UPSCNotes = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-primary">UPSC History Notes</h1>
-            <p className="text-sm text-muted-foreground">Phase 2: book-part navigation, chapter pagination, and coverage analytics.</p>
+            <h1 className="text-3xl font-bold text-primary">UPSC {activeSubject.label} Notes</h1>
+            <p className="text-sm text-muted-foreground">Book-part navigation, chapter pagination, and coverage analytics.</p>
           </div>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5" />History Book Index</CardTitle>
+            <CardTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5" />{activeSubject.label} Book Index</CardTitle>
             <CardDescription>{activePart?.description}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="mb-3 flex flex-wrap gap-2">
-              {HISTORY_BOOK_PARTS.map((part) => (
+              {Object.entries(NOTES_SUBJECTS).map(([id, meta]) => (
+                <Button
+                  key={id}
+                  size="sm"
+                  variant={id === activeSubjectId ? "default" : "outline"}
+                  onClick={() => switchSubject(id as SubjectId)}
+                >
+                  {meta.label}
+                </Button>
+              ))}
+            </div>
+            <div className="mb-3 flex flex-wrap gap-2">
+              {currentParts.map((part) => (
                 <Button
                   key={part.id}
                   size="sm"
