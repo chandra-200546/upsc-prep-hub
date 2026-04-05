@@ -13,7 +13,7 @@ import FeedbackForm from "@/components/FeedbackForm";
 import AdminDashboard from "@/components/AdminDashboard";
 import {
   BookOpen, Brain, FileText, TrendingUp, Award,
-  Calendar, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap, MoreHorizontal, MessageCircleQuestion
+  Calendar, MessageSquare, Zap, Target, Map, Video, BarChart3, GitBranch, Newspaper, GraduationCap, MoreHorizontal, MessageCircleQuestion, NotebookPen
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -103,6 +103,7 @@ const Dashboard = () => {
     { path: "/voice-ai", icon: <div className="text-4xl">🎙️</div>, title: "Voice AI", description: "Talk & listen to AI explanations" },
     { path: "/weekly-test-series", icon: <Brain className="w-10 h-10" />, title: "Weekly Test Series", description: "Prelims weekly mock tests + leaderboard" },
     { path: "/doubt-feed", icon: <MessageCircleQuestion className="w-10 h-10" />, title: "UPSC Doubt Feed", description: "Public UPSC doubt solving community" },
+    { path: "/notes-feed", icon: <NotebookPen className="w-10 h-10" />, title: "UPSC Notes Feed", description: "Human-driven UPSC notes sharing feed" },
   ];
 
   return (

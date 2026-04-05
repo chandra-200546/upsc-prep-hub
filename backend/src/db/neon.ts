@@ -324,6 +324,138 @@ export const ensureNeonSchema = async () => {
     );
   `));
 
+  await withPoolFailover((p) => p.query(`
+    CREATE TABLE IF NOT EXISTS doubt_posts (
+      id UUID PRIMARY KEY,
+      user_id UUID NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      category TEXT NOT NULL,
+      tags TEXT[] NOT NULL DEFAULT '{}',
+      image_url TEXT,
+      answer_count INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'unanswered',
+      best_answer_id UUID,
+      is_flagged BOOLEAN NOT NULL DEFAULT FALSE,
+      moderation_status TEXT NOT NULL DEFAULT 'clean',
+      report_count INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `));
+  await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_doubt_posts_created_at ON doubt_posts(created_at DESC);`));
+  await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_doubt_posts_category ON doubt_posts(category);`));
+  await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_doubt_posts_status ON doubt_posts(status);`));
+
+  await withPoolFailover((p) => p.query(`
+    CREATE TABLE IF NOT EXISTS doubt_answers (
+      id UUID PRIMARY KEY,
+      post_id UUID NOT NULL REFERENCES doubt_posts(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL,
+      content TEXT NOT NULL,
+      helpful_count INTEGER NOT NULL DEFAULT 0,
+      is_best_answer BOOLEAN NOT NULL DEFAULT FALSE,
+      is_flagged BOOLEAN NOT NULL DEFAULT FALSE,
+      moderation_status TEXT NOT NULL DEFAULT 'clean',
+      report_count INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `));
+  await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_doubt_answers_post_id ON doubt_answers(post_id);`));
+
+  await withPoolFailover((p) => p.query(`
+    CREATE TABLE IF NOT EXISTS doubt_answer_votes (
+      id UUID PRIMARY KEY,
+      answer_id UUID NOT NULL REFERENCES doubt_answers(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(answer_id, user_id)
+    );
+  `));
+
+  await withPoolFailover((p) => p.query(`
+    CREATE TABLE IF NOT EXISTS doubt_reports (
+      id UUID PRIMARY KEY,
+      reporter_id UUID NOT NULL,
+      target_type TEXT NOT NULL,
+      target_id UUID NOT NULL,
+      reason TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `));
+  await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_doubt_reports_target ON doubt_reports(target_type, target_id);`));
+
+  await withPoolFailover((p) => p.query(`
+    CREATE TABLE IF NOT EXISTS doubt_notifications (
+      id UUID PRIMARY KEY,
+      user_id UUID NOT NULL,
+      type TEXT NOT NULL,
+      message TEXT NOT NULL,
+      related_post_id UUID,
+      related_answer_id UUID,
+      is_read BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `));
+  await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_doubt_notifications_user ON doubt_notifications(user_id, is_read, created_at DESC);`));
+
+  await withPoolFailover((p) => p.query(`
+    CREATE TABLE IF NOT EXISTS notes_feed_posts (
+      id UUID PRIMARY KEY,
+      user_id UUID NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      category TEXT NOT NULL,
+      tags TEXT[] NOT NULL DEFAULT '{}',
+      image_urls TEXT[] NOT NULL DEFAULT '{}',
+      likes_count INTEGER NOT NULL DEFAULT 0,
+      saves_count INTEGER NOT NULL DEFAULT 0,
+      report_count INTEGER NOT NULL DEFAULT 0,
+      is_flagged BOOLEAN NOT NULL DEFAULT FALSE,
+      moderation_status TEXT NOT NULL DEFAULT 'clean',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `));
+  await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_notes_feed_posts_created_at ON notes_feed_posts(created_at DESC);`));
+  await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_notes_feed_posts_category ON notes_feed_posts(category);`));
+  await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_notes_feed_posts_saves_count ON notes_feed_posts(saves_count DESC);`));
+
+  await withPoolFailover((p) => p.query(`
+    CREATE TABLE IF NOT EXISTS notes_feed_likes (
+      id UUID PRIMARY KEY,
+      note_id UUID NOT NULL REFERENCES notes_feed_posts(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(note_id, user_id)
+    );
+  `));
+  await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_notes_feed_likes_note ON notes_feed_likes(note_id);`));
+
+  await withPoolFailover((p) => p.query(`
+    CREATE TABLE IF NOT EXISTS notes_feed_saves (
+      id UUID PRIMARY KEY,
+      note_id UUID NOT NULL REFERENCES notes_feed_posts(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(note_id, user_id)
+    );
+  `));
+  await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_notes_feed_saves_note ON notes_feed_saves(note_id);`));
+  await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_notes_feed_saves_user ON notes_feed_saves(user_id, created_at DESC);`));
+
+  await withPoolFailover((p) => p.query(`
+    CREATE TABLE IF NOT EXISTS notes_feed_reports (
+      id UUID PRIMARY KEY,
+      note_id UUID NOT NULL REFERENCES notes_feed_posts(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL,
+      reason TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `));
+  await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_notes_feed_reports_note ON notes_feed_reports(note_id);`));
+
   await withPoolFailover((p) => p.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS chat_type TEXT DEFAULT 'mentor';`));
   await withPoolFailover((p) => p.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS content TEXT;`));
   await withPoolFailover((p) => p.query(`UPDATE chat_messages SET content = message WHERE content IS NULL AND message IS NOT NULL;`));
@@ -344,6 +476,7 @@ export const ensureNeonSchema = async () => {
   await withPoolFailover((p) => p.query(`ALTER TABLE study_plan ADD COLUMN IF NOT EXISTS tasks JSONB;`));
   await withPoolFailover((p) => p.query(`ALTER TABLE study_plan ADD COLUMN IF NOT EXISTS total_tasks INTEGER DEFAULT 0;`));
   await withPoolFailover((p) => p.query(`ALTER TABLE study_plan ADD COLUMN IF NOT EXISTS completed_tasks INTEGER DEFAULT 0;`));
+  await withPoolFailover((p) => p.query(`ALTER TABLE doubt_posts ADD COLUMN IF NOT EXISTS best_answer_id UUID;`));
 
   return true;
 };

@@ -1268,6 +1268,413 @@ functionsRouter.post("/answers/:answerId/report", async (c) => {
   return c.json({ ok: true });
 });
 
+functionsRouter.post("/notes-feed/create", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+
+  const body = await c.req.json().catch(() => ({}));
+  const title = String(body?.title ?? "").trim();
+  const content = String(body?.content ?? "").trim();
+  const category = String(body?.category ?? "").trim();
+  const tags = sanitizeTags(body?.tags);
+  const imageUrls = Array.isArray(body?.imageUrls)
+    ? body.imageUrls.map((u: unknown) => String(u ?? "").trim()).filter(Boolean).slice(0, 5)
+    : [];
+
+  if (!title || title.length < 10 || title.length > 180) {
+    return c.json({ message: "Title must be between 10 and 180 characters." }, 400);
+  }
+  if (!content || content.length < 80 || content.length > 25000) {
+    return c.json({ message: "Content must be between 80 and 25000 characters." }, 400);
+  }
+  if (!UPSC_CATEGORIES.includes(category as (typeof UPSC_CATEGORIES)[number])) {
+    return c.json({ message: "Please select a valid UPSC category." }, 400);
+  }
+
+  const contentCheck = analyzeUpscContent({ title, content, category });
+  if (!contentCheck.allowed) return c.json({ message: contentCheck.warning }, 400);
+
+  const id = randomUUID();
+  await queryNeon(
+    `
+    INSERT INTO notes_feed_posts
+    (id, user_id, title, content, category, tags, image_urls, likes_count, saves_count, report_count, is_flagged, moderation_status)
+    VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::text[], $7::text[], 0, 0, 0, $8, $9)
+    `,
+    [id, user.id, title, content, category, tags, imageUrls, contentCheck.flagged, contentCheck.moderationStatus],
+  );
+
+  return c.json({ ok: true, id, warning: contentCheck.warning || null });
+});
+
+functionsRouter.get("/notes-feed", async (c) => {
+  const search = String(c.req.query("search") || "").trim();
+  const category = String(c.req.query("category") || "").trim();
+  const sort = String(c.req.query("sort") || "latest").trim();
+  const page = Math.max(1, Number(c.req.query("page") || 1));
+  const limit = Math.max(1, Math.min(50, Number(c.req.query("limit") || 20)));
+  const offset = (page - 1) * limit;
+
+  const where: string[] = [`p.moderation_status <> 'hidden'`];
+  const params: unknown[] = [];
+  let idx = 1;
+
+  if (search) {
+    where.push(`(p.title ILIKE $${idx} OR p.content ILIKE $${idx} OR EXISTS (SELECT 1 FROM unnest(p.tags) t WHERE t ILIKE $${idx}))`);
+    params.push(`%${search}%`);
+    idx += 1;
+  }
+  if (category && category !== "all") {
+    where.push(`p.category = $${idx}`);
+    params.push(category);
+    idx += 1;
+  }
+
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const orderSql =
+    sort === "trending"
+      ? `ORDER BY (p.saves_count * 3 + p.likes_count * 2) DESC, p.created_at DESC`
+      : sort === "most_saved"
+        ? `ORDER BY p.saves_count DESC, p.created_at DESC`
+        : `ORDER BY p.created_at DESC`;
+
+  const rows = await queryNeon<{
+    id: string;
+    user_id: string;
+    title: string;
+    content: string;
+    category: string;
+    tags: string[] | null;
+    image_urls: string[] | null;
+    likes_count: number;
+    saves_count: number;
+    report_count: number;
+    is_flagged: boolean;
+    moderation_status: string;
+    created_at: string;
+    updated_at: string;
+    author_name: string | null;
+  }>(
+    `
+    SELECT
+      p.id::text, p.user_id::text, p.title, p.content, p.category, p.tags, p.image_urls,
+      p.likes_count, p.saves_count, p.report_count, p.is_flagged, p.moderation_status,
+      p.created_at::text, p.updated_at::text, COALESCE(pr.name, 'Aspirant') AS author_name
+    FROM notes_feed_posts p
+    LEFT JOIN profiles pr ON pr.id = p.user_id
+    ${whereSql}
+    ${orderSql}
+    LIMIT $${idx} OFFSET $${idx + 1}
+    `,
+    [...params, limit, offset],
+  );
+
+  const countRows = await queryNeon<{ total: number }>(
+    `SELECT COUNT(*)::int AS total FROM notes_feed_posts p ${whereSql}`,
+    params,
+  );
+  const total = Number(countRows[0]?.total || 0);
+
+  return c.json({
+    items: rows.map((r) => ({
+      id: r.id,
+      userId: r.user_id,
+      title: r.title,
+      content: r.content,
+      preview: r.content.length > 280 ? `${r.content.slice(0, 280)}...` : r.content,
+      category: r.category,
+      tags: Array.isArray(r.tags) ? r.tags : [],
+      imageUrls: Array.isArray(r.image_urls) ? r.image_urls : [],
+      likesCount: Number(r.likes_count || 0),
+      savesCount: Number(r.saves_count || 0),
+      reportCount: Number(r.report_count || 0),
+      isFlagged: Boolean(r.is_flagged),
+      moderationStatus: r.moderation_status,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+      author: { id: r.user_id, name: r.author_name || "Aspirant" },
+      trendingScore: Number(r.saves_count || 0) * 3 + Number(r.likes_count || 0) * 2,
+    })),
+    page,
+    limit,
+    total,
+    hasMore: page * limit < total,
+  });
+});
+
+functionsRouter.get("/notes-feed/:noteId", async (c) => {
+  const noteId = String(c.req.param("noteId") || "").trim();
+  if (!noteId) return c.json({ message: "noteId is required" }, 400);
+  const user = await getSessionUser(c);
+
+  const rows = await queryNeon<{
+    id: string;
+    user_id: string;
+    title: string;
+    content: string;
+    category: string;
+    tags: string[] | null;
+    image_urls: string[] | null;
+    likes_count: number;
+    saves_count: number;
+    report_count: number;
+    is_flagged: boolean;
+    moderation_status: string;
+    created_at: string;
+    updated_at: string;
+    author_name: string | null;
+    liked_by_viewer: number;
+    saved_by_viewer: number;
+  }>(
+    `
+    SELECT
+      p.id::text, p.user_id::text, p.title, p.content, p.category, p.tags, p.image_urls,
+      p.likes_count, p.saves_count, p.report_count, p.is_flagged, p.moderation_status,
+      p.created_at::text, p.updated_at::text,
+      COALESCE(pr.name, 'Aspirant') AS author_name,
+      CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM notes_feed_likes l WHERE l.note_id = p.id AND l.user_id = $2::uuid) THEN 1 ELSE 0 END AS liked_by_viewer,
+      CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM notes_feed_saves s WHERE s.note_id = p.id AND s.user_id = $2::uuid) THEN 1 ELSE 0 END AS saved_by_viewer
+    FROM notes_feed_posts p
+    LEFT JOIN profiles pr ON pr.id = p.user_id
+    WHERE p.id = $1::uuid
+    LIMIT 1
+    `,
+    [noteId, user?.id || null],
+  );
+  const note = rows[0];
+  if (!note) return c.json({ message: "Note not found" }, 404);
+  if (note.moderation_status === "hidden") return c.json({ message: "Note unavailable" }, 404);
+
+  return c.json({
+    item: {
+      id: note.id,
+      userId: note.user_id,
+      title: note.title,
+      content: note.content,
+      category: note.category,
+      tags: Array.isArray(note.tags) ? note.tags : [],
+      imageUrls: Array.isArray(note.image_urls) ? note.image_urls : [],
+      likesCount: Number(note.likes_count || 0),
+      savesCount: Number(note.saves_count || 0),
+      reportCount: Number(note.report_count || 0),
+      isFlagged: Boolean(note.is_flagged),
+      moderationStatus: note.moderation_status,
+      createdAt: note.created_at,
+      updatedAt: note.updated_at,
+      author: { id: note.user_id, name: note.author_name || "Aspirant" },
+      likedByViewer: Number(note.liked_by_viewer || 0) > 0,
+      savedByViewer: Number(note.saved_by_viewer || 0) > 0,
+    },
+  });
+});
+
+functionsRouter.post("/notes-feed/:noteId/update", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const noteId = String(c.req.param("noteId") || "").trim();
+  const body = await c.req.json().catch(() => ({}));
+  const title = String(body?.title ?? "").trim();
+  const content = String(body?.content ?? "").trim();
+  const category = String(body?.category ?? "").trim();
+  const tags = sanitizeTags(body?.tags);
+
+  const existing = await queryNeon<{ user_id: string }>(
+    `SELECT user_id::text FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`,
+    [noteId],
+  );
+  if (!existing[0]) return c.json({ message: "Note not found" }, 404);
+  if (existing[0].user_id !== user.id) return c.json({ message: "Only owner can update note." }, 403);
+
+  if (!title || title.length < 10 || title.length > 180) {
+    return c.json({ message: "Title must be between 10 and 180 characters." }, 400);
+  }
+  if (!content || content.length < 80 || content.length > 25000) {
+    return c.json({ message: "Content must be between 80 and 25000 characters." }, 400);
+  }
+  if (!UPSC_CATEGORIES.includes(category as (typeof UPSC_CATEGORIES)[number])) {
+    return c.json({ message: "Please select a valid UPSC category." }, 400);
+  }
+  const contentCheck = analyzeUpscContent({ title, content, category });
+  if (!contentCheck.allowed) return c.json({ message: contentCheck.warning }, 400);
+
+  await queryNeon(
+    `
+    UPDATE notes_feed_posts
+    SET title = $2, content = $3, category = $4, tags = $5::text[],
+        is_flagged = $6, moderation_status = $7, updated_at = NOW()
+    WHERE id = $1::uuid
+    `,
+    [noteId, title, content, category, tags, contentCheck.flagged, contentCheck.moderationStatus],
+  );
+  return c.json({ ok: true, warning: contentCheck.warning || null });
+});
+
+functionsRouter.post("/notes-feed/:noteId/delete", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const noteId = String(c.req.param("noteId") || "").trim();
+
+  const existing = await queryNeon<{ user_id: string }>(
+    `SELECT user_id::text FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`,
+    [noteId],
+  );
+  if (!existing[0]) return c.json({ message: "Note not found" }, 404);
+  if (existing[0].user_id !== user.id) return c.json({ message: "Only owner can delete note." }, 403);
+
+  await queryNeon(`DELETE FROM notes_feed_posts WHERE id = $1::uuid`, [noteId]);
+  return c.json({ ok: true });
+});
+
+functionsRouter.post("/notes-feed/:noteId/like", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const noteId = String(c.req.param("noteId") || "").trim();
+
+  const noteRows = await queryNeon<{ id: string }>(`SELECT id::text FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`, [noteId]);
+  if (!noteRows[0]) return c.json({ message: "Note not found" }, 404);
+
+  const existing = await queryNeon<{ id: string }>(
+    `SELECT id::text FROM notes_feed_likes WHERE note_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
+    [noteId, user.id],
+  );
+  let liked = false;
+  if (existing[0]?.id) {
+    await queryNeon(`DELETE FROM notes_feed_likes WHERE id = $1::uuid`, [existing[0].id]);
+    await queryNeon(`UPDATE notes_feed_posts SET likes_count = GREATEST(likes_count - 1, 0), updated_at = NOW() WHERE id = $1::uuid`, [noteId]);
+    liked = false;
+  } else {
+    await queryNeon(`INSERT INTO notes_feed_likes (id, note_id, user_id) VALUES ($1::uuid, $2::uuid, $3::uuid)`, [randomUUID(), noteId, user.id]);
+    await queryNeon(`UPDATE notes_feed_posts SET likes_count = likes_count + 1, updated_at = NOW() WHERE id = $1::uuid`, [noteId]);
+    liked = true;
+  }
+
+  const latest = await queryNeon<{ likes_count: number }>(`SELECT likes_count FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`, [noteId]);
+  return c.json({ ok: true, liked, likesCount: Number(latest[0]?.likes_count || 0) });
+});
+
+functionsRouter.post("/notes-feed/:noteId/save", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const noteId = String(c.req.param("noteId") || "").trim();
+
+  const noteRows = await queryNeon<{ id: string }>(`SELECT id::text FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`, [noteId]);
+  if (!noteRows[0]) return c.json({ message: "Note not found" }, 404);
+
+  const existing = await queryNeon<{ id: string }>(
+    `SELECT id::text FROM notes_feed_saves WHERE note_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
+    [noteId, user.id],
+  );
+  let saved = false;
+  if (existing[0]?.id) {
+    await queryNeon(`DELETE FROM notes_feed_saves WHERE id = $1::uuid`, [existing[0].id]);
+    await queryNeon(`UPDATE notes_feed_posts SET saves_count = GREATEST(saves_count - 1, 0), updated_at = NOW() WHERE id = $1::uuid`, [noteId]);
+    saved = false;
+  } else {
+    await queryNeon(`INSERT INTO notes_feed_saves (id, note_id, user_id) VALUES ($1::uuid, $2::uuid, $3::uuid)`, [randomUUID(), noteId, user.id]);
+    await queryNeon(`UPDATE notes_feed_posts SET saves_count = saves_count + 1, updated_at = NOW() WHERE id = $1::uuid`, [noteId]);
+    saved = true;
+  }
+
+  const latest = await queryNeon<{ saves_count: number }>(`SELECT saves_count FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`, [noteId]);
+  return c.json({ ok: true, saved, savesCount: Number(latest[0]?.saves_count || 0) });
+});
+
+functionsRouter.get("/notes-feed/saved/list", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const search = String(c.req.query("search") || "").trim();
+  const category = String(c.req.query("category") || "").trim();
+
+  const where = [`s.user_id = $1::uuid`, `p.moderation_status <> 'hidden'`];
+  const params: unknown[] = [user.id];
+  let idx = 2;
+  if (search) {
+    where.push(`(p.title ILIKE $${idx} OR p.content ILIKE $${idx})`);
+    params.push(`%${search}%`);
+    idx += 1;
+  }
+  if (category && category !== "all") {
+    where.push(`p.category = $${idx}`);
+    params.push(category);
+  }
+
+  const rows = await queryNeon<{
+    id: string;
+    user_id: string;
+    title: string;
+    content: string;
+    category: string;
+    tags: string[] | null;
+    image_urls: string[] | null;
+    likes_count: number;
+    saves_count: number;
+    created_at: string;
+    author_name: string | null;
+    saved_at: string;
+  }>(
+    `
+    SELECT
+      p.id::text, p.user_id::text, p.title, p.content, p.category, p.tags, p.image_urls,
+      p.likes_count, p.saves_count, p.created_at::text,
+      COALESCE(pr.name, 'Aspirant') AS author_name, s.created_at::text AS saved_at
+    FROM notes_feed_saves s
+    JOIN notes_feed_posts p ON p.id = s.note_id
+    LEFT JOIN profiles pr ON pr.id = p.user_id
+    WHERE ${where.join(" AND ")}
+    ORDER BY s.created_at DESC
+    `,
+    params,
+  );
+
+  return c.json({
+    items: rows.map((r) => ({
+      id: r.id,
+      userId: r.user_id,
+      title: r.title,
+      content: r.content,
+      preview: r.content.length > 280 ? `${r.content.slice(0, 280)}...` : r.content,
+      category: r.category,
+      tags: Array.isArray(r.tags) ? r.tags : [],
+      imageUrls: Array.isArray(r.image_urls) ? r.image_urls : [],
+      likesCount: Number(r.likes_count || 0),
+      savesCount: Number(r.saves_count || 0),
+      createdAt: r.created_at,
+      savedAt: r.saved_at,
+      author: { id: r.user_id, name: r.author_name || "Aspirant" },
+    })),
+  });
+});
+
+functionsRouter.post("/notes-feed/:noteId/report", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const noteId = String(c.req.param("noteId") || "").trim();
+  const body = await c.req.json().catch(() => ({}));
+  const reason = String(body?.reason ?? "").trim().toLowerCase();
+  if (!validModerationReasons.has(reason)) return c.json({ message: "Invalid report reason." }, 400);
+
+  const noteRows = await queryNeon<{ id: string }>(`SELECT id::text FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`, [noteId]);
+  if (!noteRows[0]) return c.json({ message: "Note not found" }, 404);
+
+  await queryNeon(
+    `INSERT INTO notes_feed_reports (id, note_id, user_id, reason) VALUES ($1::uuid, $2::uuid, $3::uuid, $4)`,
+    [randomUUID(), noteId, user.id, reason],
+  );
+  await queryNeon(
+    `
+    UPDATE notes_feed_posts
+    SET report_count = report_count + 1,
+        is_flagged = TRUE,
+        moderation_status = CASE WHEN report_count + 1 >= 3 THEN 'needs_review' ELSE moderation_status END,
+        updated_at = NOW()
+    WHERE id = $1::uuid
+    `,
+    [noteId],
+  );
+
+  return c.json({ ok: true });
+});
+
 functionsRouter.post("/db/select", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   try {

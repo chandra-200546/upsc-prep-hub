@@ -21,6 +21,7 @@ import {
   Mic,
   ClipboardList,
   MessageCircleQuestion,
+  NotebookPen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -50,6 +51,7 @@ const allFeatures = [
   { title: "Voice AI", url: "/voice-ai", icon: Mic },
   { title: "Weekly Test Series", url: "/weekly-test-series", icon: ClipboardList },
   { title: "UPSC Doubt Feed", url: "/doubt-feed", icon: MessageCircleQuestion },
+  { title: "UPSC Notes Feed", url: "/notes-feed", icon: NotebookPen },
 ];
 
 export function DashboardSidebar() {

@@ -30,6 +30,7 @@ import VoiceAI from "./pages/VoiceAI";
 import Subscription from "./pages/Subscription";
 import WeeklyTestSeries from "./pages/WeeklyTestSeries";
 import DoubtFeed from "./pages/DoubtFeed";
+import NotesFeed from "./pages/NotesFeed";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +70,7 @@ const App = () => (
             <Route path="/subscription" element={<Subscription />} />
             <Route path="/weekly-test-series" element={<WeeklyTestSeries />} />
             <Route path="/doubt-feed" element={<DoubtFeed />} />
+            <Route path="/notes-feed" element={<NotesFeed />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

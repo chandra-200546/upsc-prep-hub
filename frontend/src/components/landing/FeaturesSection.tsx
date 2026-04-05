@@ -108,6 +108,12 @@ const features = [
     description: "Ask UPSC doubts publicly, get peer answers, mark best answer, and learn collaboratively with focused moderation.",
     color: "from-emerald-500 to-teal-500",
   },
+  {
+    icon: NotebookPen,
+    title: "UPSC Notes Feed",
+    description: "Human-created UPSC notes feed to read, revise, and refer notes shared by serious aspirants.",
+    color: "from-orange-500 to-amber-500",
+  },
 ];
 
 const container = {
