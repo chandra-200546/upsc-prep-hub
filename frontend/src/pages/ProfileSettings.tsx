@@ -32,6 +32,10 @@ const ProfileSettings = () => {
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
+    if (isLocalMode) {
+      toast({ title: "Backend required", description: "Profile photo update requires backend connection.", variant: "destructive" });
+      return;
+    }
 
     setUploading(true);
     try {
@@ -63,6 +67,10 @@ const ProfileSettings = () => {
 
   const handleSave = async () => {
     if (!user) return;
+    if (isLocalMode) {
+      toast({ title: "Backend required", description: "Profile settings are saved only in backend.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       const updates = {
@@ -74,13 +82,9 @@ const ProfileSettings = () => {
         profile_photo_url: photoUrl || null,
       };
 
-      if (isLocalMode) {
-        saveProfile(updates as any);
-      } else {
-        const { error } = await supabase.from("profiles").update(updates).eq("id", user.id);
-        if (error) throw error;
-        refreshProfile();
-      }
+      const { error } = await supabase.from("profiles").update(updates).eq("id", user.id);
+      if (error) throw error;
+      refreshProfile();
       toast({ title: "Profile saved!", description: "Your changes have been saved." });
     } catch (err: any) {
       toast({ title: "Save failed", description: err.message, variant: "destructive" });
@@ -90,6 +94,10 @@ const ProfileSettings = () => {
   };
 
   const handleChangePassword = async () => {
+    if (isLocalMode) {
+      toast({ title: "Backend required", description: "Password update requires backend connection.", variant: "destructive" });
+      return;
+    }
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast({ title: "Missing fields", description: "Please fill all password fields.", variant: "destructive" });
       return;

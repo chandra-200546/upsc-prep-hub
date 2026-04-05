@@ -31,11 +31,21 @@ const Dashboard = () => {
   const { toast } = useToast();
   const streakSyncKeyRef = useRef("");
   
-  const { user, profile, isReady } = useAuth();
+  const { user, profile, isReady, isLocalMode, signOut } = useAuth();
   const { updateStreak } = useGamification();
 
   useEffect(() => {
     if (!isReady) return;
+    if (isLocalMode) {
+      toast({
+        title: "Backend required",
+        description: "Dashboard is available only with backend-connected account.",
+        variant: "destructive",
+      });
+      signOut();
+      navigate("/auth");
+      return;
+    }
     if (!user) { navigate("/auth"); return; }
     if (!profile) { navigate("/onboarding"); return; }
     setLoading(false);
@@ -46,7 +56,7 @@ const Dashboard = () => {
       streakSyncKeyRef.current = syncKey;
       updateStreak();
     }
-  }, [isReady, user, profile, navigate]);
+  }, [isReady, user, profile, isLocalMode, signOut, navigate]);
 
   const handleAdminAccess = () => {
     setShowPasswordDialog(true);
