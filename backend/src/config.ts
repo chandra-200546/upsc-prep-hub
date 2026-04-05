@@ -65,6 +65,8 @@ export const config = {
   allowedOrigins: parseAllowedOrigins(required("ALLOWED_ORIGIN", "*")),
   googleClientId: required("GOOGLE_CLIENT_ID"),
   googleClientSecret: required("GOOGLE_CLIENT_SECRET"),
+  weeklyTestAdminEmail: required("WEEKLY_TEST_ADMIN_EMAIL"),
+  weeklyTestAdminPassword: required("WEEKLY_TEST_ADMIN_PASSWORD"),
 };
 
 export const hasGemini = Boolean(config.geminiApiKey);

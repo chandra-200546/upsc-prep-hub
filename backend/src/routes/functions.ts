@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { dbDelete, dbInsert, dbSelect, dbUpdate, dbUpsert, loginOrCreateGoogleUser, loginUser, resetPasswordByEmail, resolveSession, revokeSession, signUpUser, updatePasswordForUser } from "../db/app-db.js";
 import { cacheGet, cacheSet, logRequest } from "../db/sqlite.js";
-import { neonAdminStats, neonCacheGet, neonCacheSet, neonLogRequest } from "../db/neon.js";
+import { neonAdminStats, neonCacheGet, neonCacheSet, neonLogRequest, queryNeon } from "../db/neon.js";
 import { getProfileById, listProfiles, parseProfilesCsv, upsertProfiles } from "../db/profiles.js";
 import { getHistoryRagStats, ingestHistoryChunks, queryHistoryRag } from "../rag/history-rag.js";
 import { generateSubjectBookAnswer, generateSubjectRagNotes, getSubjectRagStats, ingestSubjectPdf } from "../rag/subject-rag.js";
@@ -68,6 +68,25 @@ const authTokenFromHeader = (authHeader?: string | null) => {
   if (!authHeader) return "";
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   return match?.[1]?.trim() || "";
+};
+
+const getSessionUser = async (c: any) => {
+  const token = authTokenFromHeader(c.req.header("Authorization"));
+  if (!token) return null;
+  const session = await resolveSession(token);
+  return session?.user || null;
+};
+
+const getAdminTokenFromHeader = (c: any) => String(c.req.header("X-Weekly-Admin-Token") || "").trim();
+
+const requireWeeklyAdmin = async (c: any) => {
+  const token = getAdminTokenFromHeader(c);
+  if (!token) return null;
+  const rows = await queryNeon<{ email: string }>(
+    `SELECT email FROM weekly_test_admin_sessions WHERE token = $1 AND expires_at > NOW() LIMIT 1`,
+    [token],
+  );
+  return rows[0] || null;
 };
 
 const verifyGoogleIdToken = async (idToken: string) => {
@@ -183,6 +202,306 @@ functionsRouter.post("/auth/logout", async (c) => {
   const token = authTokenFromHeader(c.req.header("Authorization"));
   if (token) await revokeSession(token);
   return c.json({ success: true });
+});
+
+functionsRouter.post("/weekly-tests/admin/login", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const email = String(body?.email ?? "").trim().toLowerCase();
+  const password = String(body?.password ?? "");
+  if (!email || !password) return c.json({ message: "email and password are required" }, 400);
+
+  if (config.weeklyTestAdminEmail && config.weeklyTestAdminPassword) {
+    if (email !== config.weeklyTestAdminEmail.toLowerCase() || password !== config.weeklyTestAdminPassword) {
+      return c.json({ message: "Invalid admin credentials" }, 401);
+    }
+    const existing = await queryNeon<{ id: string }>("SELECT id::text FROM user_accounts WHERE email = $1 LIMIT 1", [email]);
+    if (!existing[0]) {
+      return c.json({ message: "Admin email must belong to an existing account." }, 400);
+    }
+  } else {
+    const firstUser = await queryNeon<{ email: string }>(
+      `SELECT email FROM user_accounts ORDER BY created_at ASC LIMIT 1`,
+    );
+    const firstEmail = String(firstUser[0]?.email || "").toLowerCase();
+    if (!firstEmail || email !== firstEmail) {
+      return c.json({ message: "Only the first registered account can access admin for now." }, 401);
+    }
+    try {
+      await loginUser(email, password);
+    } catch {
+      return c.json({ message: "Invalid admin credentials" }, 401);
+    }
+  }
+
+  const token = `wta_${randomUUID().replace(/-/g, "")}`;
+  await queryNeon(
+    `INSERT INTO weekly_test_admin_sessions (token, email, expires_at) VALUES ($1, $2, NOW() + INTERVAL '12 hours')`,
+    [token, email],
+  );
+  return c.json({ ok: true, token });
+});
+
+functionsRouter.get("/weekly-tests/list", async (c) => {
+  const rows = await queryNeon<{
+    id: string;
+    title: string;
+    description: string | null;
+    week_label: string | null;
+    duration_minutes: number;
+    start_at: string | null;
+    end_at: string | null;
+    is_published: boolean;
+    questions_count: number;
+  }>(
+    `
+    SELECT t.id::text, t.title, t.description, t.week_label, t.duration_minutes, t.start_at::text, t.end_at::text, t.is_published,
+           COUNT(q.id)::int AS questions_count
+    FROM weekly_tests t
+    LEFT JOIN weekly_test_questions q ON q.test_id = t.id
+    WHERE t.is_published = TRUE
+    GROUP BY t.id
+    ORDER BY t.created_at DESC
+    `,
+  );
+  return c.json({ tests: rows });
+});
+
+functionsRouter.get("/weekly-tests/admin/tests", async (c) => {
+  const admin = await requireWeeklyAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+  const rows = await queryNeon<{
+    id: string;
+    title: string;
+    description: string | null;
+    week_label: string | null;
+    duration_minutes: number;
+    start_at: string | null;
+    end_at: string | null;
+    is_published: boolean;
+    questions_count: number;
+  }>(
+    `
+    SELECT t.id::text, t.title, t.description, t.week_label, t.duration_minutes, t.start_at::text, t.end_at::text, t.is_published,
+           COUNT(q.id)::int AS questions_count
+    FROM weekly_tests t
+    LEFT JOIN weekly_test_questions q ON q.test_id = t.id
+    GROUP BY t.id
+    ORDER BY t.created_at DESC
+    `,
+  );
+  return c.json({ tests: rows });
+});
+
+functionsRouter.post("/weekly-tests/admin/create", async (c) => {
+  const admin = await requireWeeklyAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+  const body = await c.req.json().catch(() => ({}));
+  const title = String(body?.title ?? "").trim();
+  const description = String(body?.description ?? "").trim();
+  const weekLabel = String(body?.weekLabel ?? "").trim();
+  const durationMinutes = Math.max(15, Math.min(180, Number(body?.durationMinutes ?? 60)));
+  const startAt = String(body?.startAt ?? "").trim() || null;
+  const endAt = String(body?.endAt ?? "").trim() || null;
+  const isPublished = Boolean(body?.isPublished ?? false);
+  if (!title) return c.json({ message: "title is required" }, 400);
+
+  const id = randomUUID();
+  await queryNeon(
+    `
+    INSERT INTO weekly_tests (id, title, description, week_label, duration_minutes, start_at, end_at, is_published)
+    VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz, $8)
+    `,
+    [id, title, description || null, weekLabel || null, durationMinutes, startAt, endAt, isPublished],
+  );
+  return c.json({ ok: true, id });
+});
+
+functionsRouter.post("/weekly-tests/admin/question", async (c) => {
+  const admin = await requireWeeklyAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+  const body = await c.req.json().catch(() => ({}));
+  const testId = String(body?.testId ?? "").trim();
+  const questionText = String(body?.questionText ?? "").trim();
+  const optionA = String(body?.optionA ?? "").trim();
+  const optionB = String(body?.optionB ?? "").trim();
+  const optionC = String(body?.optionC ?? "").trim();
+  const optionD = String(body?.optionD ?? "").trim();
+  const correctAnswer = String(body?.correctAnswer ?? "").trim().toUpperCase();
+  const explanation = String(body?.explanation ?? "").trim();
+  if (!testId || !questionText || !optionA || !optionB || !optionC || !optionD) {
+    return c.json({ message: "testId, questionText and all options are required" }, 400);
+  }
+  if (!["A", "B", "C", "D"].includes(correctAnswer)) {
+    return c.json({ message: "correctAnswer must be one of A/B/C/D" }, 400);
+  }
+
+  const id = randomUUID();
+  await queryNeon(
+    `
+    INSERT INTO weekly_test_questions
+    (id, test_id, question_text, option_a, option_b, option_c, option_d, correct_answer, explanation)
+    VALUES ($1, $2::uuid, $3, $4, $5, $6, $7, $8, $9)
+    `,
+    [id, testId, questionText, optionA, optionB, optionC, optionD, correctAnswer, explanation || null],
+  );
+  return c.json({ ok: true, id });
+});
+
+functionsRouter.post("/weekly-tests/admin/publish", async (c) => {
+  const admin = await requireWeeklyAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+  const body = await c.req.json().catch(() => ({}));
+  const testId = String(body?.testId ?? "").trim();
+  const isPublished = Boolean(body?.isPublished);
+  if (!testId) return c.json({ message: "testId is required" }, 400);
+  await queryNeon(`UPDATE weekly_tests SET is_published = $1 WHERE id = $2::uuid`, [isPublished, testId]);
+  return c.json({ ok: true });
+});
+
+functionsRouter.get("/weekly-tests/:testId", async (c) => {
+  const testId = String(c.req.param("testId") || "").trim();
+  if (!testId) return c.json({ message: "testId is required" }, 400);
+
+  const testRows = await queryNeon<{
+    id: string;
+    title: string;
+    description: string | null;
+    week_label: string | null;
+    duration_minutes: number;
+    start_at: string | null;
+    end_at: string | null;
+    is_published: boolean;
+  }>(
+    `SELECT id::text, title, description, week_label, duration_minutes, start_at::text, end_at::text, is_published
+     FROM weekly_tests WHERE id = $1::uuid LIMIT 1`,
+    [testId],
+  );
+  const test = testRows[0];
+  if (!test) return c.json({ message: "Test not found" }, 404);
+  if (!test.is_published) return c.json({ message: "Test is not published yet" }, 400);
+
+  const questions = await queryNeon<{
+    id: string;
+    question_text: string;
+    option_a: string;
+    option_b: string;
+    option_c: string;
+    option_d: string;
+  }>(
+    `SELECT id::text, question_text, option_a, option_b, option_c, option_d
+     FROM weekly_test_questions WHERE test_id = $1::uuid ORDER BY created_at ASC`,
+    [testId],
+  );
+  return c.json({ test, questions });
+});
+
+functionsRouter.post("/weekly-tests/:testId/submit", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const testId = String(c.req.param("testId") || "").trim();
+  const body = await c.req.json().catch(() => ({}));
+  const answersRaw = Array.isArray(body?.answers) ? body.answers : [];
+  if (!testId || !answersRaw.length) return c.json({ message: "testId and answers are required" }, 400);
+
+  const questions = await queryNeon<{
+    id: string;
+    correct_answer: string;
+  }>(
+    `SELECT id::text, correct_answer FROM weekly_test_questions WHERE test_id = $1::uuid`,
+    [testId],
+  );
+  if (!questions.length) return c.json({ message: "No questions configured for this test" }, 400);
+  const answerMap = new Map<string, string>();
+  answersRaw.forEach((a: any) => {
+    const qid = String(a?.questionId ?? "").trim();
+    const selected = String(a?.selectedAnswer ?? "").trim().toUpperCase();
+    if (qid && ["A", "B", "C", "D"].includes(selected)) {
+      answerMap.set(qid, selected);
+    }
+  });
+
+  let score = 0;
+  let answered = 0;
+  const details: Array<{ questionId: string; selectedAnswer: string; isCorrect: boolean }> = [];
+  questions.forEach((q) => {
+    const selected = answerMap.get(q.id);
+    if (!selected) return;
+    answered += 1;
+    const isCorrect = selected === String(q.correct_answer || "").toUpperCase();
+    if (isCorrect) score += 1;
+    details.push({ questionId: q.id, selectedAnswer: selected, isCorrect });
+  });
+
+  const attemptId = randomUUID();
+  await queryNeon(
+    `
+    INSERT INTO weekly_test_attempts (id, test_id, user_id, score, total_questions, submitted_at)
+    VALUES ($1, $2::uuid, $3::uuid, $4, $5, NOW())
+    ON CONFLICT (test_id, user_id)
+    DO UPDATE SET score = EXCLUDED.score, total_questions = EXCLUDED.total_questions, submitted_at = NOW()
+    RETURNING id::text
+    `,
+    [attemptId, testId, user.id, score, questions.length],
+  );
+
+  const storedAttempt = await queryNeon<{ id: string }>(
+    `SELECT id::text FROM weekly_test_attempts WHERE test_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
+    [testId, user.id],
+  );
+  const finalAttemptId = storedAttempt[0]?.id || attemptId;
+
+  await queryNeon(`DELETE FROM weekly_test_attempt_answers WHERE attempt_id = $1::uuid`, [finalAttemptId]);
+  for (const row of details) {
+    await queryNeon(
+      `
+      INSERT INTO weekly_test_attempt_answers (id, attempt_id, question_id, selected_answer, is_correct)
+      VALUES ($1, $2::uuid, $3::uuid, $4, $5)
+      `,
+      [randomUUID(), finalAttemptId, row.questionId, row.selectedAnswer, row.isCorrect],
+    );
+  }
+
+  return c.json({
+    ok: true,
+    score,
+    totalQuestions: questions.length,
+    answeredQuestions: answered,
+    percentage: questions.length ? Math.round((score / questions.length) * 100) : 0,
+  });
+});
+
+functionsRouter.get("/weekly-tests/:testId/leaderboard", async (c) => {
+  const testId = String(c.req.param("testId") || "").trim();
+  if (!testId) return c.json({ message: "testId is required" }, 400);
+
+  const rows = await queryNeon<{
+    user_id: string;
+    name: string;
+    score: number;
+    total_questions: number;
+    submitted_at: string;
+  }>(
+    `
+    SELECT a.user_id::text, COALESCE(p.name, 'Aspirant') AS name, a.score, a.total_questions, a.submitted_at::text
+    FROM weekly_test_attempts a
+    LEFT JOIN profiles p ON p.id = a.user_id
+    WHERE a.test_id = $1::uuid
+    ORDER BY a.score DESC, a.submitted_at ASC
+    LIMIT 50
+    `,
+    [testId],
+  );
+
+  const leaderboard = rows.map((r, idx) => ({
+    rank: idx + 1,
+    userId: r.user_id,
+    name: r.name,
+    score: r.score,
+    totalQuestions: r.total_questions,
+    percentage: r.total_questions ? Math.round((r.score / r.total_questions) * 100) : 0,
+    submittedAt: r.submitted_at,
+  }));
+  return c.json({ leaderboard });
 });
 
 functionsRouter.post("/db/select", async (c) => {

@@ -19,6 +19,7 @@ import {
   MessageSquare, Brain, FileText, Calendar, Award,
   BookOpen, Map, Video, GitBranch, Newspaper, GraduationCap, MessageCircle,
   Mic,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -46,6 +47,7 @@ const allFeatures = [
   { title: "Daily Intel", url: "/daily-intel", icon: Newspaper },
   { title: "Optional Prof.", url: "/optional-professor", icon: GraduationCap },
   { title: "Voice AI", url: "/voice-ai", icon: Mic },
+  { title: "Weekly Test Series", url: "/weekly-test-series", icon: ClipboardList },
 ];
 
 export function DashboardSidebar() {

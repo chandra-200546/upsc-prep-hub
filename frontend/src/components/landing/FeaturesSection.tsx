@@ -13,6 +13,7 @@ import {
   GraduationCap,
   FileBarChart,
   NotebookPen,
+  ClipboardList,
 } from "lucide-react";
 
 const features = [
@@ -94,6 +95,12 @@ const features = [
     description: "5-minute crisp briefing like an IAS officer's daily file. Major events classified by GS Paper with MCQs.",
     color: "from-pink-500 to-rose-500",
   },
+  {
+    icon: ClipboardList,
+    title: "Weekly Test Series",
+    description: "Prelims weekly test series with score analysis, per-test leaderboard, and exam-style practice flow.",
+    color: "from-sky-500 to-indigo-500",
+  },
 ];
 
 const container = {
@@ -133,7 +140,7 @@ const FeaturesSection = () => {
             </span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            13 AI-powered tools designed specifically for UPSC aspirants. From preparation to interview, we've got you covered.
+            AI-powered tools designed specifically for UPSC aspirants. From preparation to interview, we've got you covered.
           </p>
         </motion.div>
 

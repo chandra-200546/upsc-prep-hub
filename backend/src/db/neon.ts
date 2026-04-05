@@ -228,6 +228,69 @@ export const ensureNeonSchema = async () => {
   `));
   await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_subject_rag_chunks_subject ON subject_rag_chunks(subject_id);`));
 
+  await withPoolFailover((p) => p.query(`
+    CREATE TABLE IF NOT EXISTS weekly_tests (
+      id UUID PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT,
+      week_label TEXT,
+      duration_minutes INTEGER NOT NULL DEFAULT 60,
+      start_at TIMESTAMPTZ,
+      end_at TIMESTAMPTZ,
+      is_published BOOLEAN NOT NULL DEFAULT FALSE,
+      created_by UUID,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `));
+
+  await withPoolFailover((p) => p.query(`
+    CREATE TABLE IF NOT EXISTS weekly_test_questions (
+      id UUID PRIMARY KEY,
+      test_id UUID NOT NULL REFERENCES weekly_tests(id) ON DELETE CASCADE,
+      question_text TEXT NOT NULL,
+      option_a TEXT NOT NULL,
+      option_b TEXT NOT NULL,
+      option_c TEXT NOT NULL,
+      option_d TEXT NOT NULL,
+      correct_answer TEXT NOT NULL,
+      explanation TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `));
+  await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_weekly_test_questions_test_id ON weekly_test_questions(test_id);`));
+
+  await withPoolFailover((p) => p.query(`
+    CREATE TABLE IF NOT EXISTS weekly_test_attempts (
+      id UUID PRIMARY KEY,
+      test_id UUID NOT NULL REFERENCES weekly_tests(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL,
+      score INTEGER NOT NULL DEFAULT 0,
+      total_questions INTEGER NOT NULL DEFAULT 0,
+      submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (test_id, user_id)
+    );
+  `));
+  await withPoolFailover((p) => p.query(`CREATE INDEX IF NOT EXISTS idx_weekly_test_attempts_test_id ON weekly_test_attempts(test_id);`));
+
+  await withPoolFailover((p) => p.query(`
+    CREATE TABLE IF NOT EXISTS weekly_test_attempt_answers (
+      id UUID PRIMARY KEY,
+      attempt_id UUID NOT NULL REFERENCES weekly_test_attempts(id) ON DELETE CASCADE,
+      question_id UUID NOT NULL REFERENCES weekly_test_questions(id) ON DELETE CASCADE,
+      selected_answer TEXT NOT NULL,
+      is_correct BOOLEAN NOT NULL DEFAULT FALSE
+    );
+  `));
+
+  await withPoolFailover((p) => p.query(`
+    CREATE TABLE IF NOT EXISTS weekly_test_admin_sessions (
+      token TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL
+    );
+  `));
+
   await withPoolFailover((p) => p.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS chat_type TEXT DEFAULT 'mentor';`));
   await withPoolFailover((p) => p.query(`ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS content TEXT;`));
   await withPoolFailover((p) => p.query(`UPDATE chat_messages SET content = message WHERE content IS NULL AND message IS NOT NULL;`));
