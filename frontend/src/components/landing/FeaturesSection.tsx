@@ -14,6 +14,7 @@ import {
   FileBarChart,
   NotebookPen,
   ClipboardList,
+  MessageCircleQuestion,
 } from "lucide-react";
 
 const features = [
@@ -100,6 +101,12 @@ const features = [
     title: "Weekly Test Series",
     description: "Prelims weekly test series with score analysis, per-test leaderboard, and exam-style practice flow.",
     color: "from-sky-500 to-indigo-500",
+  },
+  {
+    icon: MessageCircleQuestion,
+    title: "UPSC Doubt Feed",
+    description: "Ask UPSC doubts publicly, get peer answers, mark best answer, and learn collaboratively with focused moderation.",
+    color: "from-emerald-500 to-teal-500",
   },
 ];
 

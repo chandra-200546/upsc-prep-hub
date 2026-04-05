@@ -111,6 +111,119 @@ const verifyGoogleIdToken = async (idToken: string) => {
   return { email, name };
 };
 
+const UPSC_CATEGORIES = [
+  "Polity",
+  "History",
+  "Geography",
+  "Economy",
+  "Environment",
+  "Science & Tech",
+  "Ethics",
+  "Essay",
+  "Current Affairs",
+  "CSAT",
+  "Optional",
+  "Prelims",
+  "Mains",
+  "Interview",
+] as const;
+
+const UPSC_KEYWORDS = [
+  "upsc", "ias", "civil services", "prelims", "mains", "interview", "gs", "optional",
+  "polity", "constitution", "history", "geography", "economy", "environment", "ecology",
+  "science", "technology", "ethics", "essay", "governance", "international relations",
+  "current affairs", "schemes", "pyq", "answer writing", "parliament", "judiciary", "budget",
+];
+
+const OFFTOPIC_KEYWORDS = [
+  "coding", "programming", "python", "java", "javascript", "react", "node", "movie", "cinema",
+  "song", "cricket", "football", "meme", "netflix", "instagram", "relationship", "dating",
+  "shopping", "buy", "sell", "promotion", "crypto tip", "stock tip",
+];
+
+const normalizeText = (value: unknown) => String(value ?? "").toLowerCase().trim();
+
+const sanitizeTags = (tags: unknown) => {
+  if (!Array.isArray(tags)) return [] as string[];
+  return tags
+    .map((t) => String(t ?? "").trim())
+    .filter(Boolean)
+    .slice(0, 8);
+};
+
+const analyzeUpscContent = (input: {
+  title?: string;
+  description?: string;
+  content?: string;
+  category?: string;
+}) => {
+  const text = [input.title, input.description, input.content, input.category].map(normalizeText).join(" ");
+  const keywordHits = UPSC_KEYWORDS.filter((k) => text.includes(k)).length;
+  const offTopicHits = OFFTOPIC_KEYWORDS.filter((k) => text.includes(k)).length;
+  const categoryOk = UPSC_CATEGORIES.includes(String(input.category || "") as (typeof UPSC_CATEGORIES)[number]);
+
+  if (offTopicHits > 0 && keywordHits === 0) {
+    return {
+      allowed: false,
+      flagged: true,
+      moderationStatus: "rejected",
+      warning: "This feed is only for UPSC-related doubts to maintain learning quality.",
+    };
+  }
+
+  const flagged = !categoryOk || keywordHits === 0 || offTopicHits > 0;
+  return {
+    allowed: true,
+    flagged,
+    moderationStatus: flagged ? "needs_review" : "clean",
+    warning: flagged ? "This feed is only for UPSC-related doubts to maintain learning quality." : "",
+  };
+};
+
+const validModerationReasons = new Set(["off-topic", "spam", "abusive", "irrelevant", "duplicate"]);
+
+const createDoubtNotification = async (params: {
+  userId: string;
+  type: "answer_received" | "answer_liked" | "best_answer_selected";
+  message: string;
+  relatedPostId?: string;
+  relatedAnswerId?: string;
+}) => {
+  await queryNeon(
+    `
+    INSERT INTO doubt_notifications (id, user_id, type, message, related_post_id, related_answer_id, is_read)
+    VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $6::uuid, FALSE)
+    `,
+    [randomUUID(), params.userId, params.type, params.message, params.relatedPostId || null, params.relatedAnswerId || null],
+  );
+};
+
+const refreshDoubtPostMeta = async (postId: string) => {
+  const rows = await queryNeon<{ answer_count: number; best_answer_id: string | null }>(
+    `
+    SELECT
+      COUNT(a.id)::int AS answer_count,
+      MAX(CASE WHEN a.is_best_answer THEN a.id::text ELSE NULL END) AS best_answer_id
+    FROM doubt_posts p
+    LEFT JOIN doubt_answers a ON a.post_id = p.id
+    WHERE p.id = $1::uuid
+    `,
+    [postId],
+  );
+  const answerCount = Number(rows[0]?.answer_count || 0);
+  const bestAnswerId = rows[0]?.best_answer_id || null;
+  const status = bestAnswerId ? "solved" : answerCount > 0 ? "answered" : "unanswered";
+
+  await queryNeon(
+    `
+    UPDATE doubt_posts
+    SET answer_count = $2, best_answer_id = $3::uuid, status = $4, updated_at = NOW()
+    WHERE id = $1::uuid
+    `,
+    [postId, answerCount, bestAnswerId, status],
+  );
+};
+
 functionsRouter.post("/auth/signup", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const email = String(body?.email ?? "").trim().toLowerCase();
@@ -502,6 +615,657 @@ functionsRouter.get("/weekly-tests/:testId/leaderboard", async (c) => {
     submittedAt: r.submitted_at,
   }));
   return c.json({ leaderboard });
+});
+
+functionsRouter.post("/doubts/create", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+
+  const body = await c.req.json().catch(() => ({}));
+  const title = String(body?.title ?? "").trim();
+  const description = String(body?.description ?? "").trim();
+  const category = String(body?.category ?? "").trim();
+  const tags = sanitizeTags(body?.tags);
+  const imageUrl = String(body?.imageUrl ?? "").trim() || null;
+
+  if (!title || title.length < 10 || title.length > 180) {
+    return c.json({ message: "Title must be between 10 and 180 characters." }, 400);
+  }
+  if (!description || description.length < 20 || description.length > 5000) {
+    return c.json({ message: "Description must be between 20 and 5000 characters." }, 400);
+  }
+  if (!UPSC_CATEGORIES.includes(category as (typeof UPSC_CATEGORIES)[number])) {
+    return c.json({ message: "Please select a valid UPSC category." }, 400);
+  }
+
+  const contentCheck = analyzeUpscContent({ title, description, category });
+  if (!contentCheck.allowed) return c.json({ message: contentCheck.warning }, 400);
+
+  const id = randomUUID();
+  await queryNeon(
+    `
+    INSERT INTO doubt_posts
+    (id, user_id, title, description, category, tags, image_url, answer_count, status, is_flagged, moderation_status, report_count)
+    VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::text[], $7, 0, 'unanswered', $8, $9, 0)
+    `,
+    [id, user.id, title, description, category, tags, imageUrl, contentCheck.flagged, contentCheck.moderationStatus],
+  );
+
+  return c.json({
+    ok: true,
+    id,
+    warning: contentCheck.warning || null,
+  });
+});
+
+functionsRouter.get("/doubts", async (c) => {
+  const search = String(c.req.query("search") || "").trim();
+  const category = String(c.req.query("category") || "").trim();
+  const status = String(c.req.query("status") || "").trim();
+  const sort = String(c.req.query("sort") || "latest").trim();
+  const page = Math.max(1, Number(c.req.query("page") || 1));
+  const limit = Math.max(1, Math.min(50, Number(c.req.query("limit") || 20)));
+  const offset = (page - 1) * limit;
+
+  const where: string[] = [];
+  const params: unknown[] = [];
+  let idx = 1;
+
+  if (search) {
+    where.push(`(p.title ILIKE $${idx} OR p.description ILIKE $${idx})`);
+    params.push(`%${search}%`);
+    idx += 1;
+  }
+  if (category && category !== "all") {
+    where.push(`p.category = $${idx}`);
+    params.push(category);
+    idx += 1;
+  }
+  if (status && status !== "all") {
+    where.push(`p.status = $${idx}`);
+    params.push(status);
+    idx += 1;
+  }
+
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const orderSql =
+    sort === "most_answered"
+      ? "ORDER BY p.answer_count DESC, p.created_at DESC"
+      : sort === "unanswered"
+        ? "ORDER BY (CASE WHEN p.answer_count = 0 THEN 0 ELSE 1 END), p.created_at DESC"
+        : "ORDER BY p.created_at DESC";
+
+  const rows = await queryNeon<{
+    id: string;
+    user_id: string;
+    title: string;
+    description: string;
+    category: string;
+    tags: string[] | null;
+    image_url: string | null;
+    answer_count: number;
+    status: string;
+    is_flagged: boolean;
+    moderation_status: string;
+    report_count: number;
+    created_at: string;
+    updated_at: string;
+    author_name: string | null;
+  }>(
+    `
+    SELECT
+      p.id::text, p.user_id::text, p.title, p.description, p.category, p.tags, p.image_url,
+      p.answer_count, p.status, p.is_flagged, p.moderation_status, p.report_count,
+      p.created_at::text, p.updated_at::text,
+      COALESCE(pr.name, 'Aspirant') AS author_name
+    FROM doubt_posts p
+    LEFT JOIN profiles pr ON pr.id = p.user_id
+    ${whereSql}
+    ${orderSql}
+    LIMIT $${idx} OFFSET $${idx + 1}
+    `,
+    [...params, limit, offset],
+  );
+
+  const countRows = await queryNeon<{ total: number }>(
+    `SELECT COUNT(*)::int AS total FROM doubt_posts p ${whereSql}`,
+    params,
+  );
+  const total = Number(countRows[0]?.total || 0);
+
+  const posts = rows.map((r) => ({
+    id: r.id,
+    userId: r.user_id,
+    title: r.title,
+    description: r.description,
+    preview: r.description.length > 220 ? `${r.description.slice(0, 220)}...` : r.description,
+    category: r.category,
+    tags: Array.isArray(r.tags) ? r.tags : [],
+    imageUrl: r.image_url,
+    answerCount: Number(r.answer_count || 0),
+    status: r.status,
+    isFlagged: Boolean(r.is_flagged),
+    moderationStatus: r.moderation_status,
+    reportCount: Number(r.report_count || 0),
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    author: { id: r.user_id, name: r.author_name || "Aspirant" },
+  }));
+
+  return c.json({
+    posts,
+    page,
+    limit,
+    total,
+    hasMore: page * limit < total,
+  });
+});
+
+functionsRouter.post("/doubts/seed", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+
+  const existing = await queryNeon<{ count: number }>(`SELECT COUNT(*)::int AS count FROM doubt_posts`);
+  if (Number(existing[0]?.count || 0) > 0) {
+    return c.json({ ok: true, inserted: 0, message: "Seed skipped because posts already exist." });
+  }
+
+  const samples = [
+    {
+      title: "How to remember differences between FRs and DPSPs?",
+      description: "I keep mixing Fundamental Rights and Directive Principles in prelims. Please share a revision method and elimination tricks.",
+      category: "Polity",
+      tags: ["constitution", "prelims"],
+    },
+    {
+      title: "Why did Moderate phase of INC lose momentum by 1905?",
+      description: "Need conceptual clarity for mains answer writing with historical causes and examples.",
+      category: "History",
+      tags: ["modern-history", "mains"],
+    },
+    {
+      title: "How to structure monsoon mechanism answer in GS1?",
+      description: "Please suggest an answer framework with factors, process, variability and current affairs linkage.",
+      category: "Geography",
+      tags: ["monsoon", "gs1"],
+    },
+  ];
+
+  for (const row of samples) {
+    await queryNeon(
+      `
+      INSERT INTO doubt_posts
+      (id, user_id, title, description, category, tags, answer_count, status, is_flagged, moderation_status, report_count)
+      VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::text[], 0, 'unanswered', FALSE, 'clean', 0)
+      `,
+      [randomUUID(), user.id, row.title, row.description, row.category, row.tags],
+    );
+  }
+  return c.json({ ok: true, inserted: samples.length });
+});
+
+functionsRouter.get("/doubts/:postId", async (c) => {
+  const postId = String(c.req.param("postId") || "").trim();
+  if (!postId) return c.json({ message: "postId is required" }, 400);
+  const user = await getSessionUser(c);
+
+  const posts = await queryNeon<{
+    id: string;
+    user_id: string;
+    title: string;
+    description: string;
+    category: string;
+    tags: string[] | null;
+    image_url: string | null;
+    answer_count: number;
+    status: string;
+    best_answer_id: string | null;
+    is_flagged: boolean;
+    moderation_status: string;
+    report_count: number;
+    created_at: string;
+    updated_at: string;
+    author_name: string | null;
+  }>(
+    `
+    SELECT
+      p.id::text, p.user_id::text, p.title, p.description, p.category, p.tags, p.image_url,
+      p.answer_count, p.status, p.best_answer_id::text, p.is_flagged, p.moderation_status, p.report_count,
+      p.created_at::text, p.updated_at::text,
+      COALESCE(pr.name, 'Aspirant') AS author_name
+    FROM doubt_posts p
+    LEFT JOIN profiles pr ON pr.id = p.user_id
+    WHERE p.id = $1::uuid
+    LIMIT 1
+    `,
+    [postId],
+  );
+  const post = posts[0];
+  if (!post) return c.json({ message: "Doubt post not found" }, 404);
+
+  const answers = await queryNeon<{
+    id: string;
+    post_id: string;
+    user_id: string;
+    content: string;
+    helpful_count: number;
+    is_best_answer: boolean;
+    is_flagged: boolean;
+    moderation_status: string;
+    report_count: number;
+    created_at: string;
+    updated_at: string;
+    author_name: string | null;
+    viewer_voted: number;
+  }>(
+    `
+    SELECT
+      a.id::text, a.post_id::text, a.user_id::text, a.content, a.helpful_count, a.is_best_answer,
+      a.is_flagged, a.moderation_status, a.report_count, a.created_at::text, a.updated_at::text,
+      COALESCE(pr.name, 'Aspirant') AS author_name,
+      CASE
+        WHEN $2::uuid IS NULL THEN 0
+        WHEN EXISTS (
+          SELECT 1 FROM doubt_answer_votes v
+          WHERE v.answer_id = a.id AND v.user_id = $2::uuid
+        ) THEN 1
+        ELSE 0
+      END AS viewer_voted
+    FROM doubt_answers a
+    LEFT JOIN profiles pr ON pr.id = a.user_id
+    WHERE a.post_id = $1::uuid
+    ORDER BY a.is_best_answer DESC, a.helpful_count DESC, a.created_at ASC
+    `,
+    [postId, user?.id || null],
+  );
+
+  return c.json({
+    post: {
+      id: post.id,
+      userId: post.user_id,
+      title: post.title,
+      description: post.description,
+      category: post.category,
+      tags: Array.isArray(post.tags) ? post.tags : [],
+      imageUrl: post.image_url,
+      answerCount: Number(post.answer_count || 0),
+      status: post.status,
+      bestAnswerId: post.best_answer_id,
+      isFlagged: Boolean(post.is_flagged),
+      moderationStatus: post.moderation_status,
+      reportCount: Number(post.report_count || 0),
+      createdAt: post.created_at,
+      updatedAt: post.updated_at,
+      author: { id: post.user_id, name: post.author_name || "Aspirant" },
+    },
+    answers: answers.map((a) => ({
+      id: a.id,
+      postId: a.post_id,
+      userId: a.user_id,
+      content: a.content,
+      helpfulCount: Number(a.helpful_count || 0),
+      isBestAnswer: Boolean(a.is_best_answer),
+      isFlagged: Boolean(a.is_flagged),
+      moderationStatus: a.moderation_status,
+      reportCount: Number(a.report_count || 0),
+      createdAt: a.created_at,
+      updatedAt: a.updated_at,
+      hasVoted: Number(a.viewer_voted || 0) > 0,
+      author: { id: a.user_id, name: a.author_name || "Aspirant" },
+    })),
+  });
+});
+
+functionsRouter.post("/doubts/:postId/update", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const postId = String(c.req.param("postId") || "").trim();
+  const body = await c.req.json().catch(() => ({}));
+
+  const title = String(body?.title ?? "").trim();
+  const description = String(body?.description ?? "").trim();
+  const category = String(body?.category ?? "").trim();
+  const tags = sanitizeTags(body?.tags);
+
+  const existing = await queryNeon<{ user_id: string }>(
+    `SELECT user_id::text FROM doubt_posts WHERE id = $1::uuid LIMIT 1`,
+    [postId],
+  );
+  if (!existing[0]) return c.json({ message: "Doubt post not found" }, 404);
+  if (existing[0].user_id !== user.id) return c.json({ message: "Only owner can update doubt." }, 403);
+
+  if (!title || !description || !UPSC_CATEGORIES.includes(category as (typeof UPSC_CATEGORIES)[number])) {
+    return c.json({ message: "Valid title, description and UPSC category are required." }, 400);
+  }
+  const contentCheck = analyzeUpscContent({ title, description, category });
+  if (!contentCheck.allowed) return c.json({ message: contentCheck.warning }, 400);
+
+  await queryNeon(
+    `
+    UPDATE doubt_posts
+    SET title = $2, description = $3, category = $4, tags = $5::text[],
+        is_flagged = $6, moderation_status = $7, updated_at = NOW()
+    WHERE id = $1::uuid
+    `,
+    [postId, title, description, category, tags, contentCheck.flagged, contentCheck.moderationStatus],
+  );
+
+  return c.json({ ok: true, warning: contentCheck.warning || null });
+});
+
+functionsRouter.post("/doubts/:postId/delete", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const postId = String(c.req.param("postId") || "").trim();
+
+  const existing = await queryNeon<{ user_id: string }>(
+    `SELECT user_id::text FROM doubt_posts WHERE id = $1::uuid LIMIT 1`,
+    [postId],
+  );
+  if (!existing[0]) return c.json({ message: "Doubt post not found" }, 404);
+  if (existing[0].user_id !== user.id) return c.json({ message: "Only owner can delete doubt." }, 403);
+
+  await queryNeon(`DELETE FROM doubt_posts WHERE id = $1::uuid`, [postId]);
+  return c.json({ ok: true });
+});
+
+functionsRouter.post("/doubts/:postId/answers/create", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const postId = String(c.req.param("postId") || "").trim();
+  const body = await c.req.json().catch(() => ({}));
+  const content = String(body?.content ?? "").trim();
+  if (!content || content.length < 10 || content.length > 6000) {
+    return c.json({ message: "Answer must be between 10 and 6000 characters." }, 400);
+  }
+
+  const postRows = await queryNeon<{ user_id: string; title: string; category: string }>(
+    `SELECT user_id::text, title, category FROM doubt_posts WHERE id = $1::uuid LIMIT 1`,
+    [postId],
+  );
+  const post = postRows[0];
+  if (!post) return c.json({ message: "Doubt post not found" }, 404);
+
+  const contentCheck = analyzeUpscContent({ content, category: post.category, title: post.title });
+  if (!contentCheck.allowed) return c.json({ message: contentCheck.warning }, 400);
+
+  const answerId = randomUUID();
+  await queryNeon(
+    `
+    INSERT INTO doubt_answers
+    (id, post_id, user_id, content, helpful_count, is_best_answer, is_flagged, moderation_status, report_count)
+    VALUES ($1::uuid, $2::uuid, $3::uuid, $4, 0, FALSE, $5, $6, 0)
+    `,
+    [answerId, postId, user.id, content, contentCheck.flagged, contentCheck.moderationStatus],
+  );
+  await refreshDoubtPostMeta(postId);
+
+  if (post.user_id !== user.id) {
+    await createDoubtNotification({
+      userId: post.user_id,
+      type: "answer_received",
+      message: "Someone answered your UPSC doubt.",
+      relatedPostId: postId,
+      relatedAnswerId: answerId,
+    });
+  }
+
+  return c.json({ ok: true, id: answerId, warning: contentCheck.warning || null });
+});
+
+functionsRouter.post("/answers/:answerId/update", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const answerId = String(c.req.param("answerId") || "").trim();
+  const body = await c.req.json().catch(() => ({}));
+  const content = String(body?.content ?? "").trim();
+  if (!content || content.length < 10 || content.length > 6000) {
+    return c.json({ message: "Answer must be between 10 and 6000 characters." }, 400);
+  }
+
+  const rows = await queryNeon<{ user_id: string; post_id: string }>(
+    `SELECT user_id::text, post_id::text FROM doubt_answers WHERE id = $1::uuid LIMIT 1`,
+    [answerId],
+  );
+  const answer = rows[0];
+  if (!answer) return c.json({ message: "Answer not found" }, 404);
+  if (answer.user_id !== user.id) return c.json({ message: "Only owner can edit answer." }, 403);
+
+  await queryNeon(
+    `UPDATE doubt_answers SET content = $2, updated_at = NOW() WHERE id = $1::uuid`,
+    [answerId, content],
+  );
+  return c.json({ ok: true });
+});
+
+functionsRouter.post("/answers/:answerId/delete", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const answerId = String(c.req.param("answerId") || "").trim();
+
+  const rows = await queryNeon<{ user_id: string; post_id: string }>(
+    `SELECT user_id::text, post_id::text FROM doubt_answers WHERE id = $1::uuid LIMIT 1`,
+    [answerId],
+  );
+  const answer = rows[0];
+  if (!answer) return c.json({ message: "Answer not found" }, 404);
+  if (answer.user_id !== user.id) return c.json({ message: "Only owner can delete answer." }, 403);
+
+  await queryNeon(`DELETE FROM doubt_answers WHERE id = $1::uuid`, [answerId]);
+  await refreshDoubtPostMeta(answer.post_id);
+  return c.json({ ok: true });
+});
+
+functionsRouter.post("/answers/:answerId/vote", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const answerId = String(c.req.param("answerId") || "").trim();
+
+  const answerRows = await queryNeon<{ user_id: string; post_id: string }>(
+    `SELECT user_id::text, post_id::text FROM doubt_answers WHERE id = $1::uuid LIMIT 1`,
+    [answerId],
+  );
+  const answer = answerRows[0];
+  if (!answer) return c.json({ message: "Answer not found" }, 404);
+
+  const existingVote = await queryNeon<{ id: string }>(
+    `SELECT id::text FROM doubt_answer_votes WHERE answer_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
+    [answerId, user.id],
+  );
+
+  let voted = false;
+  if (existingVote[0]?.id) {
+    await queryNeon(`DELETE FROM doubt_answer_votes WHERE id = $1::uuid`, [existingVote[0].id]);
+    await queryNeon(
+      `UPDATE doubt_answers SET helpful_count = GREATEST(helpful_count - 1, 0), updated_at = NOW() WHERE id = $1::uuid`,
+      [answerId],
+    );
+    voted = false;
+  } else {
+    await queryNeon(
+      `INSERT INTO doubt_answer_votes (id, answer_id, user_id) VALUES ($1::uuid, $2::uuid, $3::uuid)`,
+      [randomUUID(), answerId, user.id],
+    );
+    await queryNeon(
+      `UPDATE doubt_answers SET helpful_count = helpful_count + 1, updated_at = NOW() WHERE id = $1::uuid`,
+      [answerId],
+    );
+    voted = true;
+    if (answer.user_id !== user.id) {
+      await createDoubtNotification({
+        userId: answer.user_id,
+        type: "answer_liked",
+        message: "Someone marked your answer as helpful.",
+        relatedPostId: answer.post_id,
+        relatedAnswerId: answerId,
+      });
+    }
+  }
+
+  const latest = await queryNeon<{ helpful_count: number }>(
+    `SELECT helpful_count FROM doubt_answers WHERE id = $1::uuid LIMIT 1`,
+    [answerId],
+  );
+
+  return c.json({ ok: true, voted, helpfulCount: Number(latest[0]?.helpful_count || 0) });
+});
+
+functionsRouter.post("/doubts/:postId/best-answer", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const postId = String(c.req.param("postId") || "").trim();
+  const body = await c.req.json().catch(() => ({}));
+  const answerId = String(body?.answerId ?? "").trim();
+  if (!answerId) return c.json({ message: "answerId is required" }, 400);
+
+  const postRows = await queryNeon<{ user_id: string }>(
+    `SELECT user_id::text FROM doubt_posts WHERE id = $1::uuid LIMIT 1`,
+    [postId],
+  );
+  const post = postRows[0];
+  if (!post) return c.json({ message: "Doubt post not found" }, 404);
+  if (post.user_id !== user.id) return c.json({ message: "Only doubt owner can mark best answer." }, 403);
+
+  const answerRows = await queryNeon<{ id: string; user_id: string }>(
+    `SELECT id::text, user_id::text FROM doubt_answers WHERE id = $1::uuid AND post_id = $2::uuid LIMIT 1`,
+    [answerId, postId],
+  );
+  const answer = answerRows[0];
+  if (!answer) return c.json({ message: "Answer not found for this doubt." }, 404);
+
+  await queryNeon(`UPDATE doubt_answers SET is_best_answer = FALSE WHERE post_id = $1::uuid`, [postId]);
+  await queryNeon(`UPDATE doubt_answers SET is_best_answer = TRUE, updated_at = NOW() WHERE id = $1::uuid`, [answerId]);
+  await refreshDoubtPostMeta(postId);
+
+  if (answer.user_id !== user.id) {
+    await createDoubtNotification({
+      userId: answer.user_id,
+      type: "best_answer_selected",
+      message: "Your answer was selected as the best answer.",
+      relatedPostId: postId,
+      relatedAnswerId: answerId,
+    });
+  }
+
+  return c.json({ ok: true });
+});
+
+functionsRouter.get("/notifications", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const limit = Math.max(1, Math.min(100, Number(c.req.query("limit") || 30)));
+  const rows = await queryNeon<{
+    id: string;
+    type: string;
+    message: string;
+    related_post_id: string | null;
+    related_answer_id: string | null;
+    is_read: boolean;
+    created_at: string;
+  }>(
+    `
+    SELECT id::text, type, message, related_post_id::text, related_answer_id::text, is_read, created_at::text
+    FROM doubt_notifications
+    WHERE user_id = $1::uuid
+    ORDER BY created_at DESC
+    LIMIT $2
+    `,
+    [user.id, limit],
+  );
+  const unreadRows = await queryNeon<{ count: number }>(
+    `SELECT COUNT(*)::int AS count FROM doubt_notifications WHERE user_id = $1::uuid AND is_read = FALSE`,
+    [user.id],
+  );
+
+  return c.json({
+    items: rows.map((r) => ({
+      id: r.id,
+      type: r.type,
+      message: r.message,
+      relatedPostId: r.related_post_id,
+      relatedAnswerId: r.related_answer_id,
+      isRead: Boolean(r.is_read),
+      createdAt: r.created_at,
+    })),
+    unreadCount: Number(unreadRows[0]?.count || 0),
+  });
+});
+
+functionsRouter.post("/notifications/:notificationId/read", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const notificationId = String(c.req.param("notificationId") || "").trim();
+  await queryNeon(
+    `
+    UPDATE doubt_notifications
+    SET is_read = TRUE
+    WHERE id = $1::uuid AND user_id = $2::uuid
+    `,
+    [notificationId, user.id],
+  );
+  return c.json({ ok: true });
+});
+
+functionsRouter.post("/notifications/read-all", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  await queryNeon(
+    `UPDATE doubt_notifications SET is_read = TRUE WHERE user_id = $1::uuid AND is_read = FALSE`,
+    [user.id],
+  );
+  return c.json({ ok: true });
+});
+
+functionsRouter.post("/doubts/:postId/report", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const postId = String(c.req.param("postId") || "").trim();
+  const body = await c.req.json().catch(() => ({}));
+  const reason = String(body?.reason ?? "").trim().toLowerCase();
+  if (!validModerationReasons.has(reason)) return c.json({ message: "Invalid report reason." }, 400);
+
+  await queryNeon(
+    `INSERT INTO doubt_reports (id, reporter_id, target_type, target_id, reason) VALUES ($1::uuid, $2::uuid, 'post', $3::uuid, $4)`,
+    [randomUUID(), user.id, postId, reason],
+  );
+  await queryNeon(
+    `
+    UPDATE doubt_posts
+    SET report_count = report_count + 1,
+        is_flagged = TRUE,
+        moderation_status = CASE WHEN report_count + 1 >= 3 THEN 'needs_review' ELSE moderation_status END,
+        updated_at = NOW()
+    WHERE id = $1::uuid
+    `,
+    [postId],
+  );
+  return c.json({ ok: true });
+});
+
+functionsRouter.post("/answers/:answerId/report", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const answerId = String(c.req.param("answerId") || "").trim();
+  const body = await c.req.json().catch(() => ({}));
+  const reason = String(body?.reason ?? "").trim().toLowerCase();
+  if (!validModerationReasons.has(reason)) return c.json({ message: "Invalid report reason." }, 400);
+
+  await queryNeon(
+    `INSERT INTO doubt_reports (id, reporter_id, target_type, target_id, reason) VALUES ($1::uuid, $2::uuid, 'answer', $3::uuid, $4)`,
+    [randomUUID(), user.id, answerId, reason],
+  );
+  await queryNeon(
+    `
+    UPDATE doubt_answers
+    SET report_count = report_count + 1,
+        is_flagged = TRUE,
+        moderation_status = CASE WHEN report_count + 1 >= 3 THEN 'needs_review' ELSE moderation_status END,
+        updated_at = NOW()
+    WHERE id = $1::uuid
+    `,
+    [answerId],
+  );
+  return c.json({ ok: true });
 });
 
 functionsRouter.post("/db/select", async (c) => {

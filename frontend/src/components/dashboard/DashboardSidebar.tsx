@@ -20,6 +20,7 @@ import {
   BookOpen, Map, Video, GitBranch, Newspaper, GraduationCap, MessageCircle,
   Mic,
   ClipboardList,
+  MessageCircleQuestion,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -48,6 +49,7 @@ const allFeatures = [
   { title: "Optional Prof.", url: "/optional-professor", icon: GraduationCap },
   { title: "Voice AI", url: "/voice-ai", icon: Mic },
   { title: "Weekly Test Series", url: "/weekly-test-series", icon: ClipboardList },
+  { title: "UPSC Doubt Feed", url: "/doubt-feed", icon: MessageCircleQuestion },
 ];
 
 export function DashboardSidebar() {
