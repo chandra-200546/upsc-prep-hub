@@ -37,10 +37,27 @@ const toPoolerVariant = (url: string) => {
   return "";
 };
 
+const toDirectVariant = (url: string) => {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.includes("-pooler.")) return "";
+    parsed.hostname = parsed.hostname.replace("-pooler.", ".");
+    return parsed.toString();
+  } catch {
+    // ignore URL parse errors
+  }
+  return "";
+};
+
 const candidateUrls = (() => {
   if (!hasNeon || !config.neonDatabaseUrl) return [] as string[];
   const pooler = toPoolerVariant(config.neonDatabaseUrl);
-  return Array.from(new Set([config.neonDatabaseUrl, pooler].filter(Boolean)));
+  const direct = toDirectVariant(config.neonDatabaseUrl);
+  const fromEnvList = String(process.env.NEON_DATABASE_URLS || "")
+    .split(/[,\n;|]/g)
+    .map((v) => v.trim())
+    .filter(Boolean);
+  return Array.from(new Set([config.neonDatabaseUrl, pooler, direct, ...fromEnvList].filter(Boolean)));
 })();
 
 const pools = candidateUrls.map((url) => poolFromUrl(url));
@@ -59,11 +76,27 @@ const withPoolFailover = async <T>(fn: (p: Pool) => Promise<T>): Promise<T> => {
   try {
     return await fn(first);
   } catch (error: any) {
-    const msg = String(error?.message || "");
-    const isDnsFailure = msg.includes("ENOTFOUND") || msg.includes("getaddrinfo");
-    if (!isDnsFailure || pools.length < 2 || activePoolIndex === 1) throw error;
-    activePoolIndex = 1;
-    return await fn(pools[activePoolIndex]);
+    const msg = String(error?.message || "").toLowerCase();
+    const retriableNetwork =
+      msg.includes("enotfound") ||
+      msg.includes("getaddrinfo") ||
+      msg.includes("econnrefused") ||
+      msg.includes("fetch failed") ||
+      msg.includes("socket hang up");
+    if (!retriableNetwork || pools.length < 2) throw error;
+
+    let lastError = error;
+    for (let i = 0; i < pools.length; i += 1) {
+      if (i === activePoolIndex) continue;
+      try {
+        const res = await fn(pools[i]);
+        activePoolIndex = i;
+        return res;
+      } catch (nextError: any) {
+        lastError = nextError;
+      }
+    }
+    throw lastError;
   }
 };
 
