@@ -9,6 +9,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Mail, Lock, User } from "lucide-react";
 import upscMentorLogo from "@/assets/upsc-mentor-logo.jpeg";
 
+const NAME_RE = /^[A-Za-z]+(?:[A-Za-z\s'-]*[A-Za-z])?$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_RE = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/;
+
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -41,6 +45,15 @@ const Auth = () => {
         toast({ title: "Welcome back!", description: "Successfully logged in" });
         navigate("/dashboard");
       } else {
+        if (!NAME_RE.test(name.trim())) {
+          throw new Error("Name must contain only letters and valid separators.");
+        }
+        if (!EMAIL_RE.test(email.trim().toLowerCase())) {
+          throw new Error("Please enter a valid email address.");
+        }
+        if (!PASSWORD_RE.test(password)) {
+          throw new Error("Password must include at least one uppercase letter, one number, and one special character.");
+        }
         const result = await auth.signUp(email, password, name);
         if (result.error) throw new Error(result.error);
         toast({ title: "Account created!", description: "Welcome to UPSC Mentor" });

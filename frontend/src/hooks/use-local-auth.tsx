@@ -43,6 +43,9 @@ const LOCAL_USER_KEY = "upsc_local_user";
 const LOCAL_USERS_DB_KEY = "upsc_local_users_db";
 const LOCAL_PROFILES_KEY = "upsc_local_profiles";
 const ALLOW_LOCAL_FALLBACK = String(import.meta.env.VITE_ALLOW_LOCAL_FALLBACK || "").toLowerCase() === "true";
+const NAME_RE = /^[A-Za-z]+(?:[A-Za-z\s'-]*[A-Za-z])?$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_RE = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/;
 const createId = () =>
   (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
     ? crypto.randomUUID()
@@ -59,6 +62,19 @@ function getLocalProfiles(): Record<string, LocalProfile> {
     return JSON.parse(localStorage.getItem(LOCAL_PROFILES_KEY) || "{}");
   } catch { return {}; }
 }
+
+const validateSignUpInput = (name: string, email: string, password: string): string | null => {
+  if (!name || !NAME_RE.test(name.trim())) {
+    return "Name must contain only letters and valid separators.";
+  }
+  if (!email || !EMAIL_RE.test(email.trim().toLowerCase())) {
+    return "Please enter a valid email address.";
+  }
+  if (!password || !PASSWORD_RE.test(password)) {
+    return "Password must include at least one uppercase letter, one number, and one special character.";
+  }
+  return null;
+};
 
 const buildDefaultProfile = (user: LocalUser): LocalProfile => ({
   id: user.id,
@@ -221,6 +237,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, name: string) => {
+    const validationError = validateSignUpInput(name, email, password);
+    if (validationError) {
+      return { error: validationError };
+    }
+
     // Try Supabase first
     try {
       const { data, error } = await supabase.auth.signUp({

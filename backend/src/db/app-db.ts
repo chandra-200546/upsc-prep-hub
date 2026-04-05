@@ -23,6 +23,21 @@ const assertCol = (column: string) => {
 };
 
 const hashPassword = (password: string) => createHash("sha256").update(password).digest("hex");
+const NAME_RE = /^[A-Za-z]+(?:[A-Za-z\s'-]*[A-Za-z])?$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_RE = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/;
+
+const validateSignUpInput = (name: string, email: string, password: string) => {
+  if (!name || !NAME_RE.test(name.trim())) {
+    throw new Error("Name must contain only letters and valid separators.");
+  }
+  if (!email || !EMAIL_RE.test(email.trim().toLowerCase())) {
+    throw new Error("Please enter a valid email address.");
+  }
+  if (!password || !PASSWORD_RE.test(password)) {
+    throw new Error("Password must include at least one uppercase letter, one number, and one special character.");
+  }
+};
 const requirePool = () => {
   if (!pool) {
     throw new Error("Neon database is required. Set valid NEON_DATABASE_URL.");
@@ -32,6 +47,7 @@ const requirePool = () => {
 
 export const signUpUser = async (email: string, password: string, name: string) => {
   const db = requirePool();
+  validateSignUpInput(name, email, password);
   const userId = randomUUID();
   const passHash = hashPassword(password);
   const existing = await db.query("SELECT id FROM user_accounts WHERE email = $1 LIMIT 1", [email]);
