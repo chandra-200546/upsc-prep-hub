@@ -193,7 +193,7 @@ export const createSession = async (userId: string, email: string) => {
   const db = requirePool();
   const token = `upsc_${randomUUID().replace(/-/g, "")}`;
   const refreshToken = `upsc_refresh_${randomUUID().replace(/-/g, "")}`;
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3650).toISOString();
 
   await db.query(
     `
@@ -225,6 +225,13 @@ export const resolveSession = async (token?: string | null) => {
   );
   const row = result.rows[0];
   if (!row) return null;
+
+  // Sliding session: keep same-device login active until explicit logout.
+  await db.query(
+    `UPDATE auth_sessions SET expires_at = NOW() + INTERVAL '3650 days' WHERE token = $1`,
+    [token],
+  );
+
   return {
     access_token: token,
     refresh_token: "",
