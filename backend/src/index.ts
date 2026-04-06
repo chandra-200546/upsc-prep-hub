@@ -7,6 +7,7 @@ import { ensureNeonSchema, neonHealthCheck } from "./db/neon.js";
 import { readFile } from "./lib/storage.js";
 import { functionsRouter } from "./routes/functions.js";
 import { seedGeographyBooksIfMissing, seedHistoryBookIfMissing, seedPolityBookIfMissing } from "./rag/subject-rag.js";
+import path from "node:path";
 
 const app = new Hono();
 
@@ -40,7 +41,23 @@ app.get("/storage/:bucket/*", async (c) => {
   const wildcard = c.req.path.split(`/storage/${bucket}/`)[1] || "";
   const file = readFile(bucket, wildcard);
   if (!file) return c.json({ error: "File not found" }, 404);
-  return new Response(file, { status: 200 });
+  const ext = path.extname(wildcard || "").toLowerCase();
+  const mime =
+    ext === ".png" ? "image/png" :
+    ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" :
+    ext === ".webp" ? "image/webp" :
+    ext === ".gif" ? "image/gif" :
+    ext === ".svg" ? "image/svg+xml" :
+    ext === ".pdf" ? "application/pdf" :
+    ext === ".txt" ? "text/plain; charset=utf-8" :
+    "application/octet-stream";
+  return new Response(file, {
+    status: 200,
+    headers: {
+      "Content-Type": mime,
+      "Cache-Control": "public, max-age=31536000, immutable",
+    },
+  });
 });
 
 app.route("/functions/v1", functionsRouter);
