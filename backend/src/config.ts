@@ -55,11 +55,8 @@ const buildNeonUrlFromPgEnv = () => {
 export const config = {
   port: Number(required("PORT", "8787")),
   nodeEnv: required("NODE_ENV", "development"),
-  geminiApiKey:
-    required("GEMINI_API_KEY") ||
-    required("GOOGLE_GEMINI_API_KEY") ||
-    required("GEMINI_KEY") ||
-    required("VITE_GEMINI_API_KEY"),
+  xaiApiKey: required("XAI_API_KEY") || required("XAI_KEY"),
+  xaiModel: required("XAI_MODEL", "grok-2-latest"),
   neonDatabaseUrl: required("NEON_DATABASE_URL") || buildNeonUrlFromPgEnv(),
   sqlitePath: required("SQLITE_PATH", "./data/app.db"),
   allowedOrigins: parseAllowedOrigins(required("ALLOWED_ORIGIN", "*")),
@@ -69,5 +66,5 @@ export const config = {
   weeklyTestAdminPassword: required("WEEKLY_TEST_ADMIN_PASSWORD"),
 };
 
-export const hasGemini = Boolean(config.geminiApiKey);
+export const hasXai = Boolean(config.xaiApiKey);
 export const hasNeon = Boolean(config.neonDatabaseUrl);

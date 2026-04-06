@@ -7,7 +7,7 @@ import { getProfileById, listProfiles, parseProfilesCsv, upsertProfiles } from "
 import { getHistoryRagStats, ingestHistoryChunks, queryHistoryRag } from "../rag/history-rag.js";
 import { generateSubjectBookAnswer, generateSubjectRagNotes, getSubjectRagStats, ingestSubjectPdf } from "../rag/subject-rag.js";
 import { generateJson, generateText } from "../lib/gemini.js";
-import { config, hasGemini } from "../config.js";
+import { config, hasXai } from "../config.js";
 import { deleteFile, getStoragePublicPath, saveBase64File } from "../lib/storage.js";
 import { hashPayload } from "../lib/utils.js";
 
@@ -1840,8 +1840,9 @@ functionsRouter.post("/ai-generate", async (c) => {
 functionsRouter.get("/ai-health", async (c) => {
   return c.json({
     ok: true,
-    provider: "gemini",
-    hasGeminiKey: hasGemini,
+    provider: "xai",
+    model: config.xaiModel || "grok-2-latest",
+    hasXaiKey: hasXai,
   });
 });
 
