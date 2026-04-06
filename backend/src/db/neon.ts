@@ -23,7 +23,8 @@ const toSqliteValue = (value: unknown): unknown => {
 
 const normalizeSql = (input: string) => {
   let sql = String(input || "").trim();
-  sql = sql.replace(/::[a-zA-Z_][a-zA-Z0-9_]*/g, "");
+  // Strip PostgreSQL casts, including array casts like ::text[]
+  sql = sql.replace(/::[a-zA-Z_][a-zA-Z0-9_]*(\[\])?/g, "");
   sql = sql.replace(/\bILIKE\b/g, "LIKE");
   sql = sql.replace(/\bNOW\(\)/g, "CURRENT_TIMESTAMP");
   sql = sql.replace(/\bTRUE\b/g, "1").replace(/\bFALSE\b/g, "0");
