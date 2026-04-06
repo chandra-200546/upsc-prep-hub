@@ -14,6 +14,7 @@ sqlite.exec("PRAGMA foreign_keys = ON;");
 export const pool = sqlite as unknown as object;
 
 const toSqliteValue = (value: unknown): unknown => {
+  if (typeof value === "boolean") return value ? 1 : 0;
   if (Array.isArray(value)) return JSON.stringify(value);
   if (value && typeof value === "object" && !(value instanceof Date) && !(Buffer.isBuffer(value))) {
     return JSON.stringify(value);
@@ -265,6 +266,8 @@ export const ensureNeonSchema = async () => {
       tags TEXT NOT NULL DEFAULT '[]',
       image_url TEXT,
       answer_count INTEGER NOT NULL DEFAULT 0,
+      likes_count INTEGER NOT NULL DEFAULT 0,
+      views_count INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'unanswered',
       best_answer_id TEXT,
       is_flagged INTEGER NOT NULL DEFAULT 0,
@@ -280,6 +283,7 @@ export const ensureNeonSchema = async () => {
       user_id TEXT NOT NULL,
       content TEXT NOT NULL,
       helpful_count INTEGER NOT NULL DEFAULT 0,
+      is_ai_generated INTEGER NOT NULL DEFAULT 0,
       is_best_answer INTEGER NOT NULL DEFAULT 0,
       is_flagged INTEGER NOT NULL DEFAULT 0,
       moderation_status TEXT NOT NULL DEFAULT 'clean',
@@ -294,6 +298,22 @@ export const ensureNeonSchema = async () => {
       user_id TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(answer_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS doubt_post_likes (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(post_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS doubt_post_views (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(post_id, user_id)
     );
 
     CREATE TABLE IF NOT EXISTS doubt_reports (
@@ -357,6 +377,11 @@ export const ensureNeonSchema = async () => {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // Safe schema updates for existing SQLite files.
+  try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN likes_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
+  try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN views_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
+  try { sqlite.exec(`ALTER TABLE doubt_answers ADD COLUMN is_ai_generated INTEGER NOT NULL DEFAULT 0;`); } catch {}
 
   return true;
 };

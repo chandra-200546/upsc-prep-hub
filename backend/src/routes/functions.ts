@@ -643,6 +643,26 @@ functionsRouter.post("/doubts/create", async (c) => {
     [id, user.id, title, description, category, tags, imageUrl, contentCheck.flagged, contentCheck.moderationStatus],
   );
 
+  // Auto-add an AI first comment without blocking post creation.
+  try {
+    const aiComment = await safeAi(
+      "You are a UPSC mentor. Provide one concise, structured first-answer comment for the doubt.",
+      `Category: ${category}\nTitle: ${title}\nQuestion: ${description}`,
+      "Start with core concept, then add 2-3 exam-focused points and one quick direction for further reading.",
+    );
+    await queryNeon(
+      `
+      INSERT INTO doubt_answers
+      (id, post_id, user_id, content, helpful_count, is_ai_generated, is_best_answer, is_flagged, moderation_status, report_count)
+      VALUES ($1::uuid, $2::uuid, $3::uuid, $4, 0, TRUE, FALSE, 0, 'clean', 0)
+      `,
+      [randomUUID(), id, user.id, aiComment],
+    );
+    await refreshDoubtPostMeta(id);
+  } catch {
+    // Ignore AI-comment failures; user post is already created.
+  }
+
   return c.json({
     ok: true,
     id,
@@ -651,6 +671,7 @@ functionsRouter.post("/doubts/create", async (c) => {
 });
 
 functionsRouter.get("/doubts", async (c) => {
+  const user = await getSessionUser(c);
   const search = String(c.req.query("search") || "").trim();
   const category = String(c.req.query("category") || "").trim();
   const status = String(c.req.query("status") || "").trim();
@@ -696,6 +717,8 @@ functionsRouter.get("/doubts", async (c) => {
     tags: string[] | null;
     image_url: string | null;
     answer_count: number;
+    likes_count: number;
+    views_count: number;
     status: string;
     is_flagged: boolean;
     moderation_status: string;
@@ -707,7 +730,7 @@ functionsRouter.get("/doubts", async (c) => {
     `
     SELECT
       p.id::text, p.user_id::text, p.title, p.description, p.category, p.tags, p.image_url,
-      p.answer_count, p.status, p.is_flagged, p.moderation_status, p.report_count,
+      p.answer_count, p.likes_count, p.views_count, p.status, p.is_flagged, p.moderation_status, p.report_count,
       p.created_at::text, p.updated_at::text,
       COALESCE(pr.name, 'Aspirant') AS author_name
     FROM doubt_posts p
@@ -735,6 +758,8 @@ functionsRouter.get("/doubts", async (c) => {
     tags: Array.isArray(r.tags) ? r.tags : [],
     imageUrl: r.image_url,
     answerCount: Number(r.answer_count || 0),
+    likesCount: Number(r.likes_count || 0),
+    viewsCount: Number(r.views_count || 0),
     status: r.status,
     isFlagged: Boolean(r.is_flagged),
     moderationStatus: r.moderation_status,
@@ -810,6 +835,8 @@ functionsRouter.get("/doubts/:postId", async (c) => {
     tags: string[] | null;
     image_url: string | null;
     answer_count: number;
+    likes_count: number;
+    views_count: number;
     status: string;
     best_answer_id: string | null;
     is_flagged: boolean;
@@ -822,7 +849,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
     `
     SELECT
       p.id::text, p.user_id::text, p.title, p.description, p.category, p.tags, p.image_url,
-      p.answer_count, p.status, p.best_answer_id::text, p.is_flagged, p.moderation_status, p.report_count,
+      p.answer_count, p.likes_count, p.views_count, p.status, p.best_answer_id::text, p.is_flagged, p.moderation_status, p.report_count,
       p.created_at::text, p.updated_at::text,
       COALESCE(pr.name, 'Aspirant') AS author_name
     FROM doubt_posts p
@@ -841,6 +868,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
     user_id: string;
     content: string;
     helpful_count: number;
+    is_ai_generated: boolean;
     is_best_answer: boolean;
     is_flagged: boolean;
     moderation_status: string;
@@ -852,7 +880,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
   }>(
     `
     SELECT
-      a.id::text, a.post_id::text, a.user_id::text, a.content, a.helpful_count, a.is_best_answer,
+      a.id::text, a.post_id::text, a.user_id::text, a.content, a.helpful_count, a.is_ai_generated, a.is_best_answer,
       a.is_flagged, a.moderation_status, a.report_count, a.created_at::text, a.updated_at::text,
       COALESCE(pr.name, 'Aspirant') AS author_name,
       CASE
@@ -866,7 +894,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
     FROM doubt_answers a
     LEFT JOIN profiles pr ON pr.id = a.user_id
     WHERE a.post_id = $1::uuid
-    ORDER BY a.is_best_answer DESC, a.helpful_count DESC, a.created_at ASC
+    ORDER BY a.is_ai_generated DESC, a.is_best_answer DESC, a.helpful_count DESC, a.created_at ASC
     `,
     [postId, user?.id || null],
   );
@@ -881,6 +909,8 @@ functionsRouter.get("/doubts/:postId", async (c) => {
       tags: Array.isArray(post.tags) ? post.tags : [],
       imageUrl: post.image_url,
       answerCount: Number(post.answer_count || 0),
+      likesCount: Number(post.likes_count || 0),
+      viewsCount: Number(post.views_count || 0),
       status: post.status,
       bestAnswerId: post.best_answer_id,
       isFlagged: Boolean(post.is_flagged),
@@ -896,6 +926,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
       userId: a.user_id,
       content: a.content,
       helpfulCount: Number(a.helpful_count || 0),
+      isAiGenerated: Boolean(a.is_ai_generated),
       isBestAnswer: Boolean(a.is_best_answer),
       isFlagged: Boolean(a.is_flagged),
       moderationStatus: a.moderation_status,
@@ -906,6 +937,53 @@ functionsRouter.get("/doubts/:postId", async (c) => {
       author: { id: a.user_id, name: a.author_name || "Aspirant" },
     })),
   });
+});
+
+functionsRouter.post("/doubts/:postId/view", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const postId = String(c.req.param("postId") || "").trim();
+  if (!postId) return c.json({ message: "postId is required" }, 400);
+
+  await queryNeon(
+    `INSERT OR IGNORE INTO doubt_post_views (id, post_id, user_id) VALUES ($1::uuid, $2::uuid, $3::uuid)`,
+    [randomUUID(), postId, user.id],
+  );
+  await queryNeon(
+    `UPDATE doubt_posts SET views_count = (SELECT COUNT(*) FROM doubt_post_views WHERE post_id = $1::uuid), updated_at = NOW() WHERE id = $1::uuid`,
+    [postId],
+  );
+  const row = await queryNeon<{ views_count: number }>(`SELECT views_count FROM doubt_posts WHERE id = $1::uuid LIMIT 1`, [postId]);
+  return c.json({ ok: true, viewsCount: Number(row[0]?.views_count || 0) });
+});
+
+functionsRouter.post("/doubts/:postId/like", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const postId = String(c.req.param("postId") || "").trim();
+  if (!postId) return c.json({ message: "postId is required" }, 400);
+
+  const existing = await queryNeon<{ id: string }>(
+    `SELECT id::text FROM doubt_post_likes WHERE post_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
+    [postId, user.id],
+  );
+  let liked = false;
+  if (existing[0]?.id) {
+    await queryNeon(`DELETE FROM doubt_post_likes WHERE id = $1::uuid`, [existing[0].id]);
+    liked = false;
+  } else {
+    await queryNeon(
+      `INSERT INTO doubt_post_likes (id, post_id, user_id) VALUES ($1::uuid, $2::uuid, $3::uuid)`,
+      [randomUUID(), postId, user.id],
+    );
+    liked = true;
+  }
+  await queryNeon(
+    `UPDATE doubt_posts SET likes_count = (SELECT COUNT(*) FROM doubt_post_likes WHERE post_id = $1::uuid), updated_at = NOW() WHERE id = $1::uuid`,
+    [postId],
+  );
+  const row = await queryNeon<{ likes_count: number }>(`SELECT likes_count FROM doubt_posts WHERE id = $1::uuid LIMIT 1`, [postId]);
+  return c.json({ ok: true, liked, likesCount: Number(row[0]?.likes_count || 0) });
 });
 
 functionsRouter.post("/doubts/:postId/update", async (c) => {

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MessageSquare, Search, ThumbsUp, CheckCircle2, Flag, Paperclip } from "lucide-react";
+import { MessageSquare, Search, ThumbsUp, CheckCircle2, Flag, Paperclip, Heart, Eye } from "lucide-react";
 
 type FeedPost = {
   id: string;
@@ -23,6 +23,8 @@ type FeedPost = {
   tags: string[];
   imageUrl?: string | null;
   answerCount: number;
+  likesCount?: number;
+  viewsCount?: number;
   status: "unanswered" | "answered" | "solved";
   createdAt: string;
   author: { id: string; name: string };
@@ -34,6 +36,7 @@ type FeedAnswer = {
   userId: string;
   content: string;
   helpfulCount: number;
+  isAiGenerated?: boolean;
   isBestAnswer: boolean;
   hasVoted: boolean;
   createdAt: string;
@@ -294,6 +297,16 @@ const DoubtFeed = () => {
     }
   };
 
+  const togglePostLike = async () => {
+    if (!detail?.post.id) return;
+    try {
+      await api(`/doubts/${detail.post.id}/like`, { method: "POST" });
+      await Promise.all([loadFeed(), loadDetail(detail.post.id)]);
+    } catch (error: any) {
+      toast({ title: "Like failed", description: error?.message || "Unable to like post", variant: "destructive" });
+    }
+  };
+
   const startEditAnswer = (answer: FeedAnswer) => {
     setEditingAnswerId(answer.id);
     setEditingAnswerText(answer.content);
@@ -369,6 +382,12 @@ const DoubtFeed = () => {
       return prev;
     });
     loadDetail(selectedPostId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPostId]);
+
+  useEffect(() => {
+    if (!selectedPostId) return;
+    api(`/doubts/${selectedPostId}/view`, { method: "POST" }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPostId]);
 
@@ -494,7 +513,9 @@ const DoubtFeed = () => {
                   <p className="text-sm text-muted-foreground">{post.preview}</p>
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     <Badge variant="outline">{post.category}</Badge>
-                    <Badge variant="secondary">{post.answerCount} answers</Badge>
+                    <Badge variant="secondary">{post.answerCount} comments</Badge>
+                    <Badge variant="outline"><Heart className="mr-1 h-3 w-3" />{post.likesCount || 0}</Badge>
+                    <Badge variant="outline"><Eye className="mr-1 h-3 w-3" />{post.viewsCount || 0}</Badge>
                     {post.tags.slice(0, 3).map((tag) => <Badge key={tag} variant="outline">#{tag}</Badge>)}
                   </div>
                 </CardContent>
@@ -566,21 +587,24 @@ const DoubtFeed = () => {
                       <img src={detail.post.imageUrl} alt="Doubt attachment" className="max-h-72 rounded-md border object-contain" />
                     )}
                     <div className="flex flex-wrap gap-2">{detail.post.tags.map((tag) => <Badge key={tag} variant="secondary">#{tag}</Badge>)}</div>
-                    <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
-                      AI Suggested Answer placeholder is ready for future integration.
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={togglePostLike}>
+                        <Heart className="mr-1 h-4 w-4" />Like ({detail.post.likesCount || 0})
+                      </Button>
+                      <Badge variant="outline"><Eye className="mr-1 h-3 w-3" />Views: {detail.post.viewsCount || 0}</Badge>
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Answers</CardTitle>
-                    <CardDescription>{detail.answers.length ? `${detail.answers.length} answers` : "No answers yet."}</CardDescription>
+                    <CardTitle>Comments</CardTitle>
+                    <CardDescription>{detail.answers.length ? `${detail.answers.length} comments` : "No comments yet."}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {detail.answers.length === 0 && (
                       <div className="rounded-md border border-dashed p-5 text-center text-sm text-muted-foreground">
-                        No answers yet. Be the first to help this aspirant.
+                        No comments yet. Be the first to help this aspirant.
                       </div>
                     )}
 
@@ -589,6 +613,7 @@ const DoubtFeed = () => {
                         <div className="mb-2 flex items-center justify-between gap-2">
                           <div className="text-xs text-muted-foreground">{answer.author.name} • {new Date(answer.createdAt).toLocaleString()}</div>
                           <div className="flex items-center gap-2">
+                            {answer.isAiGenerated && <Badge variant="secondary">AI Answer</Badge>}
                             {answer.isBestAnswer && <Badge className="bg-emerald-600"><CheckCircle2 className="mr-1 h-3 w-3" />Best Answer</Badge>}
                             <Button size="sm" variant="outline" onClick={() => reportTarget("answer", answer.id)}>
                               <Flag className="mr-1 h-3.5 w-3.5" />Report
@@ -609,13 +634,13 @@ const DoubtFeed = () => {
                           <Button size="sm" variant={answer.hasVoted ? "default" : "outline"} onClick={() => voteAnswer(answer.id)}>
                             <ThumbsUp className="mr-1 h-4 w-4" />Helpful ({answer.helpfulCount})
                           </Button>
-                          {user?.id === answer.userId && (
+                          {user?.id === answer.userId && !answer.isAiGenerated && (
                             <>
                               <Button size="sm" variant="outline" onClick={() => startEditAnswer(answer)}>Edit</Button>
                               <Button size="sm" variant="destructive" onClick={() => deleteAnswer(answer.id)}>Delete</Button>
                             </>
                           )}
-                          {user?.id === detail.post.userId && !answer.isBestAnswer && (
+                          {user?.id === detail.post.userId && !answer.isBestAnswer && !answer.isAiGenerated && (
                             <Button size="sm" variant="secondary" onClick={() => markBest(answer.id)}>
                               Mark Best
                             </Button>
@@ -626,12 +651,12 @@ const DoubtFeed = () => {
 
                     <div className="space-y-2 rounded-md border p-3">
                       <Textarea
-                        placeholder="Write your UPSC-focused answer..."
+                        placeholder="Write your comment/answer..."
                         value={answerText}
                         onChange={(e) => setAnswerText(e.target.value)}
                       />
                       <div className="flex justify-end">
-                        <Button onClick={submitAnswer}>Submit Answer</Button>
+                        <Button onClick={submitAnswer}>Submit Comment</Button>
                       </div>
                     </div>
                   </CardContent>
