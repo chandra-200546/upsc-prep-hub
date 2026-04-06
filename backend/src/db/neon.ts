@@ -404,6 +404,168 @@ export const ensureNeonSchema = async () => {
       reason TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS current_affairs_items (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      source_url TEXT,
+      source_name TEXT,
+      category TEXT,
+      published_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS current_affairs_user_actions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      action_type TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, item_id, action_type)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ca_actions_user ON current_affairs_user_actions(user_id);
+
+    CREATE TABLE IF NOT EXISTS map_practice_attempts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      map_type TEXT NOT NULL,
+      level INTEGER NOT NULL DEFAULT 1,
+      score INTEGER NOT NULL DEFAULT 0,
+      total_questions INTEGER NOT NULL DEFAULT 0,
+      details_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_map_attempts_user_created ON map_practice_attempts(user_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS mock_interview_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      topic TEXT,
+      status TEXT NOT NULL DEFAULT 'completed',
+      transcript_json TEXT NOT NULL DEFAULT '[]',
+      feedback_json TEXT NOT NULL DEFAULT '{}',
+      overall_score REAL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_mock_interview_user_created ON mock_interview_sessions(user_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS pyq_entries (
+      id TEXT PRIMARY KEY,
+      exam_type TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      topic TEXT,
+      year INTEGER,
+      level INTEGER DEFAULT 1,
+      question_text TEXT NOT NULL,
+      options_json TEXT NOT NULL DEFAULT '[]',
+      correct_answer TEXT,
+      explanation TEXT,
+      source TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_pyq_exam_subject_level ON pyq_entries(exam_type, subject, level);
+
+    CREATE TABLE IF NOT EXISTS pyq_attempts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      pyq_id TEXT NOT NULL,
+      selected_answer TEXT,
+      is_correct INTEGER NOT NULL DEFAULT 0,
+      score REAL DEFAULT 0,
+      feedback TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_pyq_attempts_user_created ON pyq_attempts(user_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS mind_maps (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      map_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_mind_maps_user_topic ON mind_maps(user_id, topic);
+
+    CREATE TABLE IF NOT EXISTS daily_intel_reports (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      report_date TEXT NOT NULL,
+      content_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, report_date)
+    );
+
+    CREATE TABLE IF NOT EXISTS optional_professor_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      prompt TEXT,
+      response_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_optional_prof_user_subject ON optional_professor_sessions(user_id, subject);
+
+    CREATE TABLE IF NOT EXISTS voice_ai_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      persona TEXT,
+      language TEXT DEFAULT 'English',
+      transcript_json TEXT NOT NULL DEFAULT '[]',
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_voice_ai_user_created ON voice_ai_sessions(user_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS analytics_events (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      event_source TEXT,
+      payload_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_analytics_events_user_created ON analytics_events(user_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_analytics_events_type_created ON analytics_events(event_type, created_at);
+
+    CREATE TABLE IF NOT EXISTS leaderboard_snapshots (
+      id TEXT PRIMARY KEY,
+      board_type TEXT NOT NULL,
+      scope TEXT,
+      entries_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_leaderboard_snapshots_type_created ON leaderboard_snapshots(board_type, created_at);
+
+    CREATE TABLE IF NOT EXISTS user_subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      plan_name TEXT NOT NULL DEFAULT 'free',
+      provider TEXT,
+      status TEXT NOT NULL DEFAULT 'inactive',
+      starts_at TEXT,
+      ends_at TEXT,
+      meta_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS subscription_payments (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      subscription_id TEXT,
+      amount REAL NOT NULL DEFAULT 0,
+      currency TEXT NOT NULL DEFAULT 'INR',
+      provider TEXT,
+      provider_payment_id TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_subscription_payments_user_created ON subscription_payments(user_id, created_at);
   `);
 
   // Safe schema updates for existing SQLite files.
