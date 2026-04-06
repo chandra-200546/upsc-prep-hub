@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
-import { pool, queryNeon } from "../db/neon.js";
+import { queryNeon } from "../db/neon.js";
 import { generateText } from "../lib/gemini.js";
 
 type SubjectChunk = {
@@ -153,7 +153,6 @@ const insertSubjectChunksNeon = async (
   chunks: string[],
   replaceExisting: boolean,
 ) => {
-  if (!pool) throw new Error("Neon unavailable");
   if (replaceExisting) {
     await queryNeon("DELETE FROM subject_rag_chunks WHERE subject_id = $1", [subjectId]);
   }
@@ -167,7 +166,6 @@ const insertSubjectChunksNeon = async (
 };
 
 const getSubjectChunks = async (subjectId: string): Promise<SubjectChunk[]> => {
-  if (!pool) throw new Error("Neon database is required for subject RAG.");
   const neonRows = await queryNeon<SubjectChunk>(
     `SELECT id::text, subject_id, subject_name, source_name, chunk_index, chunk_text, created_at::text
      FROM subject_rag_chunks
@@ -488,7 +486,6 @@ const existingSourceNames = async (subjectId: string) => {
 };
 
 export const seedHistoryBookIfMissing = async () => {
-  if (!pool) return { seeded: false, reason: "Neon unavailable" };
   const existing = await getSubjectChunks("history");
   if (existing.length > 0) return { seeded: false, reason: "History chunks already present", count: existing.length };
 
@@ -512,7 +509,6 @@ export const seedHistoryBookIfMissing = async () => {
 };
 
 export const seedPolityBookIfMissing = async () => {
-  if (!pool) return { seeded: false, reason: "Neon unavailable" };
   const existing = await getSubjectChunks("polity");
   if (existing.length > 0) return { seeded: false, reason: "Polity chunks already present", count: existing.length };
 
@@ -536,8 +532,6 @@ export const seedPolityBookIfMissing = async () => {
 };
 
 export const seedGeographyBooksIfMissing = async () => {
-  if (!pool) return { seeded: false, reason: "Neon unavailable" };
-
   const envList = parsePathList(process.env.GEOGRAPHY_BOOK_PDF_PATHS || "");
   const candidates = Array.from(new Set([...envList, ...DEFAULT_GEOGRAPHY_PATHS]));
   const existingNames = await existingSourceNames("geography");

@@ -36,28 +36,11 @@ const parseAllowedOrigins = (raw: string) => {
   return Array.from(new Set([...explicit, ...localhostDefaults]));
 };
 
-const buildNeonUrlFromPgEnv = () => {
-  const user = required("PGUSER");
-  const password = required("PGPASSWORD");
-  const host = required("PGHOST");
-  const database = required("PGDATABASE", "neondb");
-  const port = required("PGPORT", "5432");
-  const sslmode = required("PGSSLMODE", "require");
-  const channelBinding = required("CHANNEL_BINDING", "require");
-
-  if (!user || !password || !host) return "";
-
-  const u = encodeURIComponent(user);
-  const p = encodeURIComponent(password);
-  return `postgresql://${u}:${p}@${host}:${port}/${database}?sslmode=${sslmode}&channel_binding=${channelBinding}`;
-};
-
 export const config = {
   port: Number(required("PORT", "8787")),
   nodeEnv: required("NODE_ENV", "development"),
   xaiApiKey: required("XAI_API_KEY") || required("XAI_KEY"),
   xaiModel: required("XAI_MODEL", "grok-2-latest"),
-  neonDatabaseUrl: required("NEON_DATABASE_URL") || buildNeonUrlFromPgEnv(),
   sqlitePath: required("SQLITE_PATH", "./data/app.db"),
   allowedOrigins: parseAllowedOrigins(required("ALLOWED_ORIGIN", "*")),
   googleClientId: required("GOOGLE_CLIENT_ID"),
@@ -67,4 +50,3 @@ export const config = {
 };
 
 export const hasXai = Boolean(config.xaiApiKey);
-export const hasNeon = Boolean(config.neonDatabaseUrl);

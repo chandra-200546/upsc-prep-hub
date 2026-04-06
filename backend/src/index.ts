@@ -25,6 +25,7 @@ app.get("/", (c) =>
     ok: true,
     service: "upsc-backend",
     mode: config.nodeEnv,
+    database: "local-sqlite",
     routes: "/functions/v1/*",
   }),
 );
@@ -50,7 +51,7 @@ app.onError((err, c) => c.json({ error: err.message || "Internal error" }, 500))
 const boot = async () => {
   try {
     await ensureNeonSchema();
-    console.log("Neon schema ready");
+    console.log("Local SQLite schema ready");
     const seed = await seedHistoryBookIfMissing();
     if (seed.seeded) {
       const saved = "saved" in seed ? seed.saved : 0;
@@ -76,7 +77,7 @@ const boot = async () => {
       console.log(`Geography seed status: ${geographySeed.reason || "skipped"}`);
     }
   } catch (err) {
-    console.error("Neon is currently unreachable. Backend API is up, but DB-backed routes will fail until Neon connects.", err);
+    console.error("Local SQLite bootstrap failed.", err);
   }
   serve(
     {

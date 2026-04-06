@@ -1,4 +1,4 @@
-import { pool } from "./neon.js";
+import { queryNeon } from "./neon.js";
 
 export type Profile = {
   id: string;
@@ -116,71 +116,59 @@ export const parseProfilesCsv = (csv: string): ProfileUpsertInput[] => {
 };
 
 export const upsertProfiles = async (profiles: ProfileUpsertInput[]) => {
-  if (!pool) throw new Error("Neon is not configured");
   if (!profiles.length) return { inserted: 0 };
 
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    for (const p of profiles) {
-      await client.query(
-        `
-        INSERT INTO profiles (
-          id, name, target_year, optional_subject, study_hours_per_day, language,
-          profile_photo_url, mentor_personality, current_streak, total_xp, level,
-          created_at, updated_at, last_login_date
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6,
-          $7, $8, $9, $10, $11,
-          COALESCE($12::timestamptz, NOW()),
-          COALESCE($13::timestamptz, NOW()),
-          $14::date
-        )
-        ON CONFLICT (id) DO UPDATE SET
-          name = EXCLUDED.name,
-          target_year = EXCLUDED.target_year,
-          optional_subject = EXCLUDED.optional_subject,
-          study_hours_per_day = EXCLUDED.study_hours_per_day,
-          language = EXCLUDED.language,
-          profile_photo_url = EXCLUDED.profile_photo_url,
-          mentor_personality = EXCLUDED.mentor_personality,
-          current_streak = EXCLUDED.current_streak,
-          total_xp = EXCLUDED.total_xp,
-          level = EXCLUDED.level,
-          updated_at = COALESCE(EXCLUDED.updated_at, NOW()),
-          last_login_date = EXCLUDED.last_login_date
-        `,
-        [
-          p.id,
-          p.name,
-          p.target_year ?? null,
-          p.optional_subject ?? null,
-          p.study_hours_per_day ?? null,
-          p.language ?? "English",
-          p.profile_photo_url ?? null,
-          p.mentor_personality ?? "friendly",
-          p.current_streak ?? 0,
-          p.total_xp ?? 0,
-          p.level ?? 1,
-          p.created_at ?? null,
-          p.updated_at ?? null,
-          p.last_login_date ?? null,
-        ],
-      );
-    }
-    await client.query("COMMIT");
-    return { inserted: profiles.length };
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
+  for (const p of profiles) {
+    await queryNeon(
+      `
+      INSERT INTO profiles (
+        id, name, target_year, optional_subject, study_hours_per_day, language,
+        profile_photo_url, mentor_personality, current_streak, total_xp, level,
+        created_at, updated_at, last_login_date
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6,
+        $7, $8, $9, $10, $11,
+        COALESCE($12, CURRENT_TIMESTAMP),
+        COALESCE($13, CURRENT_TIMESTAMP),
+        $14
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        name = excluded.name,
+        target_year = excluded.target_year,
+        optional_subject = excluded.optional_subject,
+        study_hours_per_day = excluded.study_hours_per_day,
+        language = excluded.language,
+        profile_photo_url = excluded.profile_photo_url,
+        mentor_personality = excluded.mentor_personality,
+        current_streak = excluded.current_streak,
+        total_xp = excluded.total_xp,
+        level = excluded.level,
+        updated_at = COALESCE(excluded.updated_at, CURRENT_TIMESTAMP),
+        last_login_date = excluded.last_login_date
+      `,
+      [
+        p.id,
+        p.name,
+        p.target_year ?? null,
+        p.optional_subject ?? null,
+        p.study_hours_per_day ?? null,
+        p.language ?? "English",
+        p.profile_photo_url ?? null,
+        p.mentor_personality ?? "friendly",
+        p.current_streak ?? 0,
+        p.total_xp ?? 0,
+        p.level ?? 1,
+        p.created_at ?? null,
+        p.updated_at ?? null,
+        p.last_login_date ?? null,
+      ],
+    );
   }
+  return { inserted: profiles.length };
 };
 
 export const listProfiles = async (limit = 100, offset = 0): Promise<Profile[]> => {
-  if (!pool) return [];
-  const result = await pool.query<Profile>(
+  const result = await queryNeon<Profile>(
     `
     SELECT *
     FROM profiles
@@ -189,11 +177,10 @@ export const listProfiles = async (limit = 100, offset = 0): Promise<Profile[]> 
     `,
     [Math.max(1, Math.min(500, limit)), Math.max(0, offset)],
   );
-  return result.rows;
+  return result;
 };
 
 export const getProfileById = async (id: string): Promise<Profile | null> => {
-  if (!pool) return null;
-  const result = await pool.query<Profile>("SELECT * FROM profiles WHERE id = $1 LIMIT 1", [id]);
-  return result.rows[0] ?? null;
+  const result = await queryNeon<Profile>("SELECT * FROM profiles WHERE id = $1 LIMIT 1", [id]);
+  return result[0] ?? null;
 };

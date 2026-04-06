@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "node:crypto";
-import { pool } from "./neon.js";
+import { queryNeon } from "./neon.js";
 
 const TABLES = new Set([
   "profiles",
@@ -38,168 +38,117 @@ const validateSignUpInput = (name: string, email: string, password: string) => {
     throw new Error("Password must include at least one uppercase letter, one number, and one special character.");
   }
 };
-const requirePool = () => {
-  if (!pool) {
-    throw new Error("Neon database is required. Set valid NEON_DATABASE_URL.");
-  }
-  return pool;
-};
 
 export const signUpUser = async (email: string, password: string, name: string) => {
-  const db = requirePool();
   validateSignUpInput(name, email, password);
   const userId = randomUUID();
   const passHash = hashPassword(password);
-  const existing = await db.query("SELECT id FROM user_accounts WHERE email = $1 LIMIT 1", [email]);
-  if (existing.rows[0]) throw new Error("User already exists");
+  const existing = await queryNeon<{ id: string }>("SELECT id FROM user_accounts WHERE email = $1 LIMIT 1", [email]);
+  if (existing[0]) throw new Error("User already exists");
 
-  const client = await db.connect();
-  try {
-    await client.query("BEGIN");
-    await client.query(
+  await queryNeon(
+    "INSERT INTO user_accounts (id, email, password_hash, name) VALUES ($1, $2, $3, $4)",
+    [userId, email, passHash, name],
+  );
+  await queryNeon(
+    `
+    INSERT INTO profiles (
+      id, name, target_year, optional_subject, study_hours_per_day, language,
+      profile_photo_url, mentor_personality, current_streak, total_xp, level, last_login_date
+    )
+    VALUES ($1, $2, 2027, 'Public Administration', 4, 'English', NULL, 'friendly', 0, 0, 1, date('now'))
+    ON CONFLICT (id) DO NOTHING
+    `,
+    [userId, name || "Aspirant"],
+  );
+  return createSession(userId, email);
+};
+
+export const loginUser = async (email: string, password: string) => {
+  const passHash = hashPassword(password);
+  const result = await queryNeon<{ id: string; email: string }>(
+    "SELECT id, email FROM user_accounts WHERE email = $1 AND password_hash = $2 LIMIT 1",
+    [email, passHash],
+  );
+  const user = result[0];
+  if (!user) throw new Error("Invalid email or password");
+
+  await queryNeon("UPDATE profiles SET last_login_date = date('now'), updated_at = CURRENT_TIMESTAMP WHERE id = $1", [user.id]);
+  return createSession(user.id, user.email);
+};
+
+export const loginOrCreateGoogleUser = async (email: string, name: string) => {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) throw new Error("Google account email is required");
+
+  const existing = await queryNeon<{ id: string; email: string; name: string }>(
+    "SELECT id, email, name FROM user_accounts WHERE email = $1 LIMIT 1",
+    [normalizedEmail],
+  );
+
+  let userId = existing[0]?.id;
+  const userName = existing[0]?.name || name || "Aspirant";
+
+  if (!userId) {
+    userId = randomUUID();
+    const randomPass = hashPassword(`google-oauth-${randomUUID()}`);
+    await queryNeon(
       "INSERT INTO user_accounts (id, email, password_hash, name) VALUES ($1, $2, $3, $4)",
-      [userId, email, passHash, name],
+      [userId, normalizedEmail, randomPass, userName],
     );
-    await client.query(
+    await queryNeon(
       `
       INSERT INTO profiles (
         id, name, target_year, optional_subject, study_hours_per_day, language,
         profile_photo_url, mentor_personality, current_streak, total_xp, level, last_login_date
       )
-      VALUES ($1, $2, 2027, 'Public Administration', 4, 'English', NULL, 'friendly', 0, 0, 1, CURRENT_DATE)
+      VALUES ($1, $2, 2027, 'Public Administration', 4, 'English', NULL, 'friendly', 0, 0, 1, date('now'))
       ON CONFLICT (id) DO NOTHING
       `,
-      [userId, name || "Aspirant"],
+      [userId, userName],
     );
-    await client.query("COMMIT");
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
-  return createSession(userId, email);
-};
-
-export const loginUser = async (email: string, password: string) => {
-  const db = requirePool();
-  const passHash = hashPassword(password);
-  const result = await db.query<{ id: string; email: string }>(
-    "SELECT id, email FROM user_accounts WHERE email = $1 AND password_hash = $2 LIMIT 1",
-    [email, passHash],
-  );
-  const user = result.rows[0];
-  if (!user) throw new Error("Invalid email or password");
-
-  await db.query("UPDATE profiles SET last_login_date = CURRENT_DATE, updated_at = NOW() WHERE id = $1", [user.id]);
-  return createSession(user.id, user.email);
-};
-
-export const loginOrCreateGoogleUser = async (email: string, name: string) => {
-  const db = requirePool();
-  const normalizedEmail = email.trim().toLowerCase();
-  if (!normalizedEmail) throw new Error("Google account email is required");
-
-  const existing = await db.query<{ id: string; email: string; name: string }>(
-    "SELECT id, email, name FROM user_accounts WHERE email = $1 LIMIT 1",
-    [normalizedEmail],
-  );
-
-  let userId = existing.rows[0]?.id;
-  let userName = existing.rows[0]?.name || name || "Aspirant";
-
-  if (!userId) {
-    userId = randomUUID();
-    const randomPass = hashPassword(`google-oauth-${randomUUID()}`);
-    const client = await db.connect();
-    try {
-      await client.query("BEGIN");
-      await client.query(
-        "INSERT INTO user_accounts (id, email, password_hash, name) VALUES ($1, $2, $3, $4)",
-        [userId, normalizedEmail, randomPass, userName],
-      );
-      await client.query(
-        `
-        INSERT INTO profiles (
-          id, name, target_year, optional_subject, study_hours_per_day, language,
-          profile_photo_url, mentor_personality, current_streak, total_xp, level, last_login_date
-        )
-        VALUES ($1, $2, 2027, 'Public Administration', 4, 'English', NULL, 'friendly', 0, 0, 1, CURRENT_DATE)
-        ON CONFLICT (id) DO NOTHING
-        `,
-        [userId, userName],
-      );
-      await client.query("COMMIT");
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
   } else {
-    await db.query(
-      "UPDATE user_accounts SET name = $1 WHERE id = $2 AND COALESCE(name, '') <> $1",
-      [userName, userId],
-    );
-    await db.query(
-      "UPDATE profiles SET name = $1, last_login_date = CURRENT_DATE, updated_at = NOW() WHERE id = $2",
-      [userName, userId],
-    );
+    await queryNeon("UPDATE user_accounts SET name = $1 WHERE id = $2", [userName, userId]);
+    await queryNeon("UPDATE profiles SET name = $1, last_login_date = date('now'), updated_at = CURRENT_TIMESTAMP WHERE id = $2", [userName, userId]);
   }
 
   return createSession(userId, normalizedEmail);
 };
 
 export const resetPasswordByEmail = async (email: string, newPassword: string) => {
-  const db = requirePool();
   const normalizedEmail = email.trim().toLowerCase();
   const passHash = hashPassword(newPassword);
 
-  const existing = await db.query<{ id: string }>(
-    "SELECT id FROM user_accounts WHERE email = $1 LIMIT 1",
-    [normalizedEmail],
-  );
+  const existing = await queryNeon<{ id: string }>("SELECT id FROM user_accounts WHERE email = $1 LIMIT 1", [normalizedEmail]);
+  const userId = existing[0]?.id;
+  if (!userId) return { updated: false };
 
-  const userId = existing.rows[0]?.id;
-  if (!userId) {
-    // Do not reveal account existence details.
-    return { updated: false };
-  }
-
-  await db.query("UPDATE user_accounts SET password_hash = $1 WHERE id = $2", [passHash, userId]);
-  await db.query("DELETE FROM auth_sessions WHERE user_id = $1", [userId]);
+  await queryNeon("UPDATE user_accounts SET password_hash = $1 WHERE id = $2", [passHash, userId]);
+  await queryNeon("DELETE FROM auth_sessions WHERE user_id = $1", [userId]);
   return { updated: true };
 };
 
 export const updatePasswordForUser = async (userId: string, currentPassword: string, newPassword: string) => {
-  const db = requirePool();
   const currentHash = hashPassword(currentPassword);
   const nextHash = hashPassword(newPassword);
 
-  const existing = await db.query<{ id: string }>(
+  const existing = await queryNeon<{ id: string }>(
     "SELECT id FROM user_accounts WHERE id = $1 AND password_hash = $2 LIMIT 1",
     [userId, currentHash],
   );
+  if (!existing[0]) throw new Error("Current password is incorrect");
 
-  if (!existing.rows[0]) {
-    throw new Error("Current password is incorrect");
-  }
-
-  await db.query("UPDATE user_accounts SET password_hash = $1 WHERE id = $2", [nextHash, userId]);
+  await queryNeon("UPDATE user_accounts SET password_hash = $1 WHERE id = $2", [nextHash, userId]);
   return { updated: true };
 };
 
 export const createSession = async (userId: string, email: string) => {
-  const db = requirePool();
   const token = `upsc_${randomUUID().replace(/-/g, "")}`;
   const refreshToken = `upsc_refresh_${randomUUID().replace(/-/g, "")}`;
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3650).toISOString();
 
-  await db.query(
-    `
-    INSERT INTO auth_sessions (token, refresh_token, user_id, expires_at)
-    VALUES ($1, $2, $3, $4::timestamptz)
-    `,
+  await queryNeon(
+    "INSERT INTO auth_sessions (token, refresh_token, user_id, expires_at) VALUES ($1, $2, $3, $4)",
     [token, refreshToken, userId, expiresAt],
   );
 
@@ -212,25 +161,20 @@ export const createSession = async (userId: string, email: string) => {
 
 export const resolveSession = async (token?: string | null) => {
   if (!token) return null;
-  const db = requirePool();
-  const result = await db.query<{ user_id: string; email: string }>(
+  const result = await queryNeon<{ user_id: string; email: string }>(
     `
     SELECT s.user_id, u.email
     FROM auth_sessions s
     JOIN user_accounts u ON u.id = s.user_id
-    WHERE s.token = $1 AND s.expires_at > NOW()
+    WHERE s.token = $1 AND datetime(s.expires_at) > CURRENT_TIMESTAMP
     LIMIT 1
     `,
     [token],
   );
-  const row = result.rows[0];
+  const row = result[0];
   if (!row) return null;
 
-  // Sliding session: keep same-device login active until explicit logout.
-  await db.query(
-    `UPDATE auth_sessions SET expires_at = NOW() + INTERVAL '3650 days' WHERE token = $1`,
-    [token],
-  );
+  await queryNeon(`UPDATE auth_sessions SET expires_at = datetime('now','+3650 days') WHERE token = $1`, [token]);
 
   return {
     access_token: token,
@@ -241,8 +185,7 @@ export const resolveSession = async (token?: string | null) => {
 
 export const revokeSession = async (token?: string | null) => {
   if (!token) return;
-  const db = requirePool();
-  await db.query("DELETE FROM auth_sessions WHERE token = $1", [token]);
+  await queryNeon("DELETE FROM auth_sessions WHERE token = $1", [token]);
 };
 
 type EqFilter = { col: string; value: unknown; op?: "eq" | "gte" | "lte" };
@@ -260,7 +203,6 @@ export const dbSelect = async (input: {
   order?: { col: string; ascending?: boolean } | null;
   limit?: number | null;
 }) => {
-  const db = requirePool();
   const table = assertTable(input.table);
   const values: unknown[] = [];
   const whereParts: string[] = [];
@@ -282,9 +224,7 @@ export const dbSelect = async (input: {
     const lim = Math.max(1, Math.min(1000, Number(input.limit)));
     sql += ` LIMIT ${lim}`;
   }
-
-  const result = await db.query(sql, values);
-  return result.rows;
+  return queryNeon(sql, values);
 };
 
 const rowColumns = (row: Record<string, unknown>) =>
@@ -293,7 +233,6 @@ const rowColumns = (row: Record<string, unknown>) =>
     .sort();
 
 export const dbInsert = async (tableInput: string, rowsInput: Record<string, unknown>[]) => {
-  const db = requirePool();
   const table = assertTable(tableInput);
   const rows = rowsInput.length ? rowsInput : [];
   if (!rows.length) return [];
@@ -313,14 +252,13 @@ export const dbInsert = async (tableInput: string, rowsInput: Record<string, unk
     const vals = cols.map((c) => row[c]);
     const placeholders = cols.map((_, i) => `$${i + 1}`).join(", ");
     const sql = `INSERT INTO ${table} (${cols.join(", ")}) VALUES (${placeholders}) RETURNING *`;
-    const result = await db.query(sql, vals);
-    inserted.push(result.rows[0]);
+    const result = await queryNeon(sql, vals);
+    inserted.push(result[0]);
   }
   return inserted;
 };
 
 export const dbUpsert = async (tableInput: string, rowsInput: Record<string, unknown>[]) => {
-  const db = requirePool();
   const table = assertTable(tableInput);
   const rows = rowsInput.length ? rowsInput : [];
   if (!rows.length) return [];
@@ -341,17 +279,17 @@ export const dbUpsert = async (tableInput: string, rowsInput: Record<string, unk
     const placeholders = cols.map((_, i) => `$${i + 1}`).join(", ");
     const updates = cols
       .filter((c) => c !== "id" && c !== "created_at")
-      .map((c) => `${c} = EXCLUDED.${c}`)
+      .map((c) => `${c} = excluded.${c}`)
       .join(", ");
 
     const sql = `
       INSERT INTO ${table} (${cols.join(", ")})
       VALUES (${placeholders})
-      ON CONFLICT (id) DO UPDATE SET ${updates || "id = EXCLUDED.id"}
+      ON CONFLICT (id) DO UPDATE SET ${updates || "id = excluded.id"}
       RETURNING *
     `;
-    const result = await db.query(sql, vals);
-    upserted.push(result.rows[0]);
+    const result = await queryNeon(sql, vals);
+    upserted.push(result[0]);
   }
 
   return upserted;
@@ -363,7 +301,6 @@ export const dbUpdate = async (input: {
   patch: Record<string, unknown>;
   filters?: EqFilter[];
 }) => {
-  const db = requirePool();
   const table = assertTable(input.table);
   const patchCols = rowColumns(input.patch);
   if (!patchCols.length) return [];
@@ -388,12 +325,10 @@ export const dbUpdate = async (input: {
   if (whereParts.length) sql += ` WHERE ${whereParts.join(" AND ")}`;
   sql += " RETURNING *";
 
-  const result = await db.query(sql, values);
-  return result.rows;
+  return queryNeon(sql, values);
 };
 
 export const dbDelete = async (input: { table: string; filters?: EqFilter[] }) => {
-  const db = requirePool();
   const table = assertTable(input.table);
   const values: unknown[] = [];
   const whereParts: string[] = [];
@@ -407,6 +342,5 @@ export const dbDelete = async (input: { table: string; filters?: EqFilter[] }) =
   let sql = `DELETE FROM ${table}`;
   if (whereParts.length) sql += ` WHERE ${whereParts.join(" AND ")}`;
   sql += " RETURNING *";
-  const result = await db.query(sql, values);
-  return result.rows;
+  return queryNeon(sql, values);
 };
