@@ -31,6 +31,8 @@ const normalizeSql = (input: string) => {
   sql = sql.replace(/\bGREATEST\s*\(/gi, "MAX(");
   sql = sql.replace(/CURRENT_TIMESTAMP\s*\+\s*INTERVAL\s*'(\d+)\s*hours?'/gi, "datetime('now','+$1 hours')");
   sql = sql.replace(/CURRENT_TIMESTAMP\s*\+\s*INTERVAL\s*'(\d+)\s*days?'/gi, "datetime('now','+$1 days')");
+  // Safety: in case any array type token survives casting transforms.
+  sql = sql.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\[\]/g, "$1");
   sql = sql.replace(/\$\d+/g, "?");
   // PostgreSQL-specific unnest on tags is not supported in local SQLite.
   sql = sql.replace(/OR EXISTS\s*\(SELECT 1 FROM unnest\(p\.tags\) t WHERE t LIKE \?\)/gi, "");

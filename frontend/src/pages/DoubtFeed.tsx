@@ -204,10 +204,14 @@ const DoubtFeed = () => {
       setAskOpen(false);
       setForm({ title: "", description: "", category: "Polity", tags: "", upscOnlyConfirmed: false, imageFile: null });
       if (fileInputRef.current) fileInputRef.current.value = "";
-      await loadFeed();
-      if (payload?.id) {
-        setSelectedPostId(payload.id);
-        await loadDetail(payload.id);
+      try {
+        await loadFeed();
+        if (payload?.id) {
+          setSelectedPostId(payload.id);
+          await loadDetail(payload.id);
+        }
+      } catch {
+        // Keep post success even if immediate refresh fails on slow/backoff backends.
       }
       toast({ title: "Doubt posted", description: "Your UPSC doubt is now live in the feed." });
     } catch (error: any) {
