@@ -120,6 +120,7 @@ const DoubtFeed = () => {
   const [editingAnswerId, setEditingAnswerId] = useState("");
   const [editingAnswerText, setEditingAnswerText] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const api = async (path: string, init?: RequestInit) => {
     const { data } = await supabase.auth.getSession();
@@ -334,6 +335,15 @@ const DoubtFeed = () => {
     }
   };
 
+  const openCommentForPost = async (postId: string) => {
+    setSelectedPostId(postId);
+    try {
+      await loadDetail(postId);
+    } finally {
+      setTimeout(() => commentInputRef.current?.focus(), 30);
+    }
+  };
+
   const startEditAnswer = (answer: FeedAnswer) => {
     setEditingAnswerId(answer.id);
     setEditingAnswerText(answer.content);
@@ -436,7 +446,7 @@ const DoubtFeed = () => {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-7xl p-6 space-y-4">
+      <div className="w-full p-4 md:p-6 space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold">UPSC Doubt Feed</h1>
@@ -524,8 +534,8 @@ const DoubtFeed = () => {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-          <div className="space-y-3 lg:col-span-2">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <div className="space-y-3 xl:col-span-5">
             {posts.length === 0 && (
               <Card>
                 <CardContent className="py-8 text-center text-sm text-muted-foreground">
@@ -560,7 +570,7 @@ const DoubtFeed = () => {
                           className="flex items-center gap-1 hover:text-foreground"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedPostId(post.id);
+                            openCommentForPost(post.id);
                           }}
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
@@ -610,7 +620,7 @@ const DoubtFeed = () => {
             ))}
           </div>
 
-          <div className="lg:col-span-3">
+          <div className="xl:col-span-7">
             {!selectedPostId && (
               <Card>
                 <CardContent className="py-10 text-center text-sm text-muted-foreground">Select a doubt to view details.</CardContent>
@@ -745,6 +755,7 @@ const DoubtFeed = () => {
 
                     <div className="space-y-2 rounded-md border p-3">
                       <Textarea
+                        ref={commentInputRef}
                         placeholder="Write your comment/answer..."
                         value={answerText}
                         onChange={(e) => setAnswerText(e.target.value)}
