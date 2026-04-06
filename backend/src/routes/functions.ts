@@ -718,6 +718,7 @@ functionsRouter.get("/doubts", async (c) => {
     image_url: string | null;
     answer_count: number;
     likes_count: number;
+    saves_count: number;
     views_count: number;
     status: string;
     is_flagged: boolean;
@@ -726,20 +727,24 @@ functionsRouter.get("/doubts", async (c) => {
     created_at: string;
     updated_at: string;
     author_name: string | null;
+    liked_by_viewer: number;
+    saved_by_viewer: number;
   }>(
     `
     SELECT
       p.id::text, p.user_id::text, p.title, p.description, p.category, p.tags, p.image_url,
-      p.answer_count, p.likes_count, p.views_count, p.status, p.is_flagged, p.moderation_status, p.report_count,
+      p.answer_count, p.likes_count, p.saves_count, p.views_count, p.status, p.is_flagged, p.moderation_status, p.report_count,
       p.created_at::text, p.updated_at::text,
-      COALESCE(pr.name, 'Aspirant') AS author_name
+      COALESCE(pr.name, 'Aspirant') AS author_name,
+      CASE WHEN $${idx}::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_likes l WHERE l.post_id = p.id AND l.user_id = $${idx}::uuid) THEN 1 ELSE 0 END AS liked_by_viewer,
+      CASE WHEN $${idx}::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_saves s WHERE s.post_id = p.id AND s.user_id = $${idx}::uuid) THEN 1 ELSE 0 END AS saved_by_viewer
     FROM doubt_posts p
     LEFT JOIN profiles pr ON pr.id = p.user_id
     ${whereSql}
     ${orderSql}
-    LIMIT $${idx} OFFSET $${idx + 1}
+    LIMIT $${idx + 1} OFFSET $${idx + 2}
     `,
-    [...params, limit, offset],
+    [...params, user?.id || null, limit, offset],
   );
 
   const countRows = await queryNeon<{ total: number }>(
@@ -759,7 +764,10 @@ functionsRouter.get("/doubts", async (c) => {
     imageUrl: r.image_url,
     answerCount: Number(r.answer_count || 0),
     likesCount: Number(r.likes_count || 0),
+    savesCount: Number(r.saves_count || 0),
     viewsCount: Number(r.views_count || 0),
+    likedByViewer: Number(r.liked_by_viewer || 0) > 0,
+    savedByViewer: Number(r.saved_by_viewer || 0) > 0,
     status: r.status,
     isFlagged: Boolean(r.is_flagged),
     moderationStatus: r.moderation_status,
@@ -836,12 +844,15 @@ functionsRouter.get("/doubts/:postId", async (c) => {
     image_url: string | null;
     answer_count: number;
     likes_count: number;
+    saves_count: number;
     views_count: number;
     status: string;
     best_answer_id: string | null;
     is_flagged: boolean;
     moderation_status: string;
     report_count: number;
+    liked_by_viewer: number;
+    saved_by_viewer: number;
     created_at: string;
     updated_at: string;
     author_name: string | null;
@@ -849,7 +860,9 @@ functionsRouter.get("/doubts/:postId", async (c) => {
     `
     SELECT
       p.id::text, p.user_id::text, p.title, p.description, p.category, p.tags, p.image_url,
-      p.answer_count, p.likes_count, p.views_count, p.status, p.best_answer_id::text, p.is_flagged, p.moderation_status, p.report_count,
+      p.answer_count, p.likes_count, p.saves_count, p.views_count, p.status, p.best_answer_id::text, p.is_flagged, p.moderation_status, p.report_count,
+      CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_likes l WHERE l.post_id = p.id AND l.user_id = $2::uuid) THEN 1 ELSE 0 END AS liked_by_viewer,
+      CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_saves s WHERE s.post_id = p.id AND s.user_id = $2::uuid) THEN 1 ELSE 0 END AS saved_by_viewer,
       p.created_at::text, p.updated_at::text,
       COALESCE(pr.name, 'Aspirant') AS author_name
     FROM doubt_posts p
@@ -910,7 +923,10 @@ functionsRouter.get("/doubts/:postId", async (c) => {
       imageUrl: post.image_url,
       answerCount: Number(post.answer_count || 0),
       likesCount: Number(post.likes_count || 0),
+      savesCount: Number(post.saves_count || 0),
       viewsCount: Number(post.views_count || 0),
+      likedByViewer: Number(post.liked_by_viewer || 0) > 0,
+      savedByViewer: Number(post.saved_by_viewer || 0) > 0,
       status: post.status,
       bestAnswerId: post.best_answer_id,
       isFlagged: Boolean(post.is_flagged),
@@ -984,6 +1000,35 @@ functionsRouter.post("/doubts/:postId/like", async (c) => {
   );
   const row = await queryNeon<{ likes_count: number }>(`SELECT likes_count FROM doubt_posts WHERE id = $1::uuid LIMIT 1`, [postId]);
   return c.json({ ok: true, liked, likesCount: Number(row[0]?.likes_count || 0) });
+});
+
+functionsRouter.post("/doubts/:postId/save", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const postId = String(c.req.param("postId") || "").trim();
+  if (!postId) return c.json({ message: "postId is required" }, 400);
+
+  const existing = await queryNeon<{ id: string }>(
+    `SELECT id::text FROM doubt_post_saves WHERE post_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
+    [postId, user.id],
+  );
+  let saved = false;
+  if (existing[0]?.id) {
+    await queryNeon(`DELETE FROM doubt_post_saves WHERE id = $1::uuid`, [existing[0].id]);
+    saved = false;
+  } else {
+    await queryNeon(
+      `INSERT INTO doubt_post_saves (id, post_id, user_id) VALUES ($1::uuid, $2::uuid, $3::uuid)`,
+      [randomUUID(), postId, user.id],
+    );
+    saved = true;
+  }
+  await queryNeon(
+    `UPDATE doubt_posts SET saves_count = (SELECT COUNT(*) FROM doubt_post_saves WHERE post_id = $1::uuid), updated_at = NOW() WHERE id = $1::uuid`,
+    [postId],
+  );
+  const row = await queryNeon<{ saves_count: number }>(`SELECT saves_count FROM doubt_posts WHERE id = $1::uuid LIMIT 1`, [postId]);
+  return c.json({ ok: true, saved, savesCount: Number(row[0]?.saves_count || 0) });
 });
 
 functionsRouter.post("/doubts/:postId/update", async (c) => {

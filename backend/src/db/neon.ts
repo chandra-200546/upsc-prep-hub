@@ -267,6 +267,7 @@ export const ensureNeonSchema = async () => {
       image_url TEXT,
       answer_count INTEGER NOT NULL DEFAULT 0,
       likes_count INTEGER NOT NULL DEFAULT 0,
+      saves_count INTEGER NOT NULL DEFAULT 0,
       views_count INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'unanswered',
       best_answer_id TEXT,
@@ -301,6 +302,14 @@ export const ensureNeonSchema = async () => {
     );
 
     CREATE TABLE IF NOT EXISTS doubt_post_likes (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(post_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS doubt_post_saves (
       id TEXT PRIMARY KEY,
       post_id TEXT NOT NULL,
       user_id TEXT NOT NULL,
@@ -381,6 +390,7 @@ export const ensureNeonSchema = async () => {
   // Safe schema updates for existing SQLite files.
   try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN likes_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
   try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN views_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
+  try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN saves_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
   try { sqlite.exec(`ALTER TABLE doubt_answers ADD COLUMN is_ai_generated INTEGER NOT NULL DEFAULT 0;`); } catch {}
 
   return true;

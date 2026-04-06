@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MessageSquare, Search, ThumbsUp, CheckCircle2, Flag, Paperclip, Heart, Eye } from "lucide-react";
+import { MessageSquare, Search, ThumbsUp, CheckCircle2, Flag, Paperclip, Heart, Eye, Bookmark, Share2 } from "lucide-react";
 
 type FeedPost = {
   id: string;
@@ -24,7 +24,10 @@ type FeedPost = {
   imageUrl?: string | null;
   answerCount: number;
   likesCount?: number;
+  savesCount?: number;
   viewsCount?: number;
+  likedByViewer?: boolean;
+  savedByViewer?: boolean;
   status: "unanswered" | "answered" | "solved";
   createdAt: string;
   author: { id: string; name: string };
@@ -297,13 +300,37 @@ const DoubtFeed = () => {
     }
   };
 
-  const togglePostLike = async () => {
-    if (!detail?.post.id) return;
+  const togglePostLike = async (postId?: string) => {
+    const targetPostId = postId || detail?.post.id;
+    if (!targetPostId) return;
     try {
-      await api(`/doubts/${detail.post.id}/like`, { method: "POST" });
-      await Promise.all([loadFeed(), loadDetail(detail.post.id)]);
+      await api(`/doubts/${targetPostId}/like`, { method: "POST" });
+      await Promise.all([loadFeed(), selectedPostId ? loadDetail(selectedPostId) : Promise.resolve()]);
     } catch (error: any) {
       toast({ title: "Like failed", description: error?.message || "Unable to like post", variant: "destructive" });
+    }
+  };
+
+  const togglePostSave = async (postId?: string) => {
+    const targetPostId = postId || detail?.post.id;
+    if (!targetPostId) return;
+    try {
+      await api(`/doubts/${targetPostId}/save`, { method: "POST" });
+      await Promise.all([loadFeed(), selectedPostId ? loadDetail(selectedPostId) : Promise.resolve()]);
+    } catch (error: any) {
+      toast({ title: "Save failed", description: error?.message || "Unable to save post", variant: "destructive" });
+    }
+  };
+
+  const sharePost = async (postId?: string) => {
+    const targetPostId = postId || detail?.post.id;
+    if (!targetPostId) return;
+    const url = `${window.location.origin}/doubt-feed?postId=${targetPostId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Link copied", description: "Post link copied to clipboard." });
+    } catch {
+      toast({ title: "Share link", description: url });
     }
   };
 
@@ -354,6 +381,14 @@ const DoubtFeed = () => {
       toast({ title: "Report failed", description: error?.message || "Unable to report", variant: "destructive" });
     }
   };
+
+  const initials = (name: string) =>
+    (name || "A")
+      .split(" ")
+      .map((p) => p[0] || "")
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
 
   useEffect(() => {
     if (!user) {
@@ -500,23 +535,75 @@ const DoubtFeed = () => {
             )}
             {posts.map((post) => (
               <Card key={post.id} className={`cursor-pointer transition ${selectedPostId === post.id ? "border-primary shadow-sm" : ""}`} onClick={() => setSelectedPostId(post.id)}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-base">{post.title}</CardTitle>
-                    <Badge variant={post.status === "solved" ? "default" : post.status === "answered" ? "secondary" : "outline"}>
-                      {post.status}
-                    </Badge>
-                  </div>
-                  <CardDescription>{post.author.name} • {new Date(post.createdAt).toLocaleString()}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground">{post.preview}</p>
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <Badge variant="outline">{post.category}</Badge>
-                    <Badge variant="secondary">{post.answerCount} comments</Badge>
-                    <Badge variant="outline"><Heart className="mr-1 h-3 w-3" />{post.likesCount || 0}</Badge>
-                    <Badge variant="outline"><Eye className="mr-1 h-3 w-3" />{post.viewsCount || 0}</Badge>
-                    {post.tags.slice(0, 3).map((tag) => <Badge key={tag} variant="outline">#{tag}</Badge>)}
+                <CardContent className="pt-4">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+                      {initials(post.author.name)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className="truncate text-sm font-semibold">{post.author.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {new Date(post.createdAt).toLocaleDateString()} • {post.category}
+                          </p>
+                        </div>
+                        <Badge variant={post.status === "solved" ? "default" : post.status === "answered" ? "secondary" : "outline"}>
+                          {post.status}
+                        </Badge>
+                      </div>
+                      <h3 className="mb-1 text-sm font-semibold">{post.title}</h3>
+                      <p className="mb-3 text-sm text-muted-foreground">{post.preview}</p>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedPostId(post.id);
+                          }}
+                        >
+                          <MessageSquare className="h-3.5 w-3.5" />
+                          <span>{post.answerCount || 0}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePostLike(post.id);
+                          }}
+                        >
+                          <Heart className="h-3.5 w-3.5" />
+                          <span>{post.likesCount || 0}</span>
+                        </button>
+                        <div className="flex items-center gap-1">
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>{post.viewsCount || 0}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePostSave(post.id);
+                          }}
+                        >
+                          <Bookmark className="h-3.5 w-3.5" />
+                          <span>{post.savesCount || 0}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sharePost(post.id);
+                          }}
+                        >
+                          <Share2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -591,7 +678,14 @@ const DoubtFeed = () => {
                       <Button size="sm" variant="outline" onClick={togglePostLike}>
                         <Heart className="mr-1 h-4 w-4" />Like ({detail.post.likesCount || 0})
                       </Button>
+                      <Badge variant="outline"><MessageSquare className="mr-1 h-3 w-3" />Comments: {detail.post.answerCount || 0}</Badge>
                       <Badge variant="outline"><Eye className="mr-1 h-3 w-3" />Views: {detail.post.viewsCount || 0}</Badge>
+                      <Button size="sm" variant="outline" onClick={() => togglePostSave()}>
+                        <Bookmark className="mr-1 h-4 w-4" />Save ({detail.post.savesCount || 0})
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => sharePost()}>
+                        <Share2 className="mr-1 h-4 w-4" />Share
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
