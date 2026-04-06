@@ -646,7 +646,7 @@ functionsRouter.post("/doubts/create", async (c) => {
     `
     INSERT INTO doubt_posts
     (id, user_id, title, description, category, tags, image_url, answer_count, status, is_flagged, moderation_status, report_count)
-    VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::text[], $7, 0, 'unanswered', $8, $9, 0)
+    VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, 0, 'unanswered', $8, $9, 0)
     `,
     [id, user.id, title, description, category, tags, imageUrl, contentCheck.flagged, contentCheck.moderationStatus],
   );
@@ -796,7 +796,7 @@ functionsRouter.post("/doubts/seed", async (c) => {
       `
       INSERT INTO doubt_posts
       (id, user_id, title, description, category, tags, answer_count, status, is_flagged, moderation_status, report_count)
-      VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::text[], 0, 'unanswered', FALSE, 'clean', 0)
+    VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, 0, 'unanswered', FALSE, 'clean', 0)
       `,
       [randomUUID(), user.id, row.title, row.description, row.category, row.tags],
     );
@@ -943,7 +943,7 @@ functionsRouter.post("/doubts/:postId/update", async (c) => {
   await queryNeon(
     `
     UPDATE doubt_posts
-    SET title = $2, description = $3, category = $4, tags = $5::text[],
+    SET title = $2, description = $3, category = $4, tags = $5,
         is_flagged = $6, moderation_status = $7, updated_at = NOW()
     WHERE id = $1::uuid
     `,
@@ -1299,7 +1299,7 @@ functionsRouter.post("/notes-feed/create", async (c) => {
     `
     INSERT INTO notes_feed_posts
     (id, user_id, title, content, category, tags, image_urls, likes_count, saves_count, report_count, is_flagged, moderation_status)
-    VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::text[], $7::text[], 0, 0, 0, $8, $9)
+    VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, 0, 0, 0, $8, $9)
     `,
     [id, user.id, title, content, category, tags, imageUrls, contentCheck.flagged, contentCheck.moderationStatus],
   );
@@ -1500,7 +1500,7 @@ functionsRouter.post("/notes-feed/:noteId/update", async (c) => {
   await queryNeon(
     `
     UPDATE notes_feed_posts
-    SET title = $2, content = $3, category = $4, tags = $5::text[],
+    SET title = $2, content = $3, category = $4, tags = $5,
         is_flagged = $6, moderation_status = $7, updated_at = NOW()
     WHERE id = $1::uuid
     `,
