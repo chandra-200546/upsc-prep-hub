@@ -40,7 +40,7 @@ export const config = {
   port: Number(required("PORT", "8787")),
   nodeEnv: required("NODE_ENV", "development"),
   xaiApiKey: required("XAI_API_KEY") || required("XAI_KEY"),
-  xaiModel: required("XAI_MODEL", "grok-2-latest"),
+  xaiModel: required("XAI_MODEL", "grok-beta"),
   sqlitePath: required("SQLITE_PATH", "./data/app.db"),
   allowedOrigins: parseAllowedOrigins(required("ALLOWED_ORIGIN", "*")),
   googleClientId: required("GOOGLE_CLIENT_ID"),

@@ -4,12 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node ./node_modules/tsx/dist/cli.mjs watch src/index.ts",
-    "migrate": "node ./node_modules/tsx/dist/cli.mjs src/db/migrate.ts",
-    "import:profiles": "node ./node_modules/tsx/dist/cli.mjs src/scripts/import-profiles-csv.ts",
-    "migrate:local-to-neon": "node ./node_modules/tsx/dist/cli.mjs src/scripts/migrate-local-to-neon.ts",
+    "predev": "node ./node_modules/typescript/bin/tsc -p tsconfig.json",
+    "dev": "node --enable-source-maps dist/index.js",
+    "premigrate": "node ./node_modules/typescript/bin/tsc -p tsconfig.json",
+    "migrate": "node dist/db/migrate.js",
+    "preimport:profiles": "node ./node_modules/typescript/bin/tsc -p tsconfig.json",
+    "import:profiles": "node dist/scripts/import-profiles-csv.js",
+    "premigrate:local-to-neon": "node ./node_modules/typescript/bin/tsc -p tsconfig.json",
+    "migrate:local-to-neon": "node dist/scripts/migrate-local-to-neon.js",
     "start": "node --enable-source-maps dist/index.js",
-    "build": "tsc -p tsconfig.json"
+    "build": "node ./node_modules/typescript/bin/tsc -p tsconfig.json"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
