@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/hooks/use-local-auth";
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { BookOpen, Bookmark, Flag, Heart, Search, TrendingUp } from "lucide-react";
+import { BookOpen, Bookmark, Flag, Heart, Search, TrendingUp, Paperclip } from "lucide-react";
 
 type NoteItem = {
   id: string;
@@ -55,7 +55,6 @@ const SORT_OPTIONS = [
   { value: "most_saved", label: "Most Saved" },
 ] as const;
 
-const UPSC_HINTS = ["upsc", "prelims", "mains", "history", "polity", "geography", "economy", "ethics", "essay", "current affairs", "revision"];
 const OFFTOPIC_HINTS = ["coding", "movie", "sports", "meme", "promotion", "relationship"];
 
 const backendBase = () => String(import.meta.env.VITE_BACKEND_URL || "http://localhost:8787").replace(/\/$/, "");
@@ -90,6 +89,7 @@ const NotesFeed = () => {
   });
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ title: "", content: "", category: "Polity", tags: "" });
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const api = async (path: string, init?: RequestInit) => {
     const { data } = await supabase.auth.getSession();
@@ -151,9 +151,8 @@ const NotesFeed = () => {
 
   const contentWarning = useMemo(() => {
     const text = `${form.title} ${form.content}`.toLowerCase();
-    const hasUpsc = UPSC_HINTS.some((k) => text.includes(k));
     const hasOfftopic = OFFTOPIC_HINTS.some((k) => text.includes(k));
-    if (!hasUpsc || hasOfftopic) return "This section is only for UPSC study notes.";
+    if (hasOfftopic) return "This content may be reviewed by moderation.";
     return "";
   }, [form.content, form.title]);
 
@@ -171,10 +170,6 @@ const NotesFeed = () => {
       toast({ title: "Please confirm", description: "Accept UPSC-only rule before posting.", variant: "destructive" });
       return;
     }
-    if (contentWarning) {
-      toast({ title: "UPSC-only warning", description: contentWarning, variant: "destructive" });
-      return;
-    }
     setSubmitting(true);
     try {
       const imageUrl = await uploadImageIfAny();
@@ -190,6 +185,7 @@ const NotesFeed = () => {
       });
       setAskOpen(false);
       setForm({ title: "", content: "", category: "Polity", tags: "", upscOnlyConfirmed: false, imageFile: null });
+      if (fileInputRef.current) fileInputRef.current.value = "";
       await loadFeed();
       if (payload?.id) {
         setSelectedNoteId(payload.id);
@@ -344,7 +340,20 @@ const NotesFeed = () => {
                   </select>
                   <Input placeholder="Tags (comma separated)" value={form.tags} onChange={(e) => setForm((p) => ({ ...p, tags: e.target.value }))} />
                 </div>
-                <Input type="file" accept="image/*" onChange={(e) => setForm((p) => ({ ...p, imageFile: e.target.files?.[0] || null }))} />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,.pdf,.doc,.docx"
+                    className="hidden"
+                    onChange={(e) => setForm((p) => ({ ...p, imageFile: e.target.files?.[0] || null }))}
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                      <Paperclip className="mr-2 h-4 w-4" />
+                      Add File
+                    </Button>
+                    {form.imageFile && <span className="text-xs text-muted-foreground truncate">{form.imageFile.name}</span>}
+                  </div>
                 <div className="flex items-center gap-2 rounded border p-3 text-sm">
                   <Checkbox
                     checked={form.upscOnlyConfirmed}

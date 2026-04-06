@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/hooks/use-local-auth";
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MessageSquare, Search, ThumbsUp, CheckCircle2, Flag } from "lucide-react";
+import { MessageSquare, Search, ThumbsUp, CheckCircle2, Flag, Paperclip } from "lucide-react";
 
 type FeedPost = {
   id: string;
@@ -77,10 +77,6 @@ const STATUS_OPTIONS = [
   { value: "solved", label: "Solved" },
 ] as const;
 
-const UPSC_HINTS = [
-  "upsc", "ias", "prelims", "mains", "history", "polity", "economy", "geography", "ethics", "essay", "current affairs",
-];
-
 const OFFTOPIC_HINTS = ["coding", "movie", "sports", "meme", "song", "relationship", "promotion"];
 
 const backendBase = () => String(import.meta.env.VITE_BACKEND_URL || "http://localhost:8787").replace(/\/$/, "");
@@ -117,6 +113,7 @@ const DoubtFeed = () => {
   const [editPostForm, setEditPostForm] = useState({ title: "", description: "", category: "Polity", tags: "" });
   const [editingAnswerId, setEditingAnswerId] = useState("");
   const [editingAnswerText, setEditingAnswerText] = useState("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const api = async (path: string, init?: RequestInit) => {
     const { data } = await supabase.auth.getSession();
@@ -171,9 +168,8 @@ const DoubtFeed = () => {
 
   const preSubmitWarning = useMemo(() => {
     const text = `${form.title} ${form.description}`.toLowerCase();
-    const hasUpsc = UPSC_HINTS.some((k) => text.includes(k));
     const hasOfftopic = OFFTOPIC_HINTS.some((k) => text.includes(k));
-    if (!hasUpsc || hasOfftopic) return "This feed is only for UPSC-related doubts to maintain learning quality.";
+    if (hasOfftopic) return "This content may be reviewed by moderation.";
     return "";
   }, [form.description, form.title]);
 
@@ -192,10 +188,6 @@ const DoubtFeed = () => {
       toast({ title: "Please confirm", description: "Accept UPSC-only community rule before posting.", variant: "destructive" });
       return;
     }
-    if (preSubmitWarning) {
-      toast({ title: "UPSC-only warning", description: preSubmitWarning, variant: "destructive" });
-      return;
-    }
     setSubmitting(true);
     try {
       const imageUrl = await uploadImageIfAny();
@@ -211,6 +203,7 @@ const DoubtFeed = () => {
       });
       setAskOpen(false);
       setForm({ title: "", description: "", category: "Polity", tags: "", upscOnlyConfirmed: false, imageFile: null });
+      if (fileInputRef.current) fileInputRef.current.value = "";
       await loadFeed();
       if (payload?.id) {
         setSelectedPostId(payload.id);
@@ -415,7 +408,20 @@ const DoubtFeed = () => {
                   </select>
                   <Input placeholder="Tags (comma separated)" value={form.tags} onChange={(e) => setForm((p) => ({ ...p, tags: e.target.value }))} />
                 </div>
-                <Input type="file" accept="image/*" onChange={(e) => setForm((p) => ({ ...p, imageFile: e.target.files?.[0] || null }))} />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,.pdf,.doc,.docx"
+                    className="hidden"
+                    onChange={(e) => setForm((p) => ({ ...p, imageFile: e.target.files?.[0] || null }))}
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                      <Paperclip className="mr-2 h-4 w-4" />
+                      Add File
+                    </Button>
+                    {form.imageFile && <span className="text-xs text-muted-foreground truncate">{form.imageFile.name}</span>}
+                  </div>
                 <div className="flex items-center gap-2 rounded border p-3 text-sm">
                   <Checkbox
                     checked={form.upscOnlyConfirmed}

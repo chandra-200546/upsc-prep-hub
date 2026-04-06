@@ -128,13 +128,6 @@ const UPSC_CATEGORIES = [
   "Interview",
 ] as const;
 
-const UPSC_KEYWORDS = [
-  "upsc", "ias", "civil services", "prelims", "mains", "interview", "gs", "optional",
-  "polity", "constitution", "history", "geography", "economy", "environment", "ecology",
-  "science", "technology", "ethics", "essay", "governance", "international relations",
-  "current affairs", "schemes", "pyq", "answer writing", "parliament", "judiciary", "budget",
-];
-
 const OFFTOPIC_KEYWORDS = [
   "coding", "programming", "python", "java", "javascript", "react", "node", "movie", "cinema",
   "song", "cricket", "football", "meme", "netflix", "instagram", "relationship", "dating",
@@ -158,25 +151,24 @@ const analyzeUpscContent = (input: {
   category?: string;
 }) => {
   const text = [input.title, input.description, input.content, input.category].map(normalizeText).join(" ");
-  const keywordHits = UPSC_KEYWORDS.filter((k) => text.includes(k)).length;
   const offTopicHits = OFFTOPIC_KEYWORDS.filter((k) => text.includes(k)).length;
   const categoryOk = UPSC_CATEGORIES.includes(String(input.category || "") as (typeof UPSC_CATEGORIES)[number]);
 
-  if (offTopicHits > 0 && keywordHits === 0) {
+  if (!categoryOk) {
     return {
       allowed: false,
       flagged: true,
       moderationStatus: "rejected",
-      warning: "This feed is only for UPSC-related doubts to maintain learning quality.",
+      warning: "Please select a valid UPSC category.",
     };
   }
 
-  const flagged = !categoryOk || keywordHits === 0 || offTopicHits > 0;
+  const flagged = offTopicHits > 0;
   return {
     allowed: true,
     flagged,
     moderationStatus: flagged ? "needs_review" : "clean",
-    warning: flagged ? "This feed is only for UPSC-related doubts to maintain learning quality." : "",
+    warning: flagged ? "This content is flagged for moderation review." : "",
   };
 };
 
