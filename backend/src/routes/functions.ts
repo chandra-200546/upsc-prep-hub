@@ -216,6 +216,42 @@ const refreshDoubtPostMeta = async (postId: string) => {
   );
 };
 
+const ensureDoubtEngagementSchema = async () => {
+  try {
+    await queryNeon(
+      `CREATE TABLE IF NOT EXISTS doubt_post_likes (
+        id TEXT PRIMARY KEY,
+        post_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(post_id, user_id)
+      )`,
+    );
+  } catch {}
+  try {
+    await queryNeon(
+      `CREATE TABLE IF NOT EXISTS doubt_post_saves (
+        id TEXT PRIMARY KEY,
+        post_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(post_id, user_id)
+      )`,
+    );
+  } catch {}
+  try {
+    await queryNeon(
+      `CREATE TABLE IF NOT EXISTS doubt_post_views (
+        id TEXT PRIMARY KEY,
+        post_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(post_id, user_id)
+      )`,
+    );
+  } catch {}
+};
+
 functionsRouter.post("/auth/signup", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const email = String(body?.email ?? "").trim().toLowerCase();
@@ -610,6 +646,7 @@ functionsRouter.get("/weekly-tests/:testId/leaderboard", async (c) => {
 });
 
 functionsRouter.post("/doubts/create", async (c) => {
+  await ensureDoubtEngagementSchema();
   const user = await getSessionUser(c);
   if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
 
@@ -671,6 +708,7 @@ functionsRouter.post("/doubts/create", async (c) => {
 });
 
 functionsRouter.get("/doubts", async (c) => {
+  await ensureDoubtEngagementSchema();
   const user = await getSessionUser(c);
   const search = String(c.req.query("search") || "").trim();
   const category = String(c.req.query("category") || "").trim();
@@ -708,7 +746,7 @@ functionsRouter.get("/doubts", async (c) => {
         ? "ORDER BY (CASE WHEN p.answer_count = 0 THEN 0 ELSE 1 END), p.created_at DESC"
         : "ORDER BY p.created_at DESC";
 
-  const rows = await queryNeon<{
+  let rows: Array<{
     id: string;
     user_id: string;
     title: string;
@@ -729,23 +767,70 @@ functionsRouter.get("/doubts", async (c) => {
     author_name: string | null;
     liked_by_viewer: number;
     saved_by_viewer: number;
-  }>(
-    `
-    SELECT
-      p.id::text, p.user_id::text, p.title, p.description, p.category, p.tags, p.image_url,
-      p.answer_count, p.likes_count, p.saves_count, p.views_count, p.status, p.is_flagged, p.moderation_status, p.report_count,
-      p.created_at::text, p.updated_at::text,
-      COALESCE(pr.name, 'Aspirant') AS author_name,
-      CASE WHEN $${idx}::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_likes l WHERE l.post_id = p.id AND l.user_id = $${idx}::uuid) THEN 1 ELSE 0 END AS liked_by_viewer,
-      CASE WHEN $${idx}::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_saves s WHERE s.post_id = p.id AND s.user_id = $${idx}::uuid) THEN 1 ELSE 0 END AS saved_by_viewer
-    FROM doubt_posts p
-    LEFT JOIN profiles pr ON pr.id = p.user_id
-    ${whereSql}
-    ${orderSql}
-    LIMIT $${idx + 1} OFFSET $${idx + 2}
-    `,
-    [...params, user?.id || null, limit, offset],
-  );
+  }> = [];
+  try {
+    rows = await queryNeon<{
+      id: string;
+      user_id: string;
+      title: string;
+      description: string;
+      category: string;
+      tags: string[] | null;
+      image_url: string | null;
+      answer_count: number;
+      likes_count: number;
+      saves_count: number;
+      views_count: number;
+      status: string;
+      is_flagged: boolean;
+      moderation_status: string;
+      report_count: number;
+      created_at: string;
+      updated_at: string;
+      author_name: string | null;
+      liked_by_viewer: number;
+      saved_by_viewer: number;
+    }>(
+      `
+      SELECT
+        p.id::text, p.user_id::text, p.title, p.description, p.category, p.tags, p.image_url,
+        p.answer_count,
+        (SELECT COUNT(*) FROM doubt_post_likes l WHERE l.post_id = p.id) AS likes_count,
+        (SELECT COUNT(*) FROM doubt_post_saves s WHERE s.post_id = p.id) AS saves_count,
+        (SELECT COUNT(*) FROM doubt_post_views v WHERE v.post_id = p.id) AS views_count,
+        p.status, p.is_flagged, p.moderation_status, p.report_count,
+        p.created_at::text, p.updated_at::text,
+        COALESCE(pr.name, 'Aspirant') AS author_name,
+        CASE WHEN $${idx}::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_likes l WHERE l.post_id = p.id AND l.user_id = $${idx}::uuid) THEN 1 ELSE 0 END AS liked_by_viewer,
+        CASE WHEN $${idx}::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_saves s WHERE s.post_id = p.id AND s.user_id = $${idx}::uuid) THEN 1 ELSE 0 END AS saved_by_viewer
+      FROM doubt_posts p
+      LEFT JOIN profiles pr ON pr.id = p.user_id
+      ${whereSql}
+      ${orderSql}
+      LIMIT $${idx + 1} OFFSET $${idx + 2}
+      `,
+      [...params, user?.id || null, limit, offset],
+    );
+  } catch {
+    // Backward-compatible fallback when new engagement tables/columns are unavailable.
+    rows = await queryNeon<any>(
+      `
+      SELECT
+        p.id::text, p.user_id::text, p.title, p.description, p.category, p.tags, p.image_url,
+        p.answer_count, 0 AS likes_count, 0 AS saves_count, 0 AS views_count,
+        p.status, p.is_flagged, p.moderation_status, p.report_count,
+        p.created_at::text, p.updated_at::text,
+        COALESCE(pr.name, 'Aspirant') AS author_name,
+        0 AS liked_by_viewer, 0 AS saved_by_viewer
+      FROM doubt_posts p
+      LEFT JOIN profiles pr ON pr.id = p.user_id
+      ${whereSql}
+      ${orderSql}
+      LIMIT $${idx} OFFSET $${idx + 1}
+      `,
+      [...params, limit, offset],
+    );
+  }
 
   const countRows = await queryNeon<{ total: number }>(
     `SELECT COUNT(*)::int AS total FROM doubt_posts p ${whereSql}`,
@@ -830,6 +915,7 @@ functionsRouter.post("/doubts/seed", async (c) => {
 });
 
 functionsRouter.get("/doubts/:postId", async (c) => {
+  await ensureDoubtEngagementSchema();
   const postId = String(c.req.param("postId") || "").trim();
   if (!postId) return c.json({ message: "postId is required" }, 400);
   const user = await getSessionUser(c);
@@ -860,7 +946,11 @@ functionsRouter.get("/doubts/:postId", async (c) => {
     `
     SELECT
       p.id::text, p.user_id::text, p.title, p.description, p.category, p.tags, p.image_url,
-      p.answer_count, p.likes_count, p.saves_count, p.views_count, p.status, p.best_answer_id::text, p.is_flagged, p.moderation_status, p.report_count,
+      p.answer_count,
+      (SELECT COUNT(*) FROM doubt_post_likes l WHERE l.post_id = p.id) AS likes_count,
+      (SELECT COUNT(*) FROM doubt_post_saves s WHERE s.post_id = p.id) AS saves_count,
+      (SELECT COUNT(*) FROM doubt_post_views v WHERE v.post_id = p.id) AS views_count,
+      p.status, p.best_answer_id::text, p.is_flagged, p.moderation_status, p.report_count,
       CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_likes l WHERE l.post_id = p.id AND l.user_id = $2::uuid) THEN 1 ELSE 0 END AS liked_by_viewer,
       CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_saves s WHERE s.post_id = p.id AND s.user_id = $2::uuid) THEN 1 ELSE 0 END AS saved_by_viewer,
       p.created_at::text, p.updated_at::text,
@@ -956,6 +1046,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
 });
 
 functionsRouter.post("/doubts/:postId/view", async (c) => {
+  await ensureDoubtEngagementSchema();
   const user = await getSessionUser(c);
   if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
   const postId = String(c.req.param("postId") || "").trim();
@@ -965,15 +1056,15 @@ functionsRouter.post("/doubts/:postId/view", async (c) => {
     `INSERT OR IGNORE INTO doubt_post_views (id, post_id, user_id) VALUES ($1::uuid, $2::uuid, $3::uuid)`,
     [randomUUID(), postId, user.id],
   );
-  await queryNeon(
-    `UPDATE doubt_posts SET views_count = (SELECT COUNT(*) FROM doubt_post_views WHERE post_id = $1::uuid), updated_at = NOW() WHERE id = $1::uuid`,
+  const row = await queryNeon<{ count: number }>(
+    `SELECT COUNT(*)::int AS count FROM doubt_post_views WHERE post_id = $1::uuid`,
     [postId],
   );
-  const row = await queryNeon<{ views_count: number }>(`SELECT views_count FROM doubt_posts WHERE id = $1::uuid LIMIT 1`, [postId]);
-  return c.json({ ok: true, viewsCount: Number(row[0]?.views_count || 0) });
+  return c.json({ ok: true, viewsCount: Number(row[0]?.count || 0) });
 });
 
 functionsRouter.post("/doubts/:postId/like", async (c) => {
+  await ensureDoubtEngagementSchema();
   const user = await getSessionUser(c);
   if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
   const postId = String(c.req.param("postId") || "").trim();
@@ -994,15 +1085,15 @@ functionsRouter.post("/doubts/:postId/like", async (c) => {
     );
     liked = true;
   }
-  await queryNeon(
-    `UPDATE doubt_posts SET likes_count = (SELECT COUNT(*) FROM doubt_post_likes WHERE post_id = $1::uuid), updated_at = NOW() WHERE id = $1::uuid`,
+  const row = await queryNeon<{ count: number }>(
+    `SELECT COUNT(*)::int AS count FROM doubt_post_likes WHERE post_id = $1::uuid`,
     [postId],
   );
-  const row = await queryNeon<{ likes_count: number }>(`SELECT likes_count FROM doubt_posts WHERE id = $1::uuid LIMIT 1`, [postId]);
-  return c.json({ ok: true, liked, likesCount: Number(row[0]?.likes_count || 0) });
+  return c.json({ ok: true, liked, likesCount: Number(row[0]?.count || 0) });
 });
 
 functionsRouter.post("/doubts/:postId/save", async (c) => {
+  await ensureDoubtEngagementSchema();
   const user = await getSessionUser(c);
   if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
   const postId = String(c.req.param("postId") || "").trim();
@@ -1023,12 +1114,11 @@ functionsRouter.post("/doubts/:postId/save", async (c) => {
     );
     saved = true;
   }
-  await queryNeon(
-    `UPDATE doubt_posts SET saves_count = (SELECT COUNT(*) FROM doubt_post_saves WHERE post_id = $1::uuid), updated_at = NOW() WHERE id = $1::uuid`,
+  const row = await queryNeon<{ count: number }>(
+    `SELECT COUNT(*)::int AS count FROM doubt_post_saves WHERE post_id = $1::uuid`,
     [postId],
   );
-  const row = await queryNeon<{ saves_count: number }>(`SELECT saves_count FROM doubt_posts WHERE id = $1::uuid LIMIT 1`, [postId]);
-  return c.json({ ok: true, saved, savesCount: Number(row[0]?.saves_count || 0) });
+  return c.json({ ok: true, saved, savesCount: Number(row[0]?.count || 0) });
 });
 
 functionsRouter.post("/doubts/:postId/update", async (c) => {
