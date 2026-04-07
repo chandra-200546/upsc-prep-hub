@@ -1,36 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { useAuth } from "@/hooks/use-local-auth";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
-import { BookOpen, Bookmark, Flag, Heart, Search, TrendingUp, Paperclip } from "lucide-react";
-
-type NoteItem = {
-  id: string;
-  userId: string;
-  title: string;
-  content: string;
-  preview: string;
-  category: string;
-  tags: string[];
-  imageUrls: string[];
-  likesCount: number;
-  savesCount: number;
-  reportCount?: number;
-  createdAt: string;
-  author: { id: string; name: string };
-  trendingScore?: number;
-  likedByViewer?: boolean;
-  savedByViewer?: boolean;
-};
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Bookmark,
+  BookmarkCheck,
+  Eye,
+  Heart,
+  ImagePlus,
+  Plus,
+  Search,
+  Share2,
+  ShieldAlert,
+} from "lucide-react";
 
 const CATEGORIES = [
   "Polity",
@@ -47,466 +39,532 @@ const CATEGORIES = [
   "Prelims",
   "Mains",
   "Interview",
-];
-
-const SORT_OPTIONS = [
-  { value: "latest", label: "Latest" },
-  { value: "trending", label: "Trending" },
-  { value: "most_saved", label: "Most Saved" },
 ] as const;
 
-const OFFTOPIC_HINTS = ["coding", "movie", "sports", "meme", "promotion", "relationship"];
+type SortKey = "latest" | "trending" | "most_saved";
+
+type NotesPost = {
+  id: string;
+  userId: string;
+  title: string;
+  content: string;
+  preview: string;
+  category: string;
+  tags: string[];
+  imageUrls: string[];
+  likesCount: number;
+  savesCount: number;
+  reportCount?: number;
+  isFlagged?: boolean;
+  moderationStatus?: string;
+  createdAt: string;
+  updatedAt: string;
+  trendingScore?: number;
+  author: { id: string; name: string };
+  likedByViewer?: boolean;
+  savedByViewer?: boolean;
+};
 
 const backendBase = () => String(import.meta.env.VITE_BACKEND_URL || "http://localhost:8787").replace(/\/$/, "");
 
-const NotesFeed = () => {
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { user, isLocalMode } = useAuth();
-  const { toast } = useToast();
+const initials = (name: string) =>
+  String(name || "A")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() || "")
+    .join("") || "A";
 
-  const [loading, setLoading] = useState(true);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [tab, setTab] = useState<"feed" | "saved">("feed");
-  const [items, setItems] = useState<NoteItem[]>([]);
-  const [savedItems, setSavedItems] = useState<NoteItem[]>([]);
-  const [selectedNoteId, setSelectedNoteId] = useState("");
-  const [selectedItem, setSelectedItem] = useState<NoteItem | null>(null);
+const when = (iso: string) => {
+  const d = new Date(iso);
+  const ms = Date.now() - d.getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString();
+};
+
+const toTags = (text: string) =>
+  text
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+
+const NotesFeed = () => {
+  const [items, setItems] = useState<NotesPost[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [sort, setSort] = useState<(typeof SORT_OPTIONS)[number]["value"]>("latest");
+  const [category, setCategory] = useState<string>("all");
+  const [sort, setSort] = useState<SortKey>("latest");
 
-  const [askOpen, setAskOpen] = useState(false);
-  const [form, setForm] = useState({
-    title: "",
-    content: "",
-    category: "Polity",
-    tags: "",
-    upscOnlyConfirmed: false,
-    imageFile: null as File | null,
-  });
-  const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ title: "", content: "", category: "Polity", tags: "" });
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [openCard, setOpenCard] = useState<Record<string, boolean>>({});
+  const [detailCache, setDetailCache] = useState<Record<string, NotesPost>>({});
 
-  const api = async (path: string, init?: RequestInit) => {
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [newCategory, setNewCategory] = useState<string>(CATEGORIES[0]);
+  const [tagsInput, setTagsInput] = useState("");
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState<NotesPost | null>(null);
+
+  const authHeaders = async () => {
     const { data } = await supabase.auth.getSession();
     const token = data?.session?.access_token;
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...(init?.headers as Record<string, string> | undefined),
-    };
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const response = await fetch(`${backendBase()}/functions/v1${path}`, { ...init, headers });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload?.message || payload?.error || "Request failed");
-    return payload;
+    return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
-  const loadFeed = async () => {
-    const q = new URLSearchParams({
-      search,
-      category: categoryFilter,
-      sort,
-      page: "1",
-      limit: "30",
-    });
-    const payload = await api(`/notes-feed?${q.toString()}`);
-    const nextItems = payload.items || [];
-    setItems(nextItems);
-    if (!selectedNoteId && nextItems[0]?.id) setSelectedNoteId(nextItems[0].id);
-  };
-
-  const loadSaved = async () => {
-    const q = new URLSearchParams({
-      search,
-      category: categoryFilter,
-    });
-    const payload = await api(`/notes-feed/saved/list?${q.toString()}`);
-    setSavedItems(payload.items || []);
-  };
-
-  const loadDetail = async (noteId: string) => {
-    if (!noteId) {
-      setSelectedItem(null);
-      return;
-    }
-    setDetailLoading(true);
-    try {
-      const payload = await api(`/notes-feed/${noteId}`);
-      const item = payload.item as NoteItem;
-      setSelectedItem(item);
-      setEditForm({
-        title: item?.title || "",
-        content: item?.content || "",
-        category: item?.category || "Polity",
-        tags: Array.isArray(item?.tags) ? item.tags.join(", ") : "",
-      });
-    } finally {
-      setDetailLoading(false);
-    }
-  };
-
-  const contentWarning = useMemo(() => {
-    const text = `${form.title} ${form.content}`.toLowerCase();
-    const hasOfftopic = OFFTOPIC_HINTS.some((k) => text.includes(k));
-    if (hasOfftopic) return "This content may be reviewed by moderation.";
-    return "";
-  }, [form.content, form.title]);
-
-  const uploadImageIfAny = async () => {
-    if (!form.imageFile) return "";
-    const ext = form.imageFile.name.split(".").pop() || "png";
-    const path = `notes-feed/${user?.id || "anon"}/${Date.now()}.${ext}`;
-    const upload = await supabase.storage.from("media").upload(path, form.imageFile);
-    if (upload.error) throw new Error(upload.error.message || "Image upload failed");
-    return supabase.storage.from("media").getPublicUrl(path).data.publicUrl || "";
-  };
-
-  const submitNote = async () => {
-    if (!form.upscOnlyConfirmed) {
-      toast({ title: "Please confirm", description: "Accept UPSC-only rule before posting.", variant: "destructive" });
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const imageUrl = await uploadImageIfAny();
-      const payload = await api("/notes-feed/create", {
-        method: "POST",
-        body: JSON.stringify({
-          title: form.title,
-          content: form.content,
-          category: form.category,
-          tags: form.tags.split(",").map((x) => x.trim()).filter(Boolean),
-          imageUrls: imageUrl ? [imageUrl] : [],
-        }),
-      });
-      setAskOpen(false);
-      setForm({ title: "", content: "", category: "Polity", tags: "", upscOnlyConfirmed: false, imageFile: null });
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      await loadFeed();
-      if (payload?.id) {
-        setSelectedNoteId(payload.id);
-        await loadDetail(payload.id);
-      }
-      toast({ title: "Note published", description: "Your UPSC study note is now visible in the feed." });
-    } catch (error: any) {
-      toast({ title: "Publish failed", description: error?.message || "Unable to publish note", variant: "destructive" });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const updateNote = async () => {
-    if (!selectedItem?.id) return;
-    try {
-      await api(`/notes-feed/${selectedItem.id}/update`, {
-        method: "POST",
-        body: JSON.stringify({
-          title: editForm.title,
-          content: editForm.content,
-          category: editForm.category,
-          tags: editForm.tags.split(",").map((x) => x.trim()).filter(Boolean),
-        }),
-      });
-      setEditing(false);
-      await Promise.all([loadFeed(), loadSaved(), loadDetail(selectedItem.id)]);
-      toast({ title: "Note updated" });
-    } catch (error: any) {
-      toast({ title: "Update failed", description: error?.message || "Unable to update note", variant: "destructive" });
-    }
-  };
-
-  const deleteNote = async () => {
-    if (!selectedItem?.id) return;
-    if (!window.confirm("Delete this note permanently?")) return;
-    try {
-      await api(`/notes-feed/${selectedItem.id}/delete`, { method: "POST" });
-      setSelectedItem(null);
-      setSelectedNoteId("");
-      await Promise.all([loadFeed(), loadSaved()]);
-      toast({ title: "Note deleted" });
-    } catch (error: any) {
-      toast({ title: "Delete failed", description: error?.message || "Unable to delete note", variant: "destructive" });
-    }
-  };
-
-  const toggleLike = async () => {
-    if (!selectedItem?.id) return;
-    try {
-      await api(`/notes-feed/${selectedItem.id}/like`, { method: "POST" });
-      await Promise.all([loadFeed(), loadSaved(), loadDetail(selectedItem.id)]);
-    } catch (error: any) {
-      toast({ title: "Like failed", description: error?.message || "Unable to like note", variant: "destructive" });
-    }
-  };
-
-  const toggleSave = async () => {
-    if (!selectedItem?.id) return;
-    try {
-      await api(`/notes-feed/${selectedItem.id}/save`, { method: "POST" });
-      await Promise.all([loadFeed(), loadSaved(), loadDetail(selectedItem.id)]);
-    } catch (error: any) {
-      toast({ title: "Save failed", description: error?.message || "Unable to save note", variant: "destructive" });
-    }
-  };
-
-  const reportNote = async () => {
-    if (!selectedItem?.id) return;
-    const reason = window.prompt("Reason (off-topic / spam / abusive / irrelevant / duplicate)", "off-topic");
-    if (!reason) return;
-    try {
-      await api(`/notes-feed/${selectedItem.id}/report`, {
-        method: "POST",
-        body: JSON.stringify({ reason }),
-      });
-      await Promise.all([loadFeed(), loadDetail(selectedItem.id)]);
-      toast({ title: "Reported", description: "Thanks. Report submitted for moderation." });
-    } catch (error: any) {
-      toast({ title: "Report failed", description: error?.message || "Unable to report note", variant: "destructive" });
-    }
-  };
-
-  useEffect(() => {
-    if (!user) {
-      navigate("/auth");
-      return;
-    }
-    if (isLocalMode) {
-      toast({ title: "Backend required", description: "UPSC Notes Feed needs backend-connected account.", variant: "destructive" });
-      navigate("/auth");
-      return;
-    }
+  const loadItems = async () => {
     setLoading(true);
-    Promise.all([loadFeed(), loadSaved()]).finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, isLocalMode, navigate, search, categoryFilter, sort, tab]);
+    try {
+      const params = new URLSearchParams({ page: "1", limit: "30", sort });
+      if (search.trim()) params.set("search", search.trim());
+      if (category !== "all") params.set("category", category);
+
+      const headers = await authHeaders();
+      const res = await fetch(`${backendBase()}/functions/v1/notes-feed?${params.toString()}`, { headers });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.message || "Failed to load notes feed");
+
+      setItems(Array.isArray(payload?.items) ? payload.items : []);
+    } catch (error: any) {
+      toast({ title: "Failed to load notes", description: error?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fromQuery = searchParams.get("noteId");
-    if (fromQuery) setSelectedNoteId(fromQuery);
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (!selectedNoteId) return;
-    setSearchParams((prev) => {
-      prev.set("noteId", selectedNoteId);
-      return prev;
-    });
-    loadDetail(selectedNoteId);
+    const t = setTimeout(loadItems, 180);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedNoteId]);
+  }, [search, category, sort]);
 
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="p-6">Loading UPSC notes feed...</div>
-      </DashboardLayout>
-    );
-  }
+  const createNote = async () => {
+    if (title.trim().length < 10) {
+      toast({ title: "Title too short", description: "Use at least 10 characters.", variant: "destructive" });
+      return;
+    }
+    if (content.trim().length < 80) {
+      toast({ title: "Content too short", description: "Use at least 80 characters.", variant: "destructive" });
+      return;
+    }
 
-  const list = tab === "feed" ? items : savedItems;
+    setCreating(true);
+    try {
+      const imageUrls: string[] = [];
+      for (const file of imageFiles.slice(0, 5)) {
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `notes-feed/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const upload = await supabase.storage.from("uploads").upload(path, file, { upsert: false });
+        if (upload.error) throw new Error(upload.error.message || "Image upload failed");
+        if (upload.data?.publicUrl) imageUrls.push(upload.data.publicUrl);
+      }
+
+      const headers = { "Content-Type": "application/json", ...(await authHeaders()) };
+      const res = await fetch(`${backendBase()}/functions/v1/notes-feed/create`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          title: title.trim(),
+          content: content.trim(),
+          category: newCategory,
+          tags: toTags(tagsInput),
+          imageUrls,
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.message || "Note post failed");
+
+      setDialogOpen(false);
+      setTitle("");
+      setContent("");
+      setTagsInput("");
+      setImageFiles([]);
+      toast({ title: "Posted", description: "Your UPSC notes are now visible in feed." });
+      await loadItems();
+    } catch (error: any) {
+      toast({ title: "Post failed", description: error?.message || "Try again.", variant: "destructive" });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const loadNoteDetail = async (noteId: string) => {
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`${backendBase()}/functions/v1/notes-feed/${noteId}`, { headers });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.message || "Failed to open note");
+      const item = payload?.item as NotesPost;
+      if (!item) return;
+
+      setDetailCache((prev) => ({ ...prev, [noteId]: item }));
+      setItems((prev) =>
+        prev.map((p) =>
+          p.id === noteId
+            ? {
+                ...p,
+                likesCount: item.likesCount,
+                savesCount: item.savesCount,
+                likedByViewer: item.likedByViewer,
+                savedByViewer: item.savedByViewer,
+              }
+            : p,
+        ),
+      );
+    } catch {
+      // ignore silent for open/close interaction
+    }
+  };
+
+  const toggleOpenCard = async (noteId: string) => {
+    const next = !openCard[noteId];
+    setOpenCard((prev) => ({ ...prev, [noteId]: next }));
+    if (next) await loadNoteDetail(noteId);
+  };
+
+  const reactNote = async (noteId: string, action: "like" | "save") => {
+    const target = items.find((i) => i.id === noteId);
+    if (!target) return;
+
+    const optimistic =
+      action === "like"
+        ? { likedByViewer: !target.likedByViewer, likesCount: target.likesCount + (target.likedByViewer ? -1 : 1) }
+        : { savedByViewer: !target.savedByViewer, savesCount: target.savesCount + (target.savedByViewer ? -1 : 1) };
+
+    setItems((prev) => prev.map((i) => (i.id === noteId ? { ...i, ...optimistic } : i)));
+
+    try {
+      const headers = { "Content-Type": "application/json", ...(await authHeaders()) };
+      const res = await fetch(`${backendBase()}/functions/v1/notes-feed/${noteId}/${action}`, { method: "POST", headers });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.message || "Action failed");
+
+      setItems((prev) =>
+        prev.map((i) => {
+          if (i.id !== noteId) return i;
+          if (action === "like") return { ...i, likedByViewer: Boolean(payload.liked), likesCount: Number(payload.likesCount ?? i.likesCount) };
+          return { ...i, savedByViewer: Boolean(payload.saved), savesCount: Number(payload.savesCount ?? i.savesCount) };
+        }),
+      );
+    } catch (error: any) {
+      setItems((prev) => prev.map((i) => (i.id === noteId ? { ...i, ...target } : i)));
+      toast({ title: "Action failed", description: error?.message || "Please retry.", variant: "destructive" });
+    }
+  };
+
+  const reportNote = async (noteId: string) => {
+    try {
+      const headers = { "Content-Type": "application/json", ...(await authHeaders()) };
+      const res = await fetch(`${backendBase()}/functions/v1/notes-feed/${noteId}/report`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ reason: "irrelevant" }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.message || "Report failed");
+      toast({ title: "Reported", description: "Thanks. The note has been flagged for review." });
+    } catch (error: any) {
+      toast({ title: "Report failed", description: error?.message || "Please retry.", variant: "destructive" });
+    }
+  };
+
+  const noteShareUrl = (noteId: string) => `${window.location.origin}/notes-feed?noteId=${encodeURIComponent(noteId)}`;
+
+  const openShareDialog = (item: NotesPost) => {
+    setShareTarget(item);
+    setShareOpen(true);
+  };
+
+  const shareNote = async (item: NotesPost) => {
+    const url = noteShareUrl(item.id);
+    const text = `${item.title} | UPSC Notes Feed`;
+    const nav = navigator as Navigator & { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> };
+    if (nav.share) {
+      try {
+        await nav.share({ title: "UPSC Notes Feed", text, url });
+        return;
+      } catch {
+        // Ignore cancelled share.
+      }
+    }
+    openShareDialog(item);
+  };
+
+  const openExternalShare = async (platform: "whatsapp" | "telegram" | "x" | "facebook" | "linkedin" | "reddit" | "instagram") => {
+    if (!shareTarget) return;
+    const url = noteShareUrl(shareTarget.id);
+    const text = `${shareTarget.title} | UPSC Notes Feed`;
+    const encodedUrl = encodeURIComponent(url);
+    const encodedText = encodeURIComponent(text);
+    const combinedText = encodeURIComponent(`${text}\n${url}`);
+
+    if (platform === "instagram") {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Link copied", description: "Paste it in Instagram story/message." });
+      } catch {
+        toast({ title: "Copy failed", variant: "destructive" });
+      }
+      window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const links: Record<Exclude<typeof platform, "instagram">, string> = {
+      whatsapp: `https://wa.me/?text=${combinedText}`,
+      telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`,
+      x: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+      reddit: `https://www.reddit.com/submit?url=${encodedUrl}&title=${encodedText}`,
+    };
+    window.open(links[platform], "_blank", "noopener,noreferrer");
+  };
+
+  const visibleItems = useMemo(() => items, [items]);
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-7xl p-6 space-y-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="w-full max-w-6xl mx-auto p-3 md:p-6 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">UPSC Notes Feed</h1>
-            <p className="text-sm text-muted-foreground">Human-created UPSC notes for structured revision and reference.</p>
+            <p className="text-sm text-muted-foreground">Human-created notes shared by aspirants for revision.</p>
           </div>
-          <Dialog open={askOpen} onOpenChange={setAskOpen}>
+
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button><BookOpen className="mr-2 h-4 w-4" />Create Note</Button>
+              <Button className="gap-2"><Plus className="h-4 w-4" />Create Note</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl">
+            <DialogContent className="sm:max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Create UPSC Study Note</DialogTitle>
+                <DialogTitle>Post UPSC Notes</DialogTitle>
                 <DialogDescription>This section is only for UPSC study notes.</DialogDescription>
               </DialogHeader>
-              <div className="space-y-3">
-                <Input placeholder="Title (10-180 chars)" value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
-                <Textarea
-                  placeholder="Write complete study notes (minimum 80 chars)"
-                  value={form.content}
-                  onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))}
-                  className="min-h-[220px]"
-                />
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <select className="rounded-md border bg-background px-3 py-2 text-sm" value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}>
-                    {CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-                  </select>
-                  <Input placeholder="Tags (comma separated)" value={form.tags} onChange={(e) => setForm((p) => ({ ...p, tags: e.target.value }))} />
+
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="note-title">Title</Label>
+                  <Input id="note-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Example: Fundamental Rights quick revision framework" />
                 </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,.pdf,.doc,.docx"
-                    className="hidden"
-                    onChange={(e) => setForm((p) => ({ ...p, imageFile: e.target.files?.[0] || null }))}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="note-content">Content</Label>
+                  <Textarea
+                    id="note-content"
+                    rows={8}
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="Write clear, structured, topic-wise notes helpful for UPSC revision."
                   />
-                  <div className="flex items-center gap-2">
-                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                      <Paperclip className="mr-2 h-4 w-4" />
-                      Add File
-                    </Button>
-                    {form.imageFile && <span className="text-xs text-muted-foreground truncate">{form.imageFile.name}</span>}
+                  <p className="text-xs text-muted-foreground">Minimum 80 characters. Keep it exam focused.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Category</Label>
+                    <Select value={newCategory} onValueChange={setNewCategory}>
+                      <SelectTrigger><SelectValue placeholder="Choose category" /></SelectTrigger>
+                      <SelectContent>
+                        {CATEGORIES.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                <div className="flex items-center gap-2 rounded border p-3 text-sm">
-                  <Checkbox
-                    checked={form.upscOnlyConfirmed}
-                    onCheckedChange={(checked) => setForm((p) => ({ ...p, upscOnlyConfirmed: Boolean(checked) }))}
-                  />
-                  <span>This section is only for UPSC study notes.</span>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="note-tags">Tags (comma separated)</Label>
+                    <Input id="note-tags" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="revision, mains, polity" />
+                  </div>
                 </div>
-                {contentWarning && (
-                  <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
-                    This section is only for UPSC study notes.
-                  </p>
-                )}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="note-images">Add files (up to 5)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="note-images"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => setImageFiles(Array.from(e.target.files || []).slice(0, 5))}
+                    />
+                    <Button type="button" variant="outline" className="gap-2" onClick={() => document.getElementById("note-images")?.click()}>
+                      <ImagePlus className="h-4 w-4" />
+                      Attach
+                    </Button>
+                  </div>
+                  {!!imageFiles.length && <p className="text-xs text-muted-foreground">Selected: {imageFiles.length} file(s)</p>}
+                </div>
               </div>
+
               <DialogFooter>
-                <Button variant="outline" onClick={() => setAskOpen(false)}>Cancel</Button>
-                <Button onClick={submitNote} disabled={submitting}>{submitting ? "Publishing..." : "Publish Note"}</Button>
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                <Button onClick={createNote} disabled={creating}>{creating ? "Posting..." : "Post Notes"}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="mb-3 flex flex-wrap gap-2">
-              <Button size="sm" variant={tab === "feed" ? "default" : "outline"} onClick={() => setTab("feed")}>Public Feed</Button>
-              <Button size="sm" variant={tab === "saved" ? "default" : "outline"} onClick={() => setTab("saved")}>Saved Notes</Button>
+        <Card className="p-3 md:p-4 space-y-3">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
+            <div className="lg:col-span-7 relative">
+              <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search notes by title/content/tags" />
             </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-              <div className="relative md:col-span-2">
-                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input className="pl-9" placeholder="Search notes..." value={search} onChange={(e) => setSearch(e.target.value)} />
-              </div>
-              <select className="rounded-md border bg-background px-3 py-2 text-sm" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-                <option value="all">All Categories</option>
-                {CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-              </select>
-              {tab === "feed" ? (
-                <select className="rounded-md border bg-background px-3 py-2 text-sm" value={sort} onChange={(e) => setSort(e.target.value as (typeof SORT_OPTIONS)[number]["value"])}>
-                  {SORT_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              ) : (
-                <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">Sorted by recently saved</div>
-              )}
+            <div className="lg:col-span-5">
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All categories</SelectItem>
+                  {CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </CardContent>
+          </div>
+
+          <Tabs value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+            <TabsList>
+              <TabsTrigger value="latest">Latest</TabsTrigger>
+              <TabsTrigger value="trending">Trending</TabsTrigger>
+              <TabsTrigger value="most_saved">Most Saved</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </Card>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-          <div className="space-y-3 lg:col-span-2">
-            {list.length === 0 && (
-              <Card>
-                <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                  {tab === "feed" ? "No notes found. Publish your first UPSC note." : "No saved notes yet."}
-                </CardContent>
-              </Card>
-            )}
-            {list.map((note) => (
-              <Card key={note.id} className={`cursor-pointer transition ${selectedNoteId === note.id ? "border-primary shadow-sm" : ""}`} onClick={() => setSelectedNoteId(note.id)}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">{note.title}</CardTitle>
-                  <CardDescription>{note.author.name} • {new Date(note.createdAt).toLocaleString()}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground">{note.preview}</p>
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <Badge variant="outline">{note.category}</Badge>
-                    <Badge variant="secondary"><Heart className="mr-1 h-3 w-3" />{note.likesCount}</Badge>
-                    <Badge variant="secondary"><Bookmark className="mr-1 h-3 w-3" />{note.savesCount}</Badge>
-                    {tab === "feed" && sort === "trending" && <Badge variant="outline"><TrendingUp className="mr-1 h-3 w-3" />{note.trendingScore || 0}</Badge>}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+        <div className="space-y-3">
+          {loading && <Card className="p-5 text-sm text-muted-foreground">Loading notes...</Card>}
+          {!loading && visibleItems.length === 0 && <Card className="p-6 text-sm text-muted-foreground">No notes found for current filters.</Card>}
 
-          <div className="lg:col-span-3">
-            {!selectedNoteId && (
-              <Card>
-                <CardContent className="py-10 text-center text-sm text-muted-foreground">Select a note to view details.</CardContent>
-              </Card>
-            )}
-            {selectedNoteId && detailLoading && (
-              <Card>
-                <CardContent className="py-10 text-center text-sm text-muted-foreground">Loading note...</CardContent>
-              </Card>
-            )}
-            {selectedNoteId && selectedItem && !detailLoading && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <CardTitle className="text-xl">{selectedItem.title}</CardTitle>
-                      <CardDescription>{selectedItem.author.name} • {new Date(selectedItem.createdAt).toLocaleString()}</CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">{selectedItem.category}</Badge>
-                      <Button size="sm" variant="outline" onClick={reportNote}>
-                        <Flag className="mr-1 h-4 w-4" />Report
-                      </Button>
-                      {user?.id === selectedItem.userId && (
-                        <>
-                          <Button size="sm" variant="outline" onClick={() => setEditing((v) => !v)}>{editing ? "Cancel Edit" : "Edit"}</Button>
-                          <Button size="sm" variant="destructive" onClick={deleteNote}>Delete</Button>
-                        </>
+          {!loading && visibleItems.map((item) => {
+            const expanded = Boolean(openCard[item.id]);
+            const detail = detailCache[item.id];
+            const fullContent = detail?.content || item.content;
+            const fullImages = detail?.imageUrls || item.imageUrls || [];
+
+            return (
+              <Card key={item.id} className="p-3 md:p-4 rounded-2xl border-orange-200/70 dark:border-orange-900/40">
+                <div className="flex items-start gap-3">
+                  <Avatar className="h-10 w-10 shrink-0">
+                    <AvatarFallback>{initials(item.author.name)}</AvatarFallback>
+                  </Avatar>
+
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="font-semibold">{item.author.name}</span>
+                      <span className="text-muted-foreground">{when(item.createdAt)}</span>
+                      <Badge variant="secondary">{item.category}</Badge>
+                      {sort === "trending" && typeof item.trendingScore === "number" && (
+                        <Badge variant="outline">Score {item.trendingScore}</Badge>
                       )}
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {editing ? (
-                    <div className="space-y-3 rounded-md border p-3">
-                      <Input value={editForm.title} onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))} />
-                      <Textarea className="min-h-[220px]" value={editForm.content} onChange={(e) => setEditForm((p) => ({ ...p, content: e.target.value }))} />
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <select className="rounded-md border bg-background px-3 py-2 text-sm" value={editForm.category} onChange={(e) => setEditForm((p) => ({ ...p, category: e.target.value }))}>
-                          {CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-                        </select>
-                        <Input value={editForm.tags} onChange={(e) => setEditForm((p) => ({ ...p, tags: e.target.value }))} />
+
+                    <h3 className="font-semibold text-base md:text-lg leading-tight">{item.title}</h3>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{expanded ? fullContent : item.preview}</p>
+
+                    {item.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {item.tags.map((tag) => (
+                          <Badge key={tag} variant="outline">#{tag}</Badge>
+                        ))}
                       </div>
-                      <div className="flex justify-end">
-                        <Button size="sm" onClick={updateNote}>Save Changes</Button>
+                    )}
+
+                    {!!fullImages.length && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl overflow-hidden border bg-muted/20 p-2">
+                        {fullImages.map((url) => (
+                          <img key={url} src={url} alt="note attachment" className="w-full max-h-[420px] object-contain rounded-md bg-black/5" />
+                        ))}
                       </div>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-1 text-muted-foreground">
+                      <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => toggleOpenCard(item.id)}>
+                        <Eye className="h-4 w-4" />
+                        {expanded ? "Collapse" : "Read"}
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={`gap-1.5 ${item.likedByViewer ? "text-red-500" : ""}`}
+                        onClick={() => reactNote(item.id, "like")}
+                      >
+                        <Heart className={`h-4 w-4 ${item.likedByViewer ? "fill-current" : ""}`} />
+                        {item.likesCount}
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => reactNote(item.id, "save")}
+                      >
+                        {item.savedByViewer ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+                        {item.savesCount}
+                      </Button>
+
+                      <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => shareNote(item)}>
+                        <Share2 className="h-4 w-4" />
+                      </Button>
+
+                      <Button variant="ghost" size="sm" className="gap-1.5 ml-auto" onClick={() => reportNote(item.id)}>
+                        <ShieldAlert className="h-4 w-4" />
+                        Report
+                      </Button>
                     </div>
-                  ) : (
-                    <p className="whitespace-pre-wrap text-sm leading-6">{selectedItem.content}</p>
-                  )}
-
-                  {selectedItem.imageUrls?.length > 0 && (
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                      {selectedItem.imageUrls.map((url, idx) => (
-                        <img key={`${url}-${idx}`} src={url} alt={`Note visual ${idx + 1}`} className="max-h-72 rounded-md border object-contain" />
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-2">
-                    {selectedItem.tags.map((tag) => <Badge key={tag} variant="secondary">#{tag}</Badge>)}
                   </div>
-
-                  <div className="flex flex-wrap items-center gap-2 border-t pt-3">
-                    <Button size="sm" variant={selectedItem.likedByViewer ? "default" : "outline"} onClick={toggleLike}>
-                      <Heart className="mr-1 h-4 w-4" />Like ({selectedItem.likesCount})
-                    </Button>
-                    <Button size="sm" variant={selectedItem.savedByViewer ? "default" : "outline"} onClick={toggleSave}>
-                      <Bookmark className="mr-1 h-4 w-4" />Save ({selectedItem.savesCount})
-                    </Button>
-                  </div>
-                </CardContent>
+                </div>
               </Card>
-            )}
-          </div>
+            );
+          })}
         </div>
       </div>
+
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share Note</DialogTitle>
+            <DialogDescription>Share this note on social platforms.</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" onClick={() => openExternalShare("whatsapp")}>WhatsApp</Button>
+            <Button variant="outline" onClick={() => openExternalShare("telegram")}>Telegram</Button>
+            <Button variant="outline" onClick={() => openExternalShare("x")}>X</Button>
+            <Button variant="outline" onClick={() => openExternalShare("facebook")}>Facebook</Button>
+            <Button variant="outline" onClick={() => openExternalShare("linkedin")}>LinkedIn</Button>
+            <Button variant="outline" onClick={() => openExternalShare("reddit")}>Reddit</Button>
+            <Button variant="outline" onClick={() => openExternalShare("instagram")}>Instagram</Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!shareTarget) return;
+                try {
+                  await navigator.clipboard.writeText(noteShareUrl(shareTarget.id));
+                  toast({ title: "Link copied" });
+                } catch {
+                  toast({ title: "Copy failed", variant: "destructive" });
+                }
+              }}
+            >
+              Copy Link
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
