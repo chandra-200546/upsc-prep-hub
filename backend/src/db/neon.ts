@@ -288,6 +288,8 @@ export const ensureNeonSchema = async () => {
       likes_count INTEGER NOT NULL DEFAULT 0,
       saves_count INTEGER NOT NULL DEFAULT 0,
       views_count INTEGER NOT NULL DEFAULT 0,
+      repost_count INTEGER NOT NULL DEFAULT 0,
+      share_count INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'unanswered',
       best_answer_id TEXT,
       is_flagged INTEGER NOT NULL DEFAULT 0,
@@ -301,6 +303,7 @@ export const ensureNeonSchema = async () => {
       id TEXT PRIMARY KEY,
       post_id TEXT NOT NULL,
       user_id TEXT NOT NULL,
+      parent_answer_id TEXT,
       content TEXT NOT NULL,
       helpful_count INTEGER NOT NULL DEFAULT 0,
       is_ai_generated INTEGER NOT NULL DEFAULT 0,
@@ -311,6 +314,7 @@ export const ensureNeonSchema = async () => {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE INDEX IF NOT EXISTS idx_doubt_answers_post_parent ON doubt_answers(post_id, parent_answer_id);
 
     CREATE TABLE IF NOT EXISTS doubt_answer_votes (
       id TEXT PRIMARY KEY,
@@ -340,6 +344,15 @@ export const ensureNeonSchema = async () => {
       id TEXT PRIMARY KEY,
       post_id TEXT NOT NULL,
       user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(post_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS doubt_post_reposts (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      caption TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(post_id, user_id)
     );
@@ -374,6 +387,9 @@ export const ensureNeonSchema = async () => {
       image_urls TEXT NOT NULL DEFAULT '[]',
       likes_count INTEGER NOT NULL DEFAULT 0,
       saves_count INTEGER NOT NULL DEFAULT 0,
+      views_count INTEGER NOT NULL DEFAULT 0,
+      repost_count INTEGER NOT NULL DEFAULT 0,
+      share_count INTEGER NOT NULL DEFAULT 0,
       report_count INTEGER NOT NULL DEFAULT 0,
       is_flagged INTEGER NOT NULL DEFAULT 0,
       moderation_status TEXT NOT NULL DEFAULT 'clean',
@@ -395,6 +411,46 @@ export const ensureNeonSchema = async () => {
       user_id TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(note_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS notes_feed_views (
+      id TEXT PRIMARY KEY,
+      note_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(note_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS notes_feed_reposts (
+      id TEXT PRIMARY KEY,
+      note_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      caption TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(note_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS notes_feed_comments (
+      id TEXT PRIMARY KEY,
+      note_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      parent_comment_id TEXT,
+      content TEXT NOT NULL,
+      likes_count INTEGER NOT NULL DEFAULT 0,
+      is_flagged INTEGER NOT NULL DEFAULT 0,
+      moderation_status TEXT NOT NULL DEFAULT 'clean',
+      report_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_notes_feed_comments_note_parent ON notes_feed_comments(note_id, parent_comment_id);
+
+    CREATE TABLE IF NOT EXISTS notes_feed_comment_likes (
+      id TEXT PRIMARY KEY,
+      comment_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(comment_id, user_id)
     );
 
     CREATE TABLE IF NOT EXISTS notes_feed_reports (
@@ -572,7 +628,13 @@ export const ensureNeonSchema = async () => {
   try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN likes_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
   try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN views_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
   try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN saves_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
+  try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN repost_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
+  try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN share_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
+  try { sqlite.exec(`ALTER TABLE doubt_answers ADD COLUMN parent_answer_id TEXT;`); } catch {}
   try { sqlite.exec(`ALTER TABLE doubt_answers ADD COLUMN is_ai_generated INTEGER NOT NULL DEFAULT 0;`); } catch {}
+  try { sqlite.exec(`ALTER TABLE notes_feed_posts ADD COLUMN views_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
+  try { sqlite.exec(`ALTER TABLE notes_feed_posts ADD COLUMN repost_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
+  try { sqlite.exec(`ALTER TABLE notes_feed_posts ADD COLUMN share_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
 
   return true;
 };

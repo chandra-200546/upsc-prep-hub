@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MessageSquare, Search, ThumbsUp, CheckCircle2, Flag, Paperclip, Heart, Eye, Bookmark, Share2 } from "lucide-react";
+import { MessageSquare, Search, ThumbsUp, CheckCircle2, Flag, Paperclip, Heart, Eye, Bookmark, Share2, Repeat2 } from "lucide-react";
 
 type FeedPost = {
   id: string;
@@ -26,6 +26,8 @@ type FeedPost = {
   likesCount?: number;
   savesCount?: number;
   viewsCount?: number;
+  repostCount?: number;
+  shareCount?: number;
   likedByViewer?: boolean;
   savedByViewer?: boolean;
   status: "unanswered" | "answered" | "solved";
@@ -38,6 +40,7 @@ type FeedAnswer = {
   postId: string;
   userId: string;
   content: string;
+  parentAnswerId?: string | null;
   helpfulCount: number;
   isAiGenerated?: boolean;
   isBestAnswer: boolean;
@@ -115,12 +118,14 @@ const DoubtFeed = () => {
     imageFile: null as File | null,
   });
   const [answerText, setAnswerText] = useState("");
+  const [replyToAnswerId, setReplyToAnswerId] = useState<string | null>(null);
   const [editingPost, setEditingPost] = useState(false);
   const [editPostForm, setEditPostForm] = useState({ title: "", description: "", category: "Polity", tags: "" });
   const [editingAnswerId, setEditingAnswerId] = useState("");
   const [editingAnswerText, setEditingAnswerText] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const detailPanelRef = useRef<HTMLDivElement | null>(null);
 
   const api = async (path: string, init?: RequestInit) => {
     const { data } = await supabase.auth.getSession();
@@ -137,6 +142,21 @@ const DoubtFeed = () => {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload?.message || payload?.error || "Request failed");
     return payload;
+  };
+
+  const resolveMediaUrl = (url?: string | null) => {
+    const raw = String(url || "").trim();
+    if (!raw) return "";
+    if (raw.startsWith("/storage/")) return `${backendBase()}${raw}`;
+    try {
+      const parsed = new URL(raw);
+      if (parsed.pathname.startsWith("/storage/")) {
+        return `${backendBase()}${parsed.pathname}`;
+      }
+      return raw;
+    } catch {
+      return raw;
+    }
   };
 
   const loadFeed = async () => {
@@ -233,9 +253,10 @@ const DoubtFeed = () => {
     try {
       await api(`/doubts/${detail.post.id}/answers/create`, {
         method: "POST",
-        body: JSON.stringify({ content: answerText }),
+        body: JSON.stringify({ content: answerText, parentAnswerId: replyToAnswerId || undefined }),
       });
       setAnswerText("");
+      setReplyToAnswerId(null);
       await Promise.all([loadFeed(), loadDetail(detail.post.id)]);
       toast({ title: "Answer posted" });
     } catch (error: any) {
@@ -326,6 +347,12 @@ const DoubtFeed = () => {
   const sharePost = async (postId?: string) => {
     const targetPostId = postId || detail?.post.id;
     if (!targetPostId) return;
+    try {
+      await api(`/doubts/${targetPostId}/share`, { method: "POST" });
+      await Promise.all([loadFeed(), selectedPostId ? loadDetail(selectedPostId) : Promise.resolve()]);
+    } catch {
+      // non-blocking
+    }
     const url = `${window.location.origin}/doubt-feed?postId=${targetPostId}`;
     try {
       await navigator.clipboard.writeText(url);
@@ -335,11 +362,23 @@ const DoubtFeed = () => {
     }
   };
 
+  const toggleRepost = async (postId?: string) => {
+    const targetPostId = postId || detail?.post.id;
+    if (!targetPostId) return;
+    try {
+      await api(`/doubts/${targetPostId}/repost`, { method: "POST", body: JSON.stringify({ caption: "" }) });
+      await Promise.all([loadFeed(), selectedPostId ? loadDetail(selectedPostId) : Promise.resolve()]);
+    } catch (error: any) {
+      toast({ title: "Repost failed", description: error?.message || "Unable to repost", variant: "destructive" });
+    }
+  };
+
   const openCommentForPost = async (postId: string) => {
     setSelectedPostId(postId);
     try {
       await loadDetail(postId);
     } finally {
+      setTimeout(() => detailPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 10);
       setTimeout(() => commentInputRef.current?.focus(), 30);
     }
   };
@@ -564,6 +603,13 @@ const DoubtFeed = () => {
                       </div>
                       <h3 className="mb-1 text-sm font-semibold">{post.title}</h3>
                       <p className="mb-3 text-sm text-muted-foreground">{post.preview}</p>
+                      {post.imageUrl && (
+                        <img
+                          src={resolveMediaUrl(post.imageUrl)}
+                          alt="Post attachment"
+                          className="mb-3 max-h-56 w-full rounded-md border object-cover"
+                        />
+                      )}
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <button
                           type="button"
@@ -607,6 +653,17 @@ const DoubtFeed = () => {
                           className="flex items-center gap-1 hover:text-foreground"
                           onClick={(e) => {
                             e.stopPropagation();
+                            toggleRepost(post.id);
+                          }}
+                        >
+                          <Repeat2 className="h-3.5 w-3.5" />
+                          <span>{post.repostCount || 0}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
                             sharePost(post.id);
                           }}
                         >
@@ -620,7 +677,7 @@ const DoubtFeed = () => {
             ))}
           </div>
 
-          <div className="xl:col-span-7">
+          <div ref={detailPanelRef} className="xl:col-span-7">
             {!selectedPostId && (
               <Card>
                 <CardContent className="py-10 text-center text-sm text-muted-foreground">Select a doubt to view details.</CardContent>
@@ -681,7 +738,7 @@ const DoubtFeed = () => {
                       <p className="whitespace-pre-wrap text-sm leading-6">{detail.post.description}</p>
                     )}
                     {detail.post.imageUrl && (
-                      <img src={detail.post.imageUrl} alt="Doubt attachment" className="max-h-72 rounded-md border object-contain" />
+                      <img src={resolveMediaUrl(detail.post.imageUrl)} alt="Doubt attachment" className="max-h-72 rounded-md border object-contain" />
                     )}
                     <div className="flex flex-wrap gap-2">{detail.post.tags.map((tag) => <Badge key={tag} variant="secondary">#{tag}</Badge>)}</div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -693,8 +750,11 @@ const DoubtFeed = () => {
                       <Button size="sm" variant="outline" onClick={() => togglePostSave()}>
                         <Bookmark className="mr-1 h-4 w-4" />Save ({detail.post.savesCount || 0})
                       </Button>
+                      <Button size="sm" variant="outline" onClick={() => toggleRepost()}>
+                        <Repeat2 className="mr-1 h-4 w-4" />Repost ({detail.post.repostCount || 0})
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => sharePost()}>
-                        <Share2 className="mr-1 h-4 w-4" />Share
+                        <Share2 className="mr-1 h-4 w-4" />Share ({detail.post.shareCount || 0})
                       </Button>
                     </div>
                   </CardContent>
@@ -713,7 +773,7 @@ const DoubtFeed = () => {
                     )}
 
                     {detail.answers.map((answer) => (
-                      <div key={answer.id} className={`rounded-md border p-3 ${answer.isBestAnswer ? "border-emerald-500 bg-emerald-50/60" : ""}`}>
+                      <div key={answer.id} className={`rounded-md border p-3 ${answer.isBestAnswer ? "border-emerald-500 bg-emerald-50/60" : ""} ${answer.parentAnswerId ? "ml-5" : ""}`}>
                         <div className="mb-2 flex items-center justify-between gap-2">
                           <div className="text-xs text-muted-foreground">{answer.author.name} • {new Date(answer.createdAt).toLocaleString()}</div>
                           <div className="flex items-center gap-2">
@@ -749,11 +809,20 @@ const DoubtFeed = () => {
                               Mark Best
                             </Button>
                           )}
+                          <Button size="sm" variant="outline" onClick={() => setReplyToAnswerId(answer.id)}>
+                            Reply
+                          </Button>
                         </div>
                       </div>
                     ))}
 
                     <div className="space-y-2 rounded-md border p-3">
+                      {replyToAnswerId && (
+                        <div className="rounded border bg-muted/40 px-2 py-1 text-xs">
+                          Replying to a comment.
+                          <button className="ml-2 underline" onClick={() => setReplyToAnswerId(null)}>Cancel</button>
+                        </div>
+                      )}
                       <Textarea
                         ref={commentInputRef}
                         placeholder="Write your comment/answer..."

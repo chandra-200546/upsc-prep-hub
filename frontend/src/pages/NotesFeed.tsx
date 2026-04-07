@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { BookOpen, Bookmark, Flag, Heart, Search, TrendingUp, Paperclip } from "lucide-react";
+import { BookOpen, Bookmark, Flag, Heart, Search, TrendingUp, Paperclip, MessageSquare, Eye, Share2, Repeat2, ThumbsUp } from "lucide-react";
 
 type NoteItem = {
   id: string;
@@ -24,12 +24,28 @@ type NoteItem = {
   imageUrls: string[];
   likesCount: number;
   savesCount: number;
+  commentCount?: number;
+  viewsCount?: number;
+  repostCount?: number;
+  shareCount?: number;
   reportCount?: number;
   createdAt: string;
   author: { id: string; name: string };
   trendingScore?: number;
   likedByViewer?: boolean;
   savedByViewer?: boolean;
+};
+
+type NoteComment = {
+  id: string;
+  noteId: string;
+  userId: string;
+  parentCommentId?: string | null;
+  content: string;
+  likesCount: number;
+  likedByViewer?: boolean;
+  createdAt: string;
+  author: { id: string; name: string };
 };
 
 const CATEGORIES = [
@@ -73,6 +89,9 @@ const NotesFeed = () => {
   const [savedItems, setSavedItems] = useState<NoteItem[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState("");
   const [selectedItem, setSelectedItem] = useState<NoteItem | null>(null);
+  const [comments, setComments] = useState<NoteComment[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [replyToCommentId, setReplyToCommentId] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -103,6 +122,19 @@ const NotesFeed = () => {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload?.message || payload?.error || "Request failed");
     return payload;
+  };
+
+  const resolveMediaUrl = (url?: string | null) => {
+    const raw = String(url || "").trim();
+    if (!raw) return "";
+    if (raw.startsWith("/storage/")) return `${backendBase()}${raw}`;
+    try {
+      const parsed = new URL(raw);
+      if (parsed.pathname.startsWith("/storage/")) return `${backendBase()}${parsed.pathname}`;
+      return raw;
+    } catch {
+      return raw;
+    }
   };
 
   const loadFeed = async () => {
@@ -138,6 +170,7 @@ const NotesFeed = () => {
       const payload = await api(`/notes-feed/${noteId}`);
       const item = payload.item as NoteItem;
       setSelectedItem(item);
+      setComments(Array.isArray(payload?.comments) ? payload.comments : []);
       setEditForm({
         title: item?.title || "",
         content: item?.content || "",
@@ -253,6 +286,66 @@ const NotesFeed = () => {
     }
   };
 
+  const trackView = async (noteId: string) => {
+    try {
+      await api(`/notes-feed/${noteId}/view`, { method: "POST" });
+    } catch {
+      // non-blocking
+    }
+  };
+
+  const shareNote = async () => {
+    if (!selectedItem?.id) return;
+    try {
+      await api(`/notes-feed/${selectedItem.id}/share`, { method: "POST" });
+      await Promise.all([loadFeed(), loadSaved(), loadDetail(selectedItem.id)]);
+    } catch {
+      // non-blocking
+    }
+    const url = `${window.location.origin}/notes-feed?noteId=${selectedItem.id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Link copied", description: "Note link copied to clipboard." });
+    } catch {
+      toast({ title: "Share link", description: url });
+    }
+  };
+
+  const repostNote = async () => {
+    if (!selectedItem?.id) return;
+    try {
+      await api(`/notes-feed/${selectedItem.id}/repost`, { method: "POST", body: JSON.stringify({ caption: "" }) });
+      await Promise.all([loadFeed(), loadSaved(), loadDetail(selectedItem.id)]);
+    } catch (error: any) {
+      toast({ title: "Repost failed", description: error?.message || "Unable to repost note", variant: "destructive" });
+    }
+  };
+
+  const submitComment = async () => {
+    if (!selectedItem?.id || !commentText.trim()) return;
+    try {
+      await api(`/notes-feed/${selectedItem.id}/comments/create`, {
+        method: "POST",
+        body: JSON.stringify({ content: commentText, parentCommentId: replyToCommentId || undefined }),
+      });
+      setCommentText("");
+      setReplyToCommentId(null);
+      await loadDetail(selectedItem.id);
+    } catch (error: any) {
+      toast({ title: "Comment failed", description: error?.message || "Unable to comment", variant: "destructive" });
+    }
+  };
+
+  const toggleCommentLike = async (commentId: string) => {
+    if (!selectedItem?.id) return;
+    try {
+      await api(`/notes-feed/comments/${commentId}/like`, { method: "POST" });
+      await loadDetail(selectedItem.id);
+    } catch (error: any) {
+      toast({ title: "Like failed", description: error?.message || "Unable to like comment", variant: "destructive" });
+    }
+  };
+
   const reportNote = async () => {
     if (!selectedItem?.id) return;
     const reason = window.prompt("Reason (off-topic / spam / abusive / irrelevant / duplicate)", "off-topic");
@@ -296,6 +389,12 @@ const NotesFeed = () => {
       return prev;
     });
     loadDetail(selectedNoteId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNoteId]);
+
+  useEffect(() => {
+    if (!selectedNoteId) return;
+    trackView(selectedNoteId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNoteId]);
 
@@ -422,6 +521,8 @@ const NotesFeed = () => {
                     <Badge variant="outline">{note.category}</Badge>
                     <Badge variant="secondary"><Heart className="mr-1 h-3 w-3" />{note.likesCount}</Badge>
                     <Badge variant="secondary"><Bookmark className="mr-1 h-3 w-3" />{note.savesCount}</Badge>
+                    <Badge variant="secondary"><MessageSquare className="mr-1 h-3 w-3" />{note.commentCount || 0}</Badge>
+                    <Badge variant="secondary"><Eye className="mr-1 h-3 w-3" />{note.viewsCount || 0}</Badge>
                     {tab === "feed" && sort === "trending" && <Badge variant="outline"><TrendingUp className="mr-1 h-3 w-3" />{note.trendingScore || 0}</Badge>}
                   </div>
                 </CardContent>
@@ -484,7 +585,7 @@ const NotesFeed = () => {
                   {selectedItem.imageUrls?.length > 0 && (
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       {selectedItem.imageUrls.map((url, idx) => (
-                        <img key={`${url}-${idx}`} src={url} alt={`Note visual ${idx + 1}`} className="max-h-72 rounded-md border object-contain" />
+                        <img key={`${url}-${idx}`} src={resolveMediaUrl(url)} alt={`Note visual ${idx + 1}`} className="max-h-72 rounded-md border object-contain" />
                       ))}
                     </div>
                   )}
@@ -500,6 +601,46 @@ const NotesFeed = () => {
                     <Button size="sm" variant={selectedItem.savedByViewer ? "default" : "outline"} onClick={toggleSave}>
                       <Bookmark className="mr-1 h-4 w-4" />Save ({selectedItem.savesCount})
                     </Button>
+                    <Button size="sm" variant="outline" onClick={repostNote}>
+                      <Repeat2 className="mr-1 h-4 w-4" />Repost ({selectedItem.repostCount || 0})
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={shareNote}>
+                      <Share2 className="mr-1 h-4 w-4" />Share ({selectedItem.shareCount || 0})
+                    </Button>
+                    <Badge variant="outline"><Eye className="mr-1 h-3 w-3" />Views: {selectedItem.viewsCount || 0}</Badge>
+                  </div>
+
+                  <div className="space-y-3 border-t pt-3">
+                    <h3 className="text-sm font-semibold">Comments</h3>
+                    {comments.length === 0 && (
+                      <div className="rounded border border-dashed p-3 text-sm text-muted-foreground">No comments yet.</div>
+                    )}
+                    {comments.map((comment) => (
+                      <div key={comment.id} className={`rounded border p-2 ${comment.parentCommentId ? "ml-5" : ""}`}>
+                        <div className="mb-1 text-xs text-muted-foreground">{comment.author.name} - {new Date(comment.createdAt).toLocaleString()}</div>
+                        <p className="whitespace-pre-wrap text-sm">{comment.content}</p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Button size="sm" variant={comment.likedByViewer ? "default" : "outline"} onClick={() => toggleCommentLike(comment.id)}>
+                            <ThumbsUp className="mr-1 h-3.5 w-3.5" />{comment.likesCount}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setReplyToCommentId(comment.id)}>Reply</Button>
+                        </div>
+                      </div>
+                    ))}
+                    {replyToCommentId && (
+                      <div className="rounded border bg-muted/40 px-2 py-1 text-xs">
+                        Replying to a comment.
+                        <button className="ml-2 underline" onClick={() => setReplyToCommentId(null)}>Cancel</button>
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <Textarea
+                        placeholder="Write a comment..."
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                      />
+                      <Button onClick={submitComment}>Comment</Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
