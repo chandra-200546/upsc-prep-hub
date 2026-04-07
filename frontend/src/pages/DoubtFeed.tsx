@@ -125,7 +125,6 @@ const DoubtFeed = () => {
   const [editingAnswerText, setEditingAnswerText] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
-  const detailPanelRef = useRef<HTMLDivElement | null>(null);
 
   const api = async (path: string, init?: RequestInit) => {
     const { data } = await supabase.auth.getSession();
@@ -355,8 +354,12 @@ const DoubtFeed = () => {
     }
     const url = `${window.location.origin}/doubt-feed?postId=${targetPostId}`;
     try {
-      await navigator.clipboard.writeText(url);
-      toast({ title: "Link copied", description: "Post link copied to clipboard." });
+      if (navigator.share) {
+        await navigator.share({ title: "UPSC Doubt", url });
+      } else {
+        await navigator.clipboard.writeText(url);
+      }
+      toast({ title: "Link shared", description: "Post link is ready." });
     } catch {
       toast({ title: "Share link", description: url });
     }
@@ -378,7 +381,7 @@ const DoubtFeed = () => {
     try {
       await loadDetail(postId);
     } finally {
-      setTimeout(() => detailPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 10);
+      setTimeout(() => document.getElementById(`doubt-post-${postId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 10);
       setTimeout(() => commentInputRef.current?.focus(), 30);
     }
   };
@@ -583,7 +586,8 @@ const DoubtFeed = () => {
               </Card>
             )}
             {posts.map((post) => (
-              <Card key={post.id} className={`cursor-pointer transition ${selectedPostId === post.id ? "border-primary shadow-sm" : ""}`} onClick={() => setSelectedPostId(post.id)}>
+              <div key={post.id} id={`doubt-post-${post.id}`} className="space-y-3">
+              <Card className={`cursor-pointer transition ${selectedPostId === post.id ? "border-primary shadow-sm" : ""}`} onClick={() => setSelectedPostId(post.id)}>
                 <CardContent className="pt-4">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
@@ -674,174 +678,167 @@ const DoubtFeed = () => {
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-
-          <div ref={detailPanelRef} className="xl:col-span-7">
-            {!selectedPostId && (
-              <Card>
-                <CardContent className="py-10 text-center text-sm text-muted-foreground">Select a doubt to view details.</CardContent>
-              </Card>
-            )}
-
-            {selectedPostId && detailLoading && (
-              <Card>
-                <CardContent className="py-10 text-center text-sm text-muted-foreground">Loading doubt details...</CardContent>
-              </Card>
-            )}
-
-            {selectedPostId && detail && !detailLoading && (
-              <div className="space-y-4">
+              {selectedPostId === post.id && detailLoading && (
                 <Card>
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <CardTitle className="text-xl">{detail.post.title}</CardTitle>
-                        <CardDescription>{detail.post.author.name} • {new Date(detail.post.createdAt).toLocaleString()}</CardDescription>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">{detail.post.category}</Badge>
-                        <Button size="sm" variant="outline" onClick={() => reportTarget("post", detail.post.id)}>
-                          <Flag className="mr-1 h-4 w-4" />Report
-                        </Button>
-                        {user?.id === detail.post.userId && (
-                          <>
-                            <Button size="sm" variant="outline" onClick={() => setEditingPost((v) => !v)}>
-                              {editingPost ? "Cancel Edit" : "Edit"}
-                            </Button>
-                            <Button size="sm" variant="destructive" onClick={deletePost}>Delete</Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {editingPost ? (
-                      <div className="space-y-3 rounded-md border p-3">
-                        <Input value={editPostForm.title} onChange={(e) => setEditPostForm((p) => ({ ...p, title: e.target.value }))} />
-                        <Textarea value={editPostForm.description} onChange={(e) => setEditPostForm((p) => ({ ...p, description: e.target.value }))} />
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                          <select
-                            className="rounded-md border bg-background px-3 py-2 text-sm"
-                            value={editPostForm.category}
-                            onChange={(e) => setEditPostForm((p) => ({ ...p, category: e.target.value }))}
-                          >
-                            {CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-                          </select>
-                          <Input value={editPostForm.tags} onChange={(e) => setEditPostForm((p) => ({ ...p, tags: e.target.value }))} />
-                        </div>
-                        <div className="flex justify-end">
-                          <Button size="sm" onClick={updatePost}>Save Changes</Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="whitespace-pre-wrap text-sm leading-6">{detail.post.description}</p>
-                    )}
-                    {detail.post.imageUrl && (
-                      <img src={resolveMediaUrl(detail.post.imageUrl)} alt="Doubt attachment" className="max-h-72 rounded-md border object-contain" />
-                    )}
-                    <div className="flex flex-wrap gap-2">{detail.post.tags.map((tag) => <Badge key={tag} variant="secondary">#{tag}</Badge>)}</div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button size="sm" variant="outline" onClick={togglePostLike}>
-                        <Heart className="mr-1 h-4 w-4" />Like ({detail.post.likesCount || 0})
-                      </Button>
-                      <Badge variant="outline"><MessageSquare className="mr-1 h-3 w-3" />Comments: {detail.post.answerCount || 0}</Badge>
-                      <Badge variant="outline"><Eye className="mr-1 h-3 w-3" />Views: {detail.post.viewsCount || 0}</Badge>
-                      <Button size="sm" variant="outline" onClick={() => togglePostSave()}>
-                        <Bookmark className="mr-1 h-4 w-4" />Save ({detail.post.savesCount || 0})
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => toggleRepost()}>
-                        <Repeat2 className="mr-1 h-4 w-4" />Repost ({detail.post.repostCount || 0})
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => sharePost()}>
-                        <Share2 className="mr-1 h-4 w-4" />Share ({detail.post.shareCount || 0})
-                      </Button>
-                    </div>
-                  </CardContent>
+                  <CardContent className="py-4 text-center text-sm text-muted-foreground">Loading comments...</CardContent>
                 </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Comments</CardTitle>
-                    <CardDescription>{detail.answers.length ? `${detail.answers.length} comments` : "No comments yet."}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {detail.answers.length === 0 && (
-                      <div className="rounded-md border border-dashed p-5 text-center text-sm text-muted-foreground">
-                        No comments yet. Be the first to help this aspirant.
-                      </div>
-                    )}
-
-                    {detail.answers.map((answer) => (
-                      <div key={answer.id} className={`rounded-md border p-3 ${answer.isBestAnswer ? "border-emerald-500 bg-emerald-50/60" : ""} ${answer.parentAnswerId ? "ml-5" : ""}`}>
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                          <div className="text-xs text-muted-foreground">{answer.author.name} • {new Date(answer.createdAt).toLocaleString()}</div>
-                          <div className="flex items-center gap-2">
-                            {answer.isAiGenerated && <Badge variant="secondary">AI Answer</Badge>}
-                            {answer.isBestAnswer && <Badge className="bg-emerald-600"><CheckCircle2 className="mr-1 h-3 w-3" />Best Answer</Badge>}
-                            <Button size="sm" variant="outline" onClick={() => reportTarget("answer", answer.id)}>
-                              <Flag className="mr-1 h-3.5 w-3.5" />Report
-                            </Button>
-                          </div>
+              )}
+              {selectedPostId === post.id && detail && detail.post.id === post.id && !detailLoading && (
+                <div className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <CardTitle className="text-xl">{detail.post.title}</CardTitle>
+                          <CardDescription>{detail.post.author.name} • {new Date(detail.post.createdAt).toLocaleString()}</CardDescription>
                         </div>
-                        <p className="whitespace-pre-wrap text-sm">{answer.content}</p>
-                        {editingAnswerId === answer.id && (
-                          <div className="mt-2 space-y-2">
-                            <Textarea value={editingAnswerText} onChange={(e) => setEditingAnswerText(e.target.value)} />
-                            <div className="flex gap-2">
-                              <Button size="sm" onClick={() => saveAnswerEdit(answer.id)}>Save</Button>
-                              <Button size="sm" variant="outline" onClick={() => { setEditingAnswerId(""); setEditingAnswerText(""); }}>Cancel</Button>
-                            </div>
-                          </div>
-                        )}
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <Button size="sm" variant={answer.hasVoted ? "default" : "outline"} onClick={() => voteAnswer(answer.id)}>
-                            <ThumbsUp className="mr-1 h-4 w-4" />Helpful ({answer.helpfulCount})
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{detail.post.category}</Badge>
+                          <Button size="sm" variant="outline" onClick={() => reportTarget("post", detail.post.id)}>
+                            <Flag className="mr-1 h-4 w-4" />Report
                           </Button>
-                          {user?.id === answer.userId && !answer.isAiGenerated && (
+                          {user?.id === detail.post.userId && (
                             <>
-                              <Button size="sm" variant="outline" onClick={() => startEditAnswer(answer)}>Edit</Button>
-                              <Button size="sm" variant="destructive" onClick={() => deleteAnswer(answer.id)}>Delete</Button>
+                              <Button size="sm" variant="outline" onClick={() => setEditingPost((v) => !v)}>
+                                {editingPost ? "Cancel Edit" : "Edit"}
+                              </Button>
+                              <Button size="sm" variant="destructive" onClick={deletePost}>Delete</Button>
                             </>
                           )}
-                          {user?.id === detail.post.userId && !answer.isBestAnswer && !answer.isAiGenerated && (
-                            <Button size="sm" variant="secondary" onClick={() => markBest(answer.id)}>
-                              Mark Best
-                            </Button>
-                          )}
-                          <Button size="sm" variant="outline" onClick={() => setReplyToAnswerId(answer.id)}>
-                            Reply
-                          </Button>
                         </div>
                       </div>
-                    ))}
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {editingPost ? (
+                        <div className="space-y-3 rounded-md border p-3">
+                          <Input value={editPostForm.title} onChange={(e) => setEditPostForm((p) => ({ ...p, title: e.target.value }))} />
+                          <Textarea value={editPostForm.description} onChange={(e) => setEditPostForm((p) => ({ ...p, description: e.target.value }))} />
+                          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                            <select
+                              className="rounded-md border bg-background px-3 py-2 text-sm"
+                              value={editPostForm.category}
+                              onChange={(e) => setEditPostForm((p) => ({ ...p, category: e.target.value }))}
+                            >
+                              {CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                            </select>
+                            <Input value={editPostForm.tags} onChange={(e) => setEditPostForm((p) => ({ ...p, tags: e.target.value }))} />
+                          </div>
+                          <div className="flex justify-end">
+                            <Button size="sm" onClick={updatePost}>Save Changes</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="whitespace-pre-wrap text-sm leading-6">{detail.post.description}</p>
+                      )}
+                      {detail.post.imageUrl && (
+                        <img src={resolveMediaUrl(detail.post.imageUrl)} alt="Doubt attachment" className="max-h-72 rounded-md border object-contain" />
+                      )}
+                      <div className="flex flex-wrap gap-2">{detail.post.tags.map((tag) => <Badge key={tag} variant="secondary">#{tag}</Badge>)}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button size="sm" variant="outline" onClick={togglePostLike}>
+                          <Heart className="mr-1 h-4 w-4" />Like ({detail.post.likesCount || 0})
+                        </Button>
+                        <Badge variant="outline"><MessageSquare className="mr-1 h-3 w-3" />Comments: {detail.post.answerCount || 0}</Badge>
+                        <Badge variant="outline"><Eye className="mr-1 h-3 w-3" />Views: {detail.post.viewsCount || 0}</Badge>
+                        <Button size="sm" variant="outline" onClick={() => togglePostSave()}>
+                          <Bookmark className="mr-1 h-4 w-4" />Save ({detail.post.savesCount || 0})
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => toggleRepost()}>
+                          <Repeat2 className="mr-1 h-4 w-4" />Repost ({detail.post.repostCount || 0})
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => sharePost()}>
+                          <Share2 className="mr-1 h-4 w-4" />Share ({detail.post.shareCount || 0})
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                    <div className="space-y-2 rounded-md border p-3">
-                      {replyToAnswerId && (
-                        <div className="rounded border bg-muted/40 px-2 py-1 text-xs">
-                          Replying to a comment.
-                          <button className="ml-2 underline" onClick={() => setReplyToAnswerId(null)}>Cancel</button>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Comments</CardTitle>
+                      <CardDescription>{detail.answers.length ? `${detail.answers.length} comments` : "No comments yet."}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {detail.answers.length === 0 && (
+                        <div className="rounded-md border border-dashed p-5 text-center text-sm text-muted-foreground">
+                          No comments yet. Be the first to help this aspirant.
                         </div>
                       )}
-                      <Textarea
-                        ref={commentInputRef}
-                        placeholder="Write your comment/answer..."
-                        value={answerText}
-                        onChange={(e) => setAnswerText(e.target.value)}
-                      />
-                      <div className="flex justify-end">
-                        <Button onClick={submitAnswer}>Submit Comment</Button>
+
+                      {detail.answers.map((answer) => (
+                        <div key={answer.id} className={`rounded-md border p-3 ${answer.isBestAnswer ? "border-emerald-500 bg-emerald-50/60" : ""} ${answer.parentAnswerId ? "ml-5" : ""}`}>
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <div className="text-xs text-muted-foreground">{answer.author.name} • {new Date(answer.createdAt).toLocaleString()}</div>
+                            <div className="flex items-center gap-2">
+                              {answer.isAiGenerated && <Badge variant="secondary">AI Answer</Badge>}
+                              {answer.isBestAnswer && <Badge className="bg-emerald-600"><CheckCircle2 className="mr-1 h-3 w-3" />Best Answer</Badge>}
+                              <Button size="sm" variant="outline" onClick={() => reportTarget("answer", answer.id)}>
+                                <Flag className="mr-1 h-3.5 w-3.5" />Report
+                              </Button>
+                            </div>
+                          </div>
+                          <p className="whitespace-pre-wrap text-sm">{answer.content}</p>
+                          {editingAnswerId === answer.id && (
+                            <div className="mt-2 space-y-2">
+                              <Textarea value={editingAnswerText} onChange={(e) => setEditingAnswerText(e.target.value)} />
+                              <div className="flex gap-2">
+                                <Button size="sm" onClick={() => saveAnswerEdit(answer.id)}>Save</Button>
+                                <Button size="sm" variant="outline" onClick={() => { setEditingAnswerId(""); setEditingAnswerText(""); }}>Cancel</Button>
+                              </div>
+                            </div>
+                          )}
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <Button size="sm" variant={answer.hasVoted ? "default" : "outline"} onClick={() => voteAnswer(answer.id)}>
+                              <ThumbsUp className="mr-1 h-4 w-4" />Helpful ({answer.helpfulCount})
+                            </Button>
+                            {user?.id === answer.userId && !answer.isAiGenerated && (
+                              <>
+                                <Button size="sm" variant="outline" onClick={() => startEditAnswer(answer)}>Edit</Button>
+                                <Button size="sm" variant="destructive" onClick={() => deleteAnswer(answer.id)}>Delete</Button>
+                              </>
+                            )}
+                            {user?.id === detail.post.userId && !answer.isBestAnswer && !answer.isAiGenerated && (
+                              <Button size="sm" variant="secondary" onClick={() => markBest(answer.id)}>
+                                Mark Best
+                              </Button>
+                            )}
+                            <Button size="sm" variant="outline" onClick={() => setReplyToAnswerId(answer.id)}>
+                              Reply
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+
+                      <div className="space-y-2 rounded-md border p-3">
+                        {replyToAnswerId && (
+                          <div className="rounded border bg-muted/40 px-2 py-1 text-xs">
+                            Replying to a comment.
+                            <button className="ml-2 underline" onClick={() => setReplyToAnswerId(null)}>Cancel</button>
+                          </div>
+                        )}
+                        <Textarea
+                          ref={commentInputRef}
+                          placeholder="Write your comment/answer..."
+                          value={answerText}
+                          onChange={(e) => setAnswerText(e.target.value)}
+                        />
+                        <div className="flex justify-end">
+                          <Button onClick={submitAnswer}>Submit Comment</Button>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
               </div>
-            )}
+            ))}
           </div>
         </div>
+        
       </div>
     </DashboardLayout>
   );
 };
 
 export default DoubtFeed;
+
