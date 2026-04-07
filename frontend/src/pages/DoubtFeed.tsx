@@ -137,6 +137,8 @@ const DoubtFeed = () => {
   const [newCategory, setNewCategory] = useState<string>(CATEGORIES[0]);
   const [tagsInput, setTagsInput] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState<FeedPost | null>(null);
 
   const authHeaders = async () => {
     const { data } = await supabase.auth.getSession();
@@ -416,6 +418,58 @@ const DoubtFeed = () => {
     }
   };
 
+  const postShareUrl = (postId: string) => `${window.location.origin}/doubt-feed?postId=${encodeURIComponent(postId)}`;
+
+  const openShareDialog = (post: FeedPost) => {
+    setShareTarget(post);
+    setShareOpen(true);
+  };
+
+  const sharePost = async (post: FeedPost) => {
+    const url = postShareUrl(post.id);
+    const text = `${post.title} | UPSC Doubt Feed`;
+    const nav = navigator as Navigator & { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> };
+    if (nav.share) {
+      try {
+        await nav.share({ title: "UPSC Doubt Feed", text, url });
+        return;
+      } catch {
+        // If user cancels native share, do nothing.
+      }
+    }
+    openShareDialog(post);
+  };
+
+  const openExternalShare = async (platform: "whatsapp" | "telegram" | "x" | "facebook" | "linkedin" | "reddit" | "instagram") => {
+    if (!shareTarget) return;
+    const url = postShareUrl(shareTarget.id);
+    const text = `${shareTarget.title} | UPSC Doubt Feed`;
+    const encodedUrl = encodeURIComponent(url);
+    const encodedText = encodeURIComponent(text);
+    const combinedText = encodeURIComponent(`${text}\n${url}`);
+
+    if (platform === "instagram") {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Link copied", description: "Paste it in Instagram story/message." });
+      } catch {
+        toast({ title: "Copy failed", variant: "destructive" });
+      }
+      window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const links: Record<Exclude<typeof platform, "instagram">, string> = {
+      whatsapp: `https://wa.me/?text=${combinedText}`,
+      telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`,
+      x: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+      reddit: `https://www.reddit.com/submit?url=${encodedUrl}&title=${encodedText}`,
+    };
+    window.open(links[platform], "_blank", "noopener,noreferrer");
+  };
+
   const filteredPosts = useMemo(() => posts, [posts]);
 
   return (
@@ -621,15 +675,7 @@ const DoubtFeed = () => {
                         variant="ghost"
                         size="sm"
                         className="gap-1.5"
-                        onClick={async () => {
-                          const url = `${window.location.origin}/doubt-feed?postId=${encodeURIComponent(post.id)}`;
-                          try {
-                            await navigator.clipboard.writeText(url);
-                            toast({ title: "Link copied" });
-                          } catch {
-                            toast({ title: "Copy failed", variant: "destructive" });
-                          }
-                        }}
+                        onClick={() => sharePost(post)}
                       >
                         <Share2 className="h-4 w-4" />
                       </Button>
@@ -693,6 +739,41 @@ const DoubtFeed = () => {
           })}
         </div>
       </div>
+
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share Post</DialogTitle>
+            <DialogDescription>
+              Share this doubt on social platforms.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" onClick={() => openExternalShare("whatsapp")}>WhatsApp</Button>
+            <Button variant="outline" onClick={() => openExternalShare("telegram")}>Telegram</Button>
+            <Button variant="outline" onClick={() => openExternalShare("x")}>X</Button>
+            <Button variant="outline" onClick={() => openExternalShare("facebook")}>Facebook</Button>
+            <Button variant="outline" onClick={() => openExternalShare("linkedin")}>LinkedIn</Button>
+            <Button variant="outline" onClick={() => openExternalShare("reddit")}>Reddit</Button>
+            <Button variant="outline" onClick={() => openExternalShare("instagram")}>Instagram</Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!shareTarget) return;
+                try {
+                  await navigator.clipboard.writeText(postShareUrl(shareTarget.id));
+                  toast({ title: "Link copied" });
+                } catch {
+                  toast({ title: "Copy failed", variant: "destructive" });
+                }
+              }}
+            >
+              Copy Link
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
