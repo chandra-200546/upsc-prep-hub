@@ -169,6 +169,7 @@ const DoubtFeed = () => {
     });
     const payload = await api(`/doubts?${query.toString()}`);
     setPosts(payload.posts || []);
+    if (!selectedPostId && payload.posts?.[0]?.id) setSelectedPostId(payload.posts[0].id);
   };
 
   const loadDetail = async (postId: string) => {
@@ -376,12 +377,6 @@ const DoubtFeed = () => {
   };
 
   const openCommentForPost = async (postId: string) => {
-    if (selectedPostId === postId) {
-      setSelectedPostId("");
-      setDetail(null);
-      setReplyToAnswerId(null);
-      return;
-    }
     setSelectedPostId(postId);
     try {
       await loadDetail(postId);
@@ -468,12 +463,11 @@ const DoubtFeed = () => {
   }, [searchParams]);
 
   useEffect(() => {
+    if (!selectedPostId) return;
     setSearchParams((prev) => {
-      if (selectedPostId) prev.set("postId", selectedPostId);
-      else prev.delete("postId");
+      prev.set("postId", selectedPostId);
       return prev;
     });
-    if (!selectedPostId) return;
     loadDetail(selectedPostId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPostId]);
@@ -593,7 +587,7 @@ const DoubtFeed = () => {
             )}
             {posts.map((post) => (
               <div key={post.id} id={`doubt-post-${post.id}`} className="space-y-3">
-              <Card className={`transition ${selectedPostId === post.id ? "border-primary shadow-sm" : ""}`}>
+              <Card className={`cursor-pointer transition ${selectedPostId === post.id ? "border-primary shadow-sm" : ""}`} onClick={() => setSelectedPostId(post.id)}>
                 <CardContent className="pt-4">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
@@ -619,7 +613,7 @@ const DoubtFeed = () => {
                         <img
                           src={resolveMediaUrl(post.imageUrl)}
                           alt="Post attachment"
-                          className="mb-3 max-h-[520px] w-full rounded-md border bg-muted/20 object-contain"
+                          className="mb-3 max-h-56 w-full rounded-md border object-cover"
                         />
                       )}
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
