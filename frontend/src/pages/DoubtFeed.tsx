@@ -576,8 +576,8 @@ const DoubtFeed = () => {
           </CardContent>
         </Card>
 
-        <div>
-          <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <div className="space-y-3 xl:col-span-5">
             {posts.length === 0 && (
               <Card>
                 <CardContent className="py-8 text-center text-sm text-muted-foreground">
@@ -606,9 +606,7 @@ const DoubtFeed = () => {
                         </Badge>
                       </div>
                       <h3 className="mb-1 text-sm font-semibold">{post.title}</h3>
-                      <p className="mb-3 text-sm text-muted-foreground">
-                        {selectedPostId === post.id && detail?.post?.id === post.id ? detail.post.description : post.preview}
-                      </p>
+                      <p className="mb-3 text-sm text-muted-foreground">{post.preview}</p>
                       {post.imageUrl && (
                         <img
                           src={resolveMediaUrl(post.imageUrl)}
