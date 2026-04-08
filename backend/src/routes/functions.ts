@@ -960,7 +960,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
     WHERE p.id = $1::uuid
     LIMIT 1
     `,
-    [postId],
+    [postId, user?.id || null],
   );
   const post = posts[0];
   if (!post) return c.json({ message: "Doubt post not found" }, 404);
