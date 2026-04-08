@@ -116,6 +116,7 @@ const toTags = (text: string) =>
     .slice(0, 8);
 
 const DoubtFeed = () => {
+  const [currentUserId, setCurrentUserId] = useState("");
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -139,6 +140,12 @@ const DoubtFeed = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareTarget, setShareTarget] = useState<FeedPost | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editPostId, setEditPostId] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editCategory, setEditCategory] = useState<string>(CATEGORIES[0]);
+  const [editTagsInput, setEditTagsInput] = useState("");
 
   const authHeaders = async () => {
     const { data } = await supabase.auth.getSession();
@@ -183,6 +190,12 @@ const DoubtFeed = () => {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, category, status, sort]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(String(data?.user?.id || ""));
+    });
+  }, []);
 
   const createPost = async () => {
     if (title.trim().length < 10) {
@@ -415,6 +428,66 @@ const DoubtFeed = () => {
       toast({ title: "Reported", description: "Thanks. The post has been flagged for review." });
     } catch (error: any) {
       toast({ title: "Report failed", description: error?.message || "Please retry.", variant: "destructive" });
+    }
+  };
+
+  const startEditPost = (post: FeedPost) => {
+    setEditPostId(post.id);
+    setEditTitle(post.title);
+    setEditDescription(post.description);
+    setEditCategory(post.category && CATEGORIES.includes(post.category as (typeof CATEGORIES)[number]) ? post.category : CATEGORIES[0]);
+    setEditTagsInput((post.tags || []).join(", "));
+    setEditOpen(true);
+  };
+
+  const submitEditPost = async () => {
+    if (!editPostId) return;
+    if (editTitle.trim().length < 10) {
+      toast({ title: "Title too short", description: "Use at least 10 characters.", variant: "destructive" });
+      return;
+    }
+    if (editDescription.trim().length < 20) {
+      toast({ title: "Description too short", description: "Use at least 20 characters.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const headers = { "Content-Type": "application/json", ...(await authHeaders()) };
+      const res = await fetch(`${backendBase()}/functions/v1/doubts/${editPostId}/update`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          description: editDescription.trim(),
+          category: editCategory,
+          tags: toTags(editTagsInput),
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.message || "Update failed");
+
+      setEditOpen(false);
+      toast({ title: "Updated", description: "Post updated successfully." });
+      await loadPosts();
+      if (expanded[editPostId]) await ensurePostDetail(editPostId, false);
+    } catch (error: any) {
+      toast({ title: "Update failed", description: error?.message || "Please retry.", variant: "destructive" });
+    }
+  };
+
+  const deletePost = async (postId: string) => {
+    const ok = window.confirm("Delete this post?");
+    if (!ok) return;
+    try {
+      const headers = { "Content-Type": "application/json", ...(await authHeaders()) };
+      const res = await fetch(`${backendBase()}/functions/v1/doubts/${postId}/delete`, { method: "POST", headers });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.message || "Delete failed");
+      toast({ title: "Deleted", description: "Post removed." });
+      setExpanded((prev) => ({ ...prev, [postId]: false }));
+      await loadPosts();
+    } catch (error: any) {
+      toast({ title: "Delete failed", description: error?.message || "Please retry.", variant: "destructive" });
     }
   };
 
@@ -684,6 +757,14 @@ const DoubtFeed = () => {
                         <ShieldAlert className="h-4 w-4" />
                         Report
                       </Button>
+                      {post.userId === currentUserId && (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => startEditPost(post)}>Edit</Button>
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => deletePost(post.id)}>
+                            Delete
+                          </Button>
+                        </>
+                      )}
                     </div>
 
                     {isOpen && (
@@ -772,6 +853,46 @@ const DoubtFeed = () => {
               Copy Link
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Doubt</DialogTitle>
+            <DialogDescription>Update your post content.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-doubt-title">Title</Label>
+              <Input id="edit-doubt-title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-doubt-description">Description</Label>
+              <Textarea id="edit-doubt-description" rows={6} value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Category</Label>
+                <Select value={editCategory} onValueChange={setEditCategory}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-doubt-tags">Tags</Label>
+                <Input id="edit-doubt-tags" value={editTagsInput} onChange={(e) => setEditTagsInput(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button onClick={submitEditPost}>Save Changes</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </DashboardLayout>

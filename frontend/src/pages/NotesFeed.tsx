@@ -96,6 +96,7 @@ const toTags = (text: string) =>
     .slice(0, 8);
 
 const NotesFeed = () => {
+  const [currentUserId, setCurrentUserId] = useState("");
   const [items, setItems] = useState<NotesPost[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -116,6 +117,12 @@ const NotesFeed = () => {
 
   const [shareOpen, setShareOpen] = useState(false);
   const [shareTarget, setShareTarget] = useState<NotesPost | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editNoteId, setEditNoteId] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editCategory, setEditCategory] = useState<string>(CATEGORIES[0]);
+  const [editTagsInput, setEditTagsInput] = useState("");
 
   const authHeaders = async () => {
     const { data } = await supabase.auth.getSession();
@@ -148,6 +155,12 @@ const NotesFeed = () => {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, category, sort]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(String(data?.user?.id || ""));
+    });
+  }, []);
 
   const createNote = async () => {
     if (title.trim().length < 10) {
@@ -276,6 +289,65 @@ const NotesFeed = () => {
       toast({ title: "Reported", description: "Thanks. The note has been flagged for review." });
     } catch (error: any) {
       toast({ title: "Report failed", description: error?.message || "Please retry.", variant: "destructive" });
+    }
+  };
+
+  const startEditNote = (item: NotesPost) => {
+    setEditNoteId(item.id);
+    setEditTitle(item.title);
+    setEditContent(item.content);
+    setEditCategory(item.category && CATEGORIES.includes(item.category as (typeof CATEGORIES)[number]) ? item.category : CATEGORIES[0]);
+    setEditTagsInput((item.tags || []).join(", "));
+    setEditOpen(true);
+  };
+
+  const submitEditNote = async () => {
+    if (!editNoteId) return;
+    if (editTitle.trim().length < 10) {
+      toast({ title: "Title too short", description: "Use at least 10 characters.", variant: "destructive" });
+      return;
+    }
+    if (editContent.trim().length < 80) {
+      toast({ title: "Content too short", description: "Use at least 80 characters.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const headers = { "Content-Type": "application/json", ...(await authHeaders()) };
+      const res = await fetch(`${backendBase()}/functions/v1/notes-feed/${editNoteId}/update`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          content: editContent.trim(),
+          category: editCategory,
+          tags: toTags(editTagsInput),
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.message || "Update failed");
+      setEditOpen(false);
+      toast({ title: "Updated", description: "Note updated successfully." });
+      await loadItems();
+      await loadNoteDetail(editNoteId);
+    } catch (error: any) {
+      toast({ title: "Update failed", description: error?.message || "Please retry.", variant: "destructive" });
+    }
+  };
+
+  const deleteNote = async (noteId: string) => {
+    const ok = window.confirm("Delete this note?");
+    if (!ok) return;
+    try {
+      const headers = { "Content-Type": "application/json", ...(await authHeaders()) };
+      const res = await fetch(`${backendBase()}/functions/v1/notes-feed/${noteId}/delete`, { method: "POST", headers });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.message || "Delete failed");
+      toast({ title: "Deleted", description: "Note removed." });
+      setOpenCard((prev) => ({ ...prev, [noteId]: false }));
+      await loadItems();
+    } catch (error: any) {
+      toast({ title: "Delete failed", description: error?.message || "Please retry.", variant: "destructive" });
     }
   };
 
@@ -524,6 +596,14 @@ const NotesFeed = () => {
                         <ShieldAlert className="h-4 w-4" />
                         Report
                       </Button>
+                      {item.userId === currentUserId && (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => startEditNote(item)}>Edit</Button>
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => deleteNote(item.id)}>
+                            Delete
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -563,6 +643,46 @@ const NotesFeed = () => {
               Copy Link
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Note</DialogTitle>
+            <DialogDescription>Update your note content.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-note-title">Title</Label>
+              <Input id="edit-note-title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-note-content">Content</Label>
+              <Textarea id="edit-note-content" rows={8} value={editContent} onChange={(e) => setEditContent(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Category</Label>
+                <Select value={editCategory} onValueChange={setEditCategory}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-note-tags">Tags</Label>
+                <Input id="edit-note-tags" value={editTagsInput} onChange={(e) => setEditTagsInput(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button onClick={submitEditNote}>Save Changes</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </DashboardLayout>
