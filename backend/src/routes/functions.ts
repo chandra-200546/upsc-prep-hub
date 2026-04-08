@@ -1263,6 +1263,106 @@ functionsRouter.post("/doubts/:postId/save", async (c) => {
   return c.json({ ok: true, saved, savesCount: Number(row[0]?.count || 0) });
 });
 
+functionsRouter.get("/doubts/saved/list", async (c) => {
+  await ensureDoubtEngagementSchema();
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+
+  const search = String(c.req.query("search") || "").trim();
+  const category = String(c.req.query("category") || "").trim();
+  const status = String(c.req.query("status") || "").trim();
+
+  const where: string[] = ["s.user_id = $1::uuid"];
+  const params: unknown[] = [user.id];
+  let idx = 2;
+
+  if (search) {
+    where.push(`(p.title ILIKE $${idx} OR p.description ILIKE $${idx})`);
+    params.push(`%${search}%`);
+    idx += 1;
+  }
+  if (category && category !== "all") {
+    where.push(`p.category = $${idx}`);
+    params.push(category);
+    idx += 1;
+  }
+  if (status && status !== "all") {
+    where.push(`p.status = $${idx}`);
+    params.push(status);
+    idx += 1;
+  }
+
+  const rows = await queryNeon<{
+    id: string;
+    user_id: string;
+    title: string;
+    description: string;
+    category: string;
+    tags: string[] | null;
+    image_url: string | null;
+    answer_count: number;
+    likes_count: number;
+    saves_count: number;
+    views_count: number;
+    shares_count: number;
+    status: string;
+    is_flagged: boolean;
+    moderation_status: string;
+    report_count: number;
+    created_at: string;
+    updated_at: string;
+    saved_at: string;
+    author_name: string | null;
+  }>(
+    `
+    SELECT
+      p.id::text, p.user_id::text, p.title, p.description, p.category, p.tags, p.image_url,
+      p.answer_count,
+      (SELECT COUNT(*) FROM doubt_post_likes l WHERE l.post_id = p.id) AS likes_count,
+      (SELECT COUNT(*) FROM doubt_post_saves ds WHERE ds.post_id = p.id) AS saves_count,
+      (SELECT COUNT(*) FROM doubt_post_views v WHERE v.post_id = p.id) AS views_count,
+      (SELECT COUNT(*) FROM doubt_post_shares sh WHERE sh.post_id = p.id) AS shares_count,
+      p.status, p.is_flagged, p.moderation_status, p.report_count,
+      p.created_at::text, p.updated_at::text, s.created_at::text AS saved_at,
+      COALESCE(pr.name, 'Aspirant') AS author_name
+    FROM doubt_post_saves s
+    JOIN doubt_posts p ON p.id = s.post_id
+    LEFT JOIN profiles pr ON pr.id = p.user_id
+    WHERE ${where.join(" AND ")}
+    ORDER BY s.created_at DESC
+    `,
+    params,
+  );
+
+  return c.json({
+    items: rows.map((r) => ({
+      id: r.id,
+      userId: r.user_id,
+      title: r.title,
+      description: r.description,
+      preview: r.description.length > 220 ? `${r.description.slice(0, 220)}...` : r.description,
+      category: r.category,
+      tags: Array.isArray(r.tags) ? r.tags : [],
+      imageUrl: r.image_url,
+      answerCount: Number(r.answer_count || 0),
+      likesCount: Number(r.likes_count || 0),
+      savesCount: Number(r.saves_count || 0),
+      viewsCount: Number(r.views_count || 0),
+      sharesCount: Number(r.shares_count || 0),
+      likedByViewer: false,
+      savedByViewer: true,
+      status: r.status,
+      isFlagged: Boolean(r.is_flagged),
+      moderationStatus: r.moderation_status,
+      reportCount: Number(r.report_count || 0),
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+      savedAt: r.saved_at,
+      author: { id: r.user_id, name: r.author_name || "Aspirant" },
+    })),
+  });
+});
+
 functionsRouter.post("/doubts/:postId/share", async (c) => {
   await ensureDoubtEngagementSchema();
   const user = await getSessionUser(c);

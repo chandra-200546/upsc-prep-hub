@@ -44,6 +44,7 @@ const CATEGORIES = [
 ] as const;
 
 type SortKey = "latest" | "trending" | "most_saved";
+type FeedMode = "all" | "saved";
 
 type NotesPost = {
   id: string;
@@ -109,6 +110,7 @@ const NotesFeed = () => {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("all");
   const [sort, setSort] = useState<SortKey>("latest");
+  const [feedMode, setFeedMode] = useState<FeedMode>("all");
 
   const [openCard, setOpenCard] = useState<Record<string, boolean>>({});
   const [detailCache, setDetailCache] = useState<Record<string, NotesPost>>({});
@@ -142,7 +144,11 @@ const NotesFeed = () => {
       if (category !== "all") params.set("category", category);
 
       const headers = await authHeaders();
-      const res = await fetch(`${backendBase()}/functions/v1/notes-feed?${params.toString()}`, { headers });
+      const endpoint =
+        feedMode === "saved"
+          ? `${backendBase()}/functions/v1/notes-feed/saved/list?${params.toString()}`
+          : `${backendBase()}/functions/v1/notes-feed?${params.toString()}`;
+      const res = await fetch(endpoint, { headers });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload?.message || "Failed to load notes feed");
 
@@ -158,7 +164,7 @@ const NotesFeed = () => {
     const t = setTimeout(loadItems, 180);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, category, sort]);
+  }, [search, category, sort, feedMode]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -275,6 +281,9 @@ const NotesFeed = () => {
           return { ...i, savedByViewer: Boolean(payload.saved), savesCount: Number(payload.savesCount ?? i.savesCount) };
         }),
       );
+      if (feedMode === "saved" && action === "save" && !payload.saved) {
+        setItems((prev) => prev.filter((i) => i.id !== noteId));
+      }
     } catch (error: any) {
       setItems((prev) => prev.map((i) => (i.id === noteId ? { ...i, ...target } : i)));
       toast({ title: "Action failed", description: error?.message || "Please retry.", variant: "destructive" });
@@ -513,6 +522,13 @@ const NotesFeed = () => {
         </div>
 
         <Card className="p-3 md:p-4 space-y-3">
+          <Tabs value={feedMode} onValueChange={(v) => setFeedMode(v as FeedMode)}>
+            <TabsList>
+              <TabsTrigger value="all">All Notes</TabsTrigger>
+              <TabsTrigger value="saved">Saved</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
             <div className="lg:col-span-7 relative">
               <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />

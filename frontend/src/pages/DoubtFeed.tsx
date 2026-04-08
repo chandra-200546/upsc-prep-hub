@@ -47,6 +47,7 @@ const CATEGORIES = [
 
 type SortKey = "latest" | "most_answered" | "unanswered";
 type StatusFilter = "all" | "unanswered" | "answered" | "solved";
+type FeedMode = "all" | "saved";
 
 type FeedPost = {
   id: string;
@@ -130,6 +131,7 @@ const DoubtFeed = () => {
   const [category, setCategory] = useState<string>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortKey>("latest");
+  const [feedMode, setFeedMode] = useState<FeedMode>("all");
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [details, setDetails] = useState<Record<string, PostDetail>>({});
@@ -160,21 +162,21 @@ const DoubtFeed = () => {
   const loadPosts = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        page: "1",
-        limit: "30",
-        sort,
-      });
+      const params = new URLSearchParams({ page: "1", limit: "30", sort });
       if (search.trim()) params.set("search", search.trim());
       if (category !== "all") params.set("category", category);
       if (status !== "all") params.set("status", status);
 
       const headers = await authHeaders();
-      const res = await fetch(`${backendBase()}/functions/v1/doubts?${params.toString()}`, { headers });
+      const endpoint =
+        feedMode === "saved"
+          ? `${backendBase()}/functions/v1/doubts/saved/list?${params.toString()}`
+          : `${backendBase()}/functions/v1/doubts?${params.toString()}`;
+      const res = await fetch(endpoint, { headers });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload?.message || "Failed to load doubts");
 
-      const list = Array.isArray(payload?.posts) ? payload.posts : [];
+      const list = Array.isArray(payload?.posts) ? payload.posts : Array.isArray(payload?.items) ? payload.items : [];
       setPosts(list);
     } catch (error: any) {
       toast({
@@ -193,7 +195,7 @@ const DoubtFeed = () => {
     }, 180);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, category, status, sort]);
+  }, [search, category, status, sort, feedMode]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -338,6 +340,9 @@ const DoubtFeed = () => {
           };
         }),
       );
+      if (feedMode === "saved" && !payload.saved) {
+        setPosts((prev) => prev.filter((p) => p.id !== postId));
+      }
     } catch (error: any) {
       setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, ...target } : p)));
       toast({ title: "Action failed", description: error?.message || "Please retry.", variant: "destructive" });
@@ -658,6 +663,13 @@ const DoubtFeed = () => {
         </div>
 
         <Card className="p-3 md:p-4 space-y-3">
+          <Tabs value={feedMode} onValueChange={(v) => setFeedMode(v as FeedMode)}>
+            <TabsList>
+              <TabsTrigger value="all">All Posts</TabsTrigger>
+              <TabsTrigger value="saved">Saved</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
             <div className="lg:col-span-6 relative">
               <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
