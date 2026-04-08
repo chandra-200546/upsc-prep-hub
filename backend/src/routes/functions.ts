@@ -173,6 +173,23 @@ const analyzeUpscContent = (input: {
 };
 
 const validModerationReasons = new Set(["off-topic", "spam", "abusive", "irrelevant", "duplicate"]);
+const validSharePlatforms = new Set([
+  "copy_link",
+  "whatsapp",
+  "x",
+  "telegram",
+  "email",
+  "native",
+  "facebook",
+  "linkedin",
+  "reddit",
+  "other",
+]);
+
+const normalizeSharePlatform = (value: unknown) => {
+  const platform = String(value ?? "").trim().toLowerCase();
+  return validSharePlatforms.has(platform) ? platform : "other";
+};
 
 const createDoubtNotification = async (params: {
   userId: string;
@@ -247,6 +264,31 @@ const ensureDoubtEngagementSchema = async () => {
         user_id TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(post_id, user_id)
+      )`,
+    );
+  } catch {}
+  try {
+    await queryNeon(
+      `CREATE TABLE IF NOT EXISTS doubt_post_shares (
+        id TEXT PRIMARY KEY,
+        post_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        platform TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+    );
+  } catch {}
+};
+
+const ensureNotesFeedShareSchema = async () => {
+  try {
+    await queryNeon(
+      `CREATE TABLE IF NOT EXISTS notes_feed_shares (
+        id TEXT PRIMARY KEY,
+        note_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        platform TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )`,
     );
   } catch {}
@@ -758,6 +800,7 @@ functionsRouter.get("/doubts", async (c) => {
     likes_count: number;
     saves_count: number;
     views_count: number;
+    shares_count: number;
     status: string;
     is_flagged: boolean;
     moderation_status: string;
@@ -781,6 +824,7 @@ functionsRouter.get("/doubts", async (c) => {
       likes_count: number;
       saves_count: number;
       views_count: number;
+      shares_count: number;
       status: string;
       is_flagged: boolean;
       moderation_status: string;
@@ -798,6 +842,7 @@ functionsRouter.get("/doubts", async (c) => {
         (SELECT COUNT(*) FROM doubt_post_likes l WHERE l.post_id = p.id) AS likes_count,
         (SELECT COUNT(*) FROM doubt_post_saves s WHERE s.post_id = p.id) AS saves_count,
         (SELECT COUNT(*) FROM doubt_post_views v WHERE v.post_id = p.id) AS views_count,
+        (SELECT COUNT(*) FROM doubt_post_shares sh WHERE sh.post_id = p.id) AS shares_count,
         p.status, p.is_flagged, p.moderation_status, p.report_count,
         p.created_at::text, p.updated_at::text,
         COALESCE(pr.name, 'Aspirant') AS author_name,
@@ -817,7 +862,7 @@ functionsRouter.get("/doubts", async (c) => {
       `
       SELECT
         p.id::text, p.user_id::text, p.title, p.description, p.category, p.tags, p.image_url,
-        p.answer_count, 0 AS likes_count, 0 AS saves_count, 0 AS views_count,
+        p.answer_count, 0 AS likes_count, 0 AS saves_count, 0 AS views_count, 0 AS shares_count,
         p.status, p.is_flagged, p.moderation_status, p.report_count,
         p.created_at::text, p.updated_at::text,
         COALESCE(pr.name, 'Aspirant') AS author_name,
@@ -851,6 +896,7 @@ functionsRouter.get("/doubts", async (c) => {
     likesCount: Number(r.likes_count || 0),
     savesCount: Number(r.saves_count || 0),
     viewsCount: Number(r.views_count || 0),
+    sharesCount: Number(r.shares_count || 0),
     likedByViewer: Number(r.liked_by_viewer || 0) > 0,
     savedByViewer: Number(r.saved_by_viewer || 0) > 0,
     status: r.status,
@@ -932,6 +978,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
     likes_count: number;
     saves_count: number;
     views_count: number;
+    shares_count: number;
     status: string;
     best_answer_id: string | null;
     is_flagged: boolean;
@@ -956,6 +1003,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
       likes_count: number;
       saves_count: number;
       views_count: number;
+      shares_count: number;
       status: string;
       best_answer_id: string | null;
       is_flagged: boolean;
@@ -974,6 +1022,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
         (SELECT COUNT(*) FROM doubt_post_likes l WHERE l.post_id = p.id) AS likes_count,
         (SELECT COUNT(*) FROM doubt_post_saves s WHERE s.post_id = p.id) AS saves_count,
         (SELECT COUNT(*) FROM doubt_post_views v WHERE v.post_id = p.id) AS views_count,
+        (SELECT COUNT(*) FROM doubt_post_shares sh WHERE sh.post_id = p.id) AS shares_count,
         p.status, p.best_answer_id::text, p.is_flagged, p.moderation_status, p.report_count,
         CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_likes l WHERE l.post_id = p.id AND l.user_id = $2::uuid) THEN 1 ELSE 0 END AS liked_by_viewer,
         CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_saves s WHERE s.post_id = p.id AND s.user_id = $2::uuid) THEN 1 ELSE 0 END AS saved_by_viewer,
@@ -996,6 +1045,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
         COALESCE(p.likes_count, 0) AS likes_count,
         COALESCE(p.saves_count, 0) AS saves_count,
         COALESCE(p.views_count, 0) AS views_count,
+        0 AS shares_count,
         COALESCE(p.status, 'unanswered') AS status,
         NULL AS best_answer_id,
         COALESCE(p.is_flagged, 0) AS is_flagged,
@@ -1106,6 +1156,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
       likesCount: Number(post.likes_count || 0),
       savesCount: Number(post.saves_count || 0),
       viewsCount: Number(post.views_count || 0),
+      sharesCount: Number(post.shares_count || 0),
       likedByViewer: Number(post.liked_by_viewer || 0) > 0,
       savedByViewer: Number(post.saved_by_viewer || 0) > 0,
       status: post.status,
@@ -1210,6 +1261,40 @@ functionsRouter.post("/doubts/:postId/save", async (c) => {
     [postId],
   );
   return c.json({ ok: true, saved, savesCount: Number(row[0]?.count || 0) });
+});
+
+functionsRouter.post("/doubts/:postId/share", async (c) => {
+  await ensureDoubtEngagementSchema();
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const postId = String(c.req.param("postId") || "").trim();
+  if (!postId) return c.json({ message: "postId is required" }, 400);
+  const body = await c.req.json().catch(() => ({}));
+  const platform = normalizeSharePlatform(body?.platform);
+
+  await queryNeon(
+    `INSERT INTO doubt_post_shares (id, post_id, user_id, platform) VALUES ($1::uuid, $2::uuid, $3::uuid, $4)`,
+    [randomUUID(), postId, user.id, platform],
+  );
+
+  const totalRows = await queryNeon<{ count: number }>(
+    `SELECT COUNT(*)::int AS count FROM doubt_post_shares WHERE post_id = $1::uuid`,
+    [postId],
+  );
+  const platformRows = await queryNeon<{ platform: string; count: number }>(
+    `SELECT platform, COUNT(*)::int AS count FROM doubt_post_shares WHERE post_id = $1::uuid GROUP BY platform`,
+    [postId],
+  );
+
+  return c.json({
+    ok: true,
+    sharesCount: Number(totalRows[0]?.count || 0),
+    platform,
+    platformCounts: platformRows.reduce<Record<string, number>>((acc, row) => {
+      acc[String(row.platform || "other")] = Number(row.count || 0);
+      return acc;
+    }, {}),
+  });
 });
 
 functionsRouter.post("/doubts/:postId/update", async (c) => {
@@ -1565,6 +1650,7 @@ functionsRouter.post("/answers/:answerId/report", async (c) => {
 });
 
 functionsRouter.post("/notes-feed/create", async (c) => {
+  await ensureNotesFeedShareSchema();
   const user = await getSessionUser(c);
   if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
 
@@ -1604,6 +1690,7 @@ functionsRouter.post("/notes-feed/create", async (c) => {
 });
 
 functionsRouter.get("/notes-feed", async (c) => {
+  await ensureNotesFeedShareSchema();
   const search = String(c.req.query("search") || "").trim();
   const category = String(c.req.query("category") || "").trim();
   const sort = String(c.req.query("sort") || "latest").trim();
@@ -1644,6 +1731,7 @@ functionsRouter.get("/notes-feed", async (c) => {
     image_urls: string[] | null;
     likes_count: number;
     saves_count: number;
+    shares_count: number;
     report_count: number;
     is_flagged: boolean;
     moderation_status: string;
@@ -1654,7 +1742,9 @@ functionsRouter.get("/notes-feed", async (c) => {
     `
     SELECT
       p.id::text, p.user_id::text, p.title, p.content, p.category, p.tags, p.image_urls,
-      p.likes_count, p.saves_count, p.report_count, p.is_flagged, p.moderation_status,
+      p.likes_count, p.saves_count,
+      (SELECT COUNT(*) FROM notes_feed_shares sh WHERE sh.note_id = p.id) AS shares_count,
+      p.report_count, p.is_flagged, p.moderation_status,
       p.created_at::text, p.updated_at::text, COALESCE(pr.name, 'Aspirant') AS author_name
     FROM notes_feed_posts p
     LEFT JOIN profiles pr ON pr.id = p.user_id
@@ -1683,6 +1773,7 @@ functionsRouter.get("/notes-feed", async (c) => {
       imageUrls: Array.isArray(r.image_urls) ? r.image_urls : [],
       likesCount: Number(r.likes_count || 0),
       savesCount: Number(r.saves_count || 0),
+      sharesCount: Number(r.shares_count || 0),
       reportCount: Number(r.report_count || 0),
       isFlagged: Boolean(r.is_flagged),
       moderationStatus: r.moderation_status,
@@ -1699,6 +1790,7 @@ functionsRouter.get("/notes-feed", async (c) => {
 });
 
 functionsRouter.get("/notes-feed/:noteId", async (c) => {
+  await ensureNotesFeedShareSchema();
   const noteId = String(c.req.param("noteId") || "").trim();
   if (!noteId) return c.json({ message: "noteId is required" }, 400);
   const user = await getSessionUser(c);
@@ -1713,6 +1805,7 @@ functionsRouter.get("/notes-feed/:noteId", async (c) => {
     image_urls: string[] | null;
     likes_count: number;
     saves_count: number;
+    shares_count: number;
     report_count: number;
     is_flagged: boolean;
     moderation_status: string;
@@ -1725,7 +1818,9 @@ functionsRouter.get("/notes-feed/:noteId", async (c) => {
     `
     SELECT
       p.id::text, p.user_id::text, p.title, p.content, p.category, p.tags, p.image_urls,
-      p.likes_count, p.saves_count, p.report_count, p.is_flagged, p.moderation_status,
+      p.likes_count, p.saves_count,
+      (SELECT COUNT(*) FROM notes_feed_shares sh WHERE sh.note_id = p.id) AS shares_count,
+      p.report_count, p.is_flagged, p.moderation_status,
       p.created_at::text, p.updated_at::text,
       COALESCE(pr.name, 'Aspirant') AS author_name,
       CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM notes_feed_likes l WHERE l.note_id = p.id AND l.user_id = $2::uuid) THEN 1 ELSE 0 END AS liked_by_viewer,
@@ -1752,6 +1847,7 @@ functionsRouter.get("/notes-feed/:noteId", async (c) => {
       imageUrls: Array.isArray(note.image_urls) ? note.image_urls : [],
       likesCount: Number(note.likes_count || 0),
       savesCount: Number(note.saves_count || 0),
+      sharesCount: Number(note.shares_count || 0),
       reportCount: Number(note.report_count || 0),
       isFlagged: Boolean(note.is_flagged),
       moderationStatus: note.moderation_status,
@@ -1873,6 +1969,43 @@ functionsRouter.post("/notes-feed/:noteId/save", async (c) => {
 
   const latest = await queryNeon<{ saves_count: number }>(`SELECT saves_count FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`, [noteId]);
   return c.json({ ok: true, saved, savesCount: Number(latest[0]?.saves_count || 0) });
+});
+
+functionsRouter.post("/notes-feed/:noteId/share", async (c) => {
+  await ensureNotesFeedShareSchema();
+  const user = await getSessionUser(c);
+  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
+  const noteId = String(c.req.param("noteId") || "").trim();
+  if (!noteId) return c.json({ message: "noteId is required" }, 400);
+  const body = await c.req.json().catch(() => ({}));
+  const platform = normalizeSharePlatform(body?.platform);
+
+  const noteRows = await queryNeon<{ id: string }>(`SELECT id::text FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`, [noteId]);
+  if (!noteRows[0]) return c.json({ message: "Note not found" }, 404);
+
+  await queryNeon(
+    `INSERT INTO notes_feed_shares (id, note_id, user_id, platform) VALUES ($1::uuid, $2::uuid, $3::uuid, $4)`,
+    [randomUUID(), noteId, user.id, platform],
+  );
+
+  const totalRows = await queryNeon<{ count: number }>(
+    `SELECT COUNT(*)::int AS count FROM notes_feed_shares WHERE note_id = $1::uuid`,
+    [noteId],
+  );
+  const platformRows = await queryNeon<{ platform: string; count: number }>(
+    `SELECT platform, COUNT(*)::int AS count FROM notes_feed_shares WHERE note_id = $1::uuid GROUP BY platform`,
+    [noteId],
+  );
+
+  return c.json({
+    ok: true,
+    sharesCount: Number(totalRows[0]?.count || 0),
+    platform,
+    platformCounts: platformRows.reduce<Record<string, number>>((acc, row) => {
+      acc[String(row.platform || "other")] = Number(row.count || 0);
+      return acc;
+    }, {}),
+  });
 });
 
 functionsRouter.get("/notes-feed/saved/list", async (c) => {

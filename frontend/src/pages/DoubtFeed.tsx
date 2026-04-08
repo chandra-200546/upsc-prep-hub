@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { SocialShareSheet, type SharePlatform } from "@/components/feed/SocialShareSheet";
 import {
   Bookmark,
   BookmarkCheck,
@@ -59,6 +61,7 @@ type FeedPost = {
   likesCount: number;
   savesCount: number;
   viewsCount: number;
+  sharesCount: number;
   likedByViewer: boolean;
   savedByViewer: boolean;
   status: string;
@@ -116,6 +119,7 @@ const toTags = (text: string) =>
     .slice(0, 8);
 
 const DoubtFeed = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [currentUserId, setCurrentUserId] = useState("");
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(false);
@@ -272,6 +276,7 @@ const DoubtFeed = () => {
                 answerCount: detail.post.answerCount,
                 likesCount: detail.post.likesCount,
                 savesCount: detail.post.savesCount,
+                sharesCount: detail.post.sharesCount,
                 likedByViewer: detail.post.likedByViewer,
                 savedByViewer: detail.post.savedByViewer,
               }
@@ -498,50 +503,72 @@ const DoubtFeed = () => {
     setShareOpen(true);
   };
 
-  const sharePost = async (post: FeedPost) => {
-    const url = postShareUrl(post.id);
-    const text = `${post.title} | UPSC Doubt Feed`;
-    const nav = navigator as Navigator & { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> };
-    if (nav.share) {
-      try {
-        await nav.share({ title: "UPSC Doubt Feed", text, url });
-        return;
-      } catch {
-        // If user cancels native share, do nothing.
-      }
-    }
+  const sharePost = (post: FeedPost) => {
     openShareDialog(post);
   };
 
-  const openExternalShare = async (platform: "whatsapp" | "telegram" | "x" | "facebook" | "linkedin" | "reddit" | "instagram") => {
+  const trackShare = async (platform: SharePlatform) => {
     if (!shareTarget) return;
-    const url = postShareUrl(shareTarget.id);
-    const text = `${shareTarget.title} | UPSC Doubt Feed`;
-    const encodedUrl = encodeURIComponent(url);
-    const encodedText = encodeURIComponent(text);
-    const combinedText = encodeURIComponent(`${text}\n${url}`);
-
-    if (platform === "instagram") {
-      try {
-        await navigator.clipboard.writeText(url);
-        toast({ title: "Link copied", description: "Paste it in Instagram story/message." });
-      } catch {
-        toast({ title: "Copy failed", variant: "destructive" });
-      }
-      window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
-      return;
+    try {
+      const headers = { "Content-Type": "application/json", ...(await authHeaders()) };
+      const res = await fetch(`${backendBase()}/functions/v1/doubts/${shareTarget.id}/share`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ platform }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.message || "Share analytics failed");
+      const sharesCount = Number(payload?.sharesCount ?? 0);
+      setPosts((prev) => prev.map((p) => (p.id === shareTarget.id ? { ...p, sharesCount } : p)));
+      setDetails((prev) => {
+        const detail = prev[shareTarget.id];
+        if (!detail) return prev;
+        return {
+          ...prev,
+          [shareTarget.id]: {
+            ...detail,
+            post: { ...detail.post, sharesCount },
+          },
+        };
+      });
+      setShareTarget((prev) => (prev ? { ...prev, sharesCount } : prev));
+    } catch {
+      // sharing can continue even if analytics tracking fails
     }
-
-    const links: Record<Exclude<typeof platform, "instagram">, string> = {
-      whatsapp: `https://wa.me/?text=${combinedText}`,
-      telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`,
-      x: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`,
-      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
-      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
-      reddit: `https://www.reddit.com/submit?url=${encodedUrl}&title=${encodedText}`,
-    };
-    window.open(links[platform], "_blank", "noopener,noreferrer");
   };
+
+  useEffect(() => {
+    const deepPostId = String(searchParams.get("postId") || "").trim();
+    if (!deepPostId) return;
+    const openDeepLinkedPost = async () => {
+      let post = posts.find((p) => p.id === deepPostId);
+      if (!post) {
+        try {
+          const headers = await authHeaders();
+          const res = await fetch(`${backendBase()}/functions/v1/doubts/${deepPostId}`, { headers });
+          const payload = await res.json().catch(() => ({}));
+          if (res.ok && payload?.post) {
+            post = payload.post as FeedPost;
+            setPosts((prev) => [post as FeedPost, ...prev.filter((p) => p.id !== deepPostId)]);
+            setDetails((prev) => ({ ...prev, [deepPostId]: { post: payload.post, answers: payload.answers || [] } }));
+          }
+        } catch {
+          // ignore deep-link fetch failures
+        }
+      }
+      if (!post) return;
+      if (!expanded[deepPostId]) await toggleComments(deepPostId);
+      setTimeout(() => {
+        const el = document.getElementById(`doubt-post-${deepPostId}`);
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 120);
+      const next = new URLSearchParams(searchParams);
+      next.delete("postId");
+      setSearchParams(next, { replace: true });
+    };
+    void openDeepLinkedPost();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts]);
 
   const filteredPosts = useMemo(() => posts, [posts]);
 
@@ -682,7 +709,7 @@ const DoubtFeed = () => {
             const loadingThis = Boolean(loadingDetail[post.id]);
 
             return (
-              <Card key={post.id} className="p-3 md:p-4 rounded-2xl border-orange-200/70 dark:border-orange-900/40">
+              <Card id={`doubt-post-${post.id}`} key={post.id} className="p-3 md:p-4 rounded-2xl border-orange-200/70 dark:border-orange-900/40">
                 <div className="flex items-start gap-3">
                   <Avatar className="h-10 w-10 shrink-0">
                     <AvatarFallback>{initials(post.author.name)}</AvatarFallback>
@@ -751,6 +778,7 @@ const DoubtFeed = () => {
                         onClick={() => sharePost(post)}
                       >
                         <Share2 className="h-4 w-4" />
+                        {post.sharesCount}
                       </Button>
 
                       <Button variant="ghost" size="sm" className="gap-1.5 ml-auto" onClick={() => reportPost(post.id)}>
@@ -821,40 +849,14 @@ const DoubtFeed = () => {
         </div>
       </div>
 
-      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Share Post</DialogTitle>
-            <DialogDescription>
-              Share this doubt on social platforms.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" onClick={() => openExternalShare("whatsapp")}>WhatsApp</Button>
-            <Button variant="outline" onClick={() => openExternalShare("telegram")}>Telegram</Button>
-            <Button variant="outline" onClick={() => openExternalShare("x")}>X</Button>
-            <Button variant="outline" onClick={() => openExternalShare("facebook")}>Facebook</Button>
-            <Button variant="outline" onClick={() => openExternalShare("linkedin")}>LinkedIn</Button>
-            <Button variant="outline" onClick={() => openExternalShare("reddit")}>Reddit</Button>
-            <Button variant="outline" onClick={() => openExternalShare("instagram")}>Instagram</Button>
-            <Button
-              variant="outline"
-              onClick={async () => {
-                if (!shareTarget) return;
-                try {
-                  await navigator.clipboard.writeText(postShareUrl(shareTarget.id));
-                  toast({ title: "Link copied" });
-                } catch {
-                  toast({ title: "Copy failed", variant: "destructive" });
-                }
-              }}
-            >
-              Copy Link
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <SocialShareSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        title={shareTarget?.title || "UPSC Doubt"}
+        url={shareTarget ? postShareUrl(shareTarget.id) : window.location.href}
+        shareCount={shareTarget?.sharesCount || 0}
+        onTrackShare={trackShare}
+      />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-2xl">

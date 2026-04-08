@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { SocialShareSheet, type SharePlatform } from "@/components/feed/SocialShareSheet";
 import {
   Bookmark,
   BookmarkCheck,
@@ -54,6 +56,7 @@ type NotesPost = {
   imageUrls: string[];
   likesCount: number;
   savesCount: number;
+  sharesCount: number;
   reportCount?: number;
   isFlagged?: boolean;
   moderationStatus?: string;
@@ -96,6 +99,7 @@ const toTags = (text: string) =>
     .slice(0, 8);
 
 const NotesFeed = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [currentUserId, setCurrentUserId] = useState("");
   const [items, setItems] = useState<NotesPost[]>([]);
   const [loading, setLoading] = useState(false);
@@ -229,6 +233,7 @@ const NotesFeed = () => {
                 ...p,
                 likesCount: item.likesCount,
                 savesCount: item.savesCount,
+                sharesCount: item.sharesCount,
                 likedByViewer: item.likedByViewer,
                 savedByViewer: item.savedByViewer,
               }
@@ -358,50 +363,69 @@ const NotesFeed = () => {
     setShareOpen(true);
   };
 
-  const shareNote = async (item: NotesPost) => {
-    const url = noteShareUrl(item.id);
-    const text = `${item.title} | UPSC Notes Feed`;
-    const nav = navigator as Navigator & { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> };
-    if (nav.share) {
-      try {
-        await nav.share({ title: "UPSC Notes Feed", text, url });
-        return;
-      } catch {
-        // Ignore cancelled share.
-      }
-    }
+  const shareNote = (item: NotesPost) => {
     openShareDialog(item);
   };
 
-  const openExternalShare = async (platform: "whatsapp" | "telegram" | "x" | "facebook" | "linkedin" | "reddit" | "instagram") => {
+  const trackShare = async (platform: SharePlatform) => {
     if (!shareTarget) return;
-    const url = noteShareUrl(shareTarget.id);
-    const text = `${shareTarget.title} | UPSC Notes Feed`;
-    const encodedUrl = encodeURIComponent(url);
-    const encodedText = encodeURIComponent(text);
-    const combinedText = encodeURIComponent(`${text}\n${url}`);
-
-    if (platform === "instagram") {
-      try {
-        await navigator.clipboard.writeText(url);
-        toast({ title: "Link copied", description: "Paste it in Instagram story/message." });
-      } catch {
-        toast({ title: "Copy failed", variant: "destructive" });
-      }
-      window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
-      return;
+    try {
+      const headers = { "Content-Type": "application/json", ...(await authHeaders()) };
+      const res = await fetch(`${backendBase()}/functions/v1/notes-feed/${shareTarget.id}/share`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ platform }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.message || "Share analytics failed");
+      const sharesCount = Number(payload?.sharesCount ?? 0);
+      setItems((prev) => prev.map((item) => (item.id === shareTarget.id ? { ...item, sharesCount } : item)));
+      setDetailCache((prev) => {
+        const detail = prev[shareTarget.id];
+        if (!detail) return prev;
+        return {
+          ...prev,
+          [shareTarget.id]: { ...detail, sharesCount },
+        };
+      });
+      setShareTarget((prev) => (prev ? { ...prev, sharesCount } : prev));
+    } catch {
+      // do not block sharing if analytics tracking fails
     }
-
-    const links: Record<Exclude<typeof platform, "instagram">, string> = {
-      whatsapp: `https://wa.me/?text=${combinedText}`,
-      telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`,
-      x: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`,
-      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
-      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
-      reddit: `https://www.reddit.com/submit?url=${encodedUrl}&title=${encodedText}`,
-    };
-    window.open(links[platform], "_blank", "noopener,noreferrer");
   };
+
+  useEffect(() => {
+    const deepNoteId = String(searchParams.get("noteId") || "").trim();
+    if (!deepNoteId) return;
+    const openDeepLinkedNote = async () => {
+      let note = items.find((i) => i.id === deepNoteId);
+      if (!note) {
+        try {
+          const headers = await authHeaders();
+          const res = await fetch(`${backendBase()}/functions/v1/notes-feed/${deepNoteId}`, { headers });
+          const payload = await res.json().catch(() => ({}));
+          if (res.ok && payload?.item) {
+            note = payload.item as NotesPost;
+            setItems((prev) => [note as NotesPost, ...prev.filter((i) => i.id !== deepNoteId)]);
+            setDetailCache((prev) => ({ ...prev, [deepNoteId]: payload.item as NotesPost }));
+          }
+        } catch {
+          // ignore deep-link fetch failures
+        }
+      }
+      if (!note) return;
+      if (!openCard[deepNoteId]) await toggleOpenCard(deepNoteId);
+      setTimeout(() => {
+        const el = document.getElementById(`note-post-${deepNoteId}`);
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 120);
+      const next = new URLSearchParams(searchParams);
+      next.delete("noteId");
+      setSearchParams(next, { replace: true });
+    };
+    void openDeepLinkedNote();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
 
   const visibleItems = useMemo(() => items, [items]);
 
@@ -527,7 +551,7 @@ const NotesFeed = () => {
             const fullImages = detail?.imageUrls || item.imageUrls || [];
 
             return (
-              <Card key={item.id} className="p-3 md:p-4 rounded-2xl border-orange-200/70 dark:border-orange-900/40">
+              <Card id={`note-post-${item.id}`} key={item.id} className="p-3 md:p-4 rounded-2xl border-orange-200/70 dark:border-orange-900/40">
                 <div className="flex items-start gap-3">
                   <Avatar className="h-10 w-10 shrink-0">
                     <AvatarFallback>{initials(item.author.name)}</AvatarFallback>
@@ -590,6 +614,7 @@ const NotesFeed = () => {
 
                       <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => shareNote(item)}>
                         <Share2 className="h-4 w-4" />
+                        {item.sharesCount}
                       </Button>
 
                       <Button variant="ghost" size="sm" className="gap-1.5 ml-auto" onClick={() => reportNote(item.id)}>
@@ -613,38 +638,14 @@ const NotesFeed = () => {
         </div>
       </div>
 
-      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Share Note</DialogTitle>
-            <DialogDescription>Share this note on social platforms.</DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" onClick={() => openExternalShare("whatsapp")}>WhatsApp</Button>
-            <Button variant="outline" onClick={() => openExternalShare("telegram")}>Telegram</Button>
-            <Button variant="outline" onClick={() => openExternalShare("x")}>X</Button>
-            <Button variant="outline" onClick={() => openExternalShare("facebook")}>Facebook</Button>
-            <Button variant="outline" onClick={() => openExternalShare("linkedin")}>LinkedIn</Button>
-            <Button variant="outline" onClick={() => openExternalShare("reddit")}>Reddit</Button>
-            <Button variant="outline" onClick={() => openExternalShare("instagram")}>Instagram</Button>
-            <Button
-              variant="outline"
-              onClick={async () => {
-                if (!shareTarget) return;
-                try {
-                  await navigator.clipboard.writeText(noteShareUrl(shareTarget.id));
-                  toast({ title: "Link copied" });
-                } catch {
-                  toast({ title: "Copy failed", variant: "destructive" });
-                }
-              }}
-            >
-              Copy Link
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <SocialShareSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        title={shareTarget?.title || "UPSC Note"}
+        url={shareTarget ? noteShareUrl(shareTarget.id) : window.location.href}
+        shareCount={shareTarget?.sharesCount || 0}
+        onTrackShare={trackShare}
+      />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-2xl">
