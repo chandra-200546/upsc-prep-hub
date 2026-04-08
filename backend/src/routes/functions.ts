@@ -920,7 +920,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
   if (!postId) return c.json({ message: "postId is required" }, 400);
   const user = await getSessionUser(c);
 
-  const posts = await queryNeon<{
+  let posts: Array<{
     id: string;
     user_id: string;
     title: string;
@@ -942,30 +942,81 @@ functionsRouter.get("/doubts/:postId", async (c) => {
     created_at: string;
     updated_at: string;
     author_name: string | null;
-  }>(
-    `
-    SELECT
-      p.id::text, p.user_id::text, p.title, p.description, p.category, p.tags, p.image_url,
-      p.answer_count,
-      (SELECT COUNT(*) FROM doubt_post_likes l WHERE l.post_id = p.id) AS likes_count,
-      (SELECT COUNT(*) FROM doubt_post_saves s WHERE s.post_id = p.id) AS saves_count,
-      (SELECT COUNT(*) FROM doubt_post_views v WHERE v.post_id = p.id) AS views_count,
-      p.status, p.best_answer_id::text, p.is_flagged, p.moderation_status, p.report_count,
-      CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_likes l WHERE l.post_id = p.id AND l.user_id = $2::uuid) THEN 1 ELSE 0 END AS liked_by_viewer,
-      CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_saves s WHERE s.post_id = p.id AND s.user_id = $2::uuid) THEN 1 ELSE 0 END AS saved_by_viewer,
-      p.created_at::text, p.updated_at::text,
-      COALESCE(pr.name, 'Aspirant') AS author_name
-    FROM doubt_posts p
-    LEFT JOIN profiles pr ON pr.id = p.user_id
-    WHERE p.id = $1::uuid
-    LIMIT 1
-    `,
-    [postId, user?.id || null],
-  );
+  }> = [];
+  try {
+    posts = await queryNeon<{
+      id: string;
+      user_id: string;
+      title: string;
+      description: string;
+      category: string;
+      tags: string[] | null;
+      image_url: string | null;
+      answer_count: number;
+      likes_count: number;
+      saves_count: number;
+      views_count: number;
+      status: string;
+      best_answer_id: string | null;
+      is_flagged: boolean;
+      moderation_status: string;
+      report_count: number;
+      liked_by_viewer: number;
+      saved_by_viewer: number;
+      created_at: string;
+      updated_at: string;
+      author_name: string | null;
+    }>(
+      `
+      SELECT
+        p.id::text, p.user_id::text, p.title, p.description, p.category, p.tags, p.image_url,
+        p.answer_count,
+        (SELECT COUNT(*) FROM doubt_post_likes l WHERE l.post_id = p.id) AS likes_count,
+        (SELECT COUNT(*) FROM doubt_post_saves s WHERE s.post_id = p.id) AS saves_count,
+        (SELECT COUNT(*) FROM doubt_post_views v WHERE v.post_id = p.id) AS views_count,
+        p.status, p.best_answer_id::text, p.is_flagged, p.moderation_status, p.report_count,
+        CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_likes l WHERE l.post_id = p.id AND l.user_id = $2::uuid) THEN 1 ELSE 0 END AS liked_by_viewer,
+        CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_saves s WHERE s.post_id = p.id AND s.user_id = $2::uuid) THEN 1 ELSE 0 END AS saved_by_viewer,
+        p.created_at::text, p.updated_at::text,
+        COALESCE(pr.name, 'Aspirant') AS author_name
+      FROM doubt_posts p
+      LEFT JOIN profiles pr ON pr.id = p.user_id
+      WHERE p.id = $1::uuid
+      LIMIT 1
+      `,
+      [postId, user?.id || null],
+    );
+  } catch {
+    // Fallback for older local schemas missing newer engagement columns.
+    posts = await queryNeon<any>(
+      `
+      SELECT
+        p.id::text, p.user_id::text, p.title, p.description, p.category, p.tags, p.image_url,
+        COALESCE(p.answer_count, 0) AS answer_count,
+        COALESCE(p.likes_count, 0) AS likes_count,
+        COALESCE(p.saves_count, 0) AS saves_count,
+        COALESCE(p.views_count, 0) AS views_count,
+        COALESCE(p.status, 'unanswered') AS status,
+        NULL AS best_answer_id,
+        COALESCE(p.is_flagged, 0) AS is_flagged,
+        COALESCE(p.moderation_status, 'clean') AS moderation_status,
+        COALESCE(p.report_count, 0) AS report_count,
+        0 AS liked_by_viewer,
+        0 AS saved_by_viewer,
+        p.created_at::text, p.updated_at::text,
+        COALESCE(pr.name, 'Aspirant') AS author_name
+      FROM doubt_posts p
+      LEFT JOIN profiles pr ON pr.id = p.user_id
+      WHERE p.id = $1::uuid
+      LIMIT 1
+      `,
+      [postId],
+    );
+  }
   const post = posts[0];
   if (!post) return c.json({ message: "Doubt post not found" }, 404);
 
-  const answers = await queryNeon<{
+  let answers: Array<{
     id: string;
     post_id: string;
     user_id: string;
@@ -980,27 +1031,67 @@ functionsRouter.get("/doubts/:postId", async (c) => {
     updated_at: string;
     author_name: string | null;
     viewer_voted: number;
-  }>(
-    `
-    SELECT
-      a.id::text, a.post_id::text, a.user_id::text, a.content, a.helpful_count, a.is_ai_generated, a.is_best_answer,
-      a.is_flagged, a.moderation_status, a.report_count, a.created_at::text, a.updated_at::text,
-      COALESCE(pr.name, 'Aspirant') AS author_name,
-      CASE
-        WHEN $2::uuid IS NULL THEN 0
-        WHEN EXISTS (
-          SELECT 1 FROM doubt_answer_votes v
-          WHERE v.answer_id = a.id AND v.user_id = $2::uuid
-        ) THEN 1
-        ELSE 0
-      END AS viewer_voted
-    FROM doubt_answers a
-    LEFT JOIN profiles pr ON pr.id = a.user_id
-    WHERE a.post_id = $1::uuid
-    ORDER BY a.is_ai_generated DESC, a.is_best_answer DESC, a.helpful_count DESC, a.created_at ASC
-    `,
-    [postId, user?.id || null],
-  );
+  }> = [];
+  try {
+    answers = await queryNeon<{
+      id: string;
+      post_id: string;
+      user_id: string;
+      content: string;
+      helpful_count: number;
+      is_ai_generated: boolean;
+      is_best_answer: boolean;
+      is_flagged: boolean;
+      moderation_status: string;
+      report_count: number;
+      created_at: string;
+      updated_at: string;
+      author_name: string | null;
+      viewer_voted: number;
+    }>(
+      `
+      SELECT
+        a.id::text, a.post_id::text, a.user_id::text, a.content, a.helpful_count, a.is_ai_generated, a.is_best_answer,
+        a.is_flagged, a.moderation_status, a.report_count, a.created_at::text, a.updated_at::text,
+        COALESCE(pr.name, 'Aspirant') AS author_name,
+        CASE
+          WHEN $2::uuid IS NULL THEN 0
+          WHEN EXISTS (
+            SELECT 1 FROM doubt_answer_votes v
+            WHERE v.answer_id = a.id AND v.user_id = $2::uuid
+          ) THEN 1
+          ELSE 0
+        END AS viewer_voted
+      FROM doubt_answers a
+      LEFT JOIN profiles pr ON pr.id = a.user_id
+      WHERE a.post_id = $1::uuid
+      ORDER BY a.is_ai_generated DESC, a.is_best_answer DESC, a.helpful_count DESC, a.created_at ASC
+      `,
+      [postId, user?.id || null],
+    );
+  } catch {
+    // Fallback for older local schemas missing newer answer metadata columns.
+    answers = await queryNeon<any>(
+      `
+      SELECT
+        a.id::text, a.post_id::text, a.user_id::text, a.content,
+        COALESCE(a.helpful_count, 0) AS helpful_count,
+        0 AS is_ai_generated,
+        0 AS is_best_answer,
+        0 AS is_flagged,
+        'clean' AS moderation_status,
+        0 AS report_count,
+        a.created_at::text, a.updated_at::text,
+        COALESCE(pr.name, 'Aspirant') AS author_name,
+        0 AS viewer_voted
+      FROM doubt_answers a
+      LEFT JOIN profiles pr ON pr.id = a.user_id
+      WHERE a.post_id = $1::uuid
+      ORDER BY a.created_at ASC
+      `,
+      [postId],
+    );
+  }
 
   return c.json({
     post: {
