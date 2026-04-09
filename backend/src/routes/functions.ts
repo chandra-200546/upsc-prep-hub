@@ -688,6 +688,124 @@ functionsRouter.post("/weekly-tests/admin/publish", async (c) => {
   return c.json({ ok: true });
 });
 
+functionsRouter.get("/admin/users/profiles", async (c) => {
+  const admin = await requireWeeklyAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+
+  const search = String(c.req.query("search") || "").trim();
+  const page = Math.max(1, Number(c.req.query("page") || 1));
+  const limit = Math.max(1, Math.min(200, Number(c.req.query("limit") || 50)));
+  const offset = (page - 1) * limit;
+  const sortRaw = String(c.req.query("sort") || "newest").trim().toLowerCase();
+  const sort: "newest" | "oldest" | "xp_desc" =
+    sortRaw === "oldest" || sortRaw === "xp_desc" ? (sortRaw as "oldest" | "xp_desc") : "newest";
+
+  const where: string[] = [];
+  const params: unknown[] = [];
+  let idx = 1;
+  if (search) {
+    where.push(`(ua.email ILIKE $${idx} OR ua.name ILIKE $${idx} OR COALESCE(p.name, '') ILIKE $${idx})`);
+    params.push(`%${search}%`);
+    idx += 1;
+  }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const orderSql =
+    sort === "oldest"
+      ? "ORDER BY ua.created_at ASC"
+      : sort === "xp_desc"
+        ? "ORDER BY COALESCE(p.total_xp, 0) DESC, ua.created_at DESC"
+        : "ORDER BY ua.created_at DESC";
+
+  const rows = await queryNeon<{
+    user_id: string;
+    email: string;
+    account_name: string;
+    account_created_at: string;
+    profile_name: string | null;
+    target_year: number | null;
+    optional_subject: string | null;
+    study_hours_per_day: number | null;
+    language: string | null;
+    mentor_personality: string | null;
+    current_streak: number | null;
+    total_xp: number | null;
+    level: number | null;
+    profile_photo_url: string | null;
+    last_login_date: string | null;
+    profile_created_at: string | null;
+    profile_updated_at: string | null;
+    active_sessions: number;
+  }>(
+    `
+    SELECT
+      ua.id::text AS user_id,
+      ua.email,
+      ua.name AS account_name,
+      ua.created_at::text AS account_created_at,
+      p.name AS profile_name,
+      p.target_year,
+      p.optional_subject,
+      p.study_hours_per_day,
+      p.language,
+      p.mentor_personality,
+      p.current_streak,
+      p.total_xp,
+      p.level,
+      p.profile_photo_url,
+      p.last_login_date,
+      p.created_at::text AS profile_created_at,
+      p.updated_at::text AS profile_updated_at,
+      (
+        SELECT COUNT(*)::int
+        FROM auth_sessions s
+        WHERE s.user_id = ua.id
+          AND datetime(s.expires_at) > CURRENT_TIMESTAMP
+      ) AS active_sessions
+    FROM user_accounts ua
+    LEFT JOIN profiles p ON p.id = ua.id
+    ${whereSql}
+    ${orderSql}
+    LIMIT $${idx} OFFSET $${idx + 1}
+    `,
+    [...params, limit, offset],
+  );
+
+  const countRows = await queryNeon<{ total: number }>(
+    `SELECT COUNT(*)::int AS total FROM user_accounts ua LEFT JOIN profiles p ON p.id = ua.id ${whereSql}`,
+    params,
+  );
+  const total = Number(countRows[0]?.total || 0);
+
+  return c.json({
+    page,
+    limit,
+    total,
+    hasMore: page * limit < total,
+    users: rows.map((r) => ({
+      id: r.user_id,
+      email: r.email,
+      accountName: r.account_name,
+      accountCreatedAt: r.account_created_at,
+      profile: {
+        name: r.profile_name || r.account_name,
+        targetYear: r.target_year,
+        optionalSubject: r.optional_subject,
+        studyHoursPerDay: r.study_hours_per_day,
+        language: r.language || "English",
+        mentorPersonality: r.mentor_personality || "friendly",
+        currentStreak: Number(r.current_streak || 0),
+        totalXp: Number(r.total_xp || 0),
+        level: Number(r.level || 1),
+        profilePhotoUrl: r.profile_photo_url,
+        lastLoginDate: r.last_login_date,
+        createdAt: r.profile_created_at,
+        updatedAt: r.profile_updated_at,
+      },
+      activeSessions: Number(r.active_sessions || 0),
+    })),
+  });
+});
+
 functionsRouter.get("/weekly-tests/:testId", async (c) => {
   const testId = String(c.req.param("testId") || "").trim();
   if (!testId) return c.json({ message: "testId is required" }, 400);
