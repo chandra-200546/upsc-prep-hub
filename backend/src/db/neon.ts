@@ -132,6 +132,8 @@ export const ensureNeonSchema = async () => {
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       name TEXT NOT NULL,
+      is_admin INTEGER NOT NULL DEFAULT 0,
+      is_verified INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -596,6 +598,20 @@ export const ensureNeonSchema = async () => {
   try { sqlite.exec(`ALTER TABLE doubt_notifications ADD COLUMN related_note_id TEXT;`); } catch {}
   try { sqlite.exec(`ALTER TABLE notes_feed_posts ADD COLUMN views_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
   try { sqlite.exec(`ALTER TABLE doubt_answers ADD COLUMN is_ai_generated INTEGER NOT NULL DEFAULT 0;`); } catch {}
+  try { sqlite.exec(`ALTER TABLE user_accounts ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;`); } catch {}
+  try { sqlite.exec(`ALTER TABLE user_accounts ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0;`); } catch {}
+
+  if (config.weeklyTestAdminEmail) {
+    sqlite
+      .prepare(
+        `
+        UPDATE user_accounts
+        SET is_admin = 1, is_verified = 1
+        WHERE LOWER(email) = LOWER(?)
+        `,
+      )
+      .run(config.weeklyTestAdminEmail);
+  }
 
   return true;
 };

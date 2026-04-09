@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { SocialShareSheet, type SharePlatform } from "@/components/feed/SocialShareSheet";
+import { VerifiedBadge } from "@/components/feed/VerifiedBadge";
 import {
   Bookmark,
   BookmarkCheck,
@@ -68,7 +69,7 @@ type FeedPost = {
   status: string;
   createdAt: string;
   updatedAt: string;
-  author: { id: string; name: string };
+  author: { id: string; name: string; isVerified?: boolean };
 };
 
 type FeedAnswer = {
@@ -81,7 +82,7 @@ type FeedAnswer = {
   isBestAnswer: boolean;
   hasVoted: boolean;
   createdAt: string;
-  author: { id: string; name: string };
+  author: { id: string; name: string; isVerified?: boolean };
 };
 
 type PostDetail = {
@@ -886,7 +887,10 @@ const DoubtFeed = () => {
 
                   <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex flex-wrap items-center gap-2 text-sm">
-                      <span className="font-semibold">{post.author.name}</span>
+                      <span className="inline-flex items-center gap-1 font-semibold">
+                        {post.author.name}
+                        {post.author.isVerified ? <VerifiedBadge /> : null}
+                      </span>
                       <span className="text-muted-foreground">{when(post.createdAt)}</span>
                       <Badge variant="secondary">{post.category}</Badge>
                       <Badge variant="outline" className="capitalize">{post.status}</Badge>
@@ -984,7 +988,10 @@ const DoubtFeed = () => {
                         {!loadingThis && answers.map((ans) => (
                           <div key={ans.id} className={`rounded-lg border p-3 ${ans.isBestAnswer ? "border-green-500/40 bg-green-500/5" : ""}`}>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5">
-                              <span className="font-semibold text-foreground">{ans.author.name}</span>
+                              <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+                                {ans.author.name}
+                                {ans.author.isVerified ? <VerifiedBadge /> : null}
+                              </span>
                               {ans.isAiGenerated && <Badge variant="secondary">AI Answer</Badge>}
                               {ans.isBestAnswer && <Badge className="bg-green-600">Best Answer</Badge>}
                               <span>{when(ans.createdAt)}</span>

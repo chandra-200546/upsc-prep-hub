@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { SocialShareSheet, type SharePlatform } from "@/components/feed/SocialShareSheet";
+import { VerifiedBadge } from "@/components/feed/VerifiedBadge";
 import {
   Bookmark,
   BookmarkCheck,
@@ -65,7 +66,7 @@ type NotesPost = {
   createdAt: string;
   updatedAt: string;
   trendingScore?: number;
-  author: { id: string; name: string };
+  author: { id: string; name: string; isVerified?: boolean };
   likedByViewer?: boolean;
   savedByViewer?: boolean;
 };
@@ -724,7 +725,10 @@ const NotesFeed = () => {
 
                   <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex flex-wrap items-center gap-2 text-sm">
-                      <span className="font-semibold">{item.author.name}</span>
+                      <span className="inline-flex items-center gap-1 font-semibold">
+                        {item.author.name}
+                        {item.author.isVerified ? <VerifiedBadge /> : null}
+                      </span>
                       <span className="text-muted-foreground">{when(item.createdAt)}</span>
                       <Badge variant="secondary">{item.category}</Badge>
                       {sort === "trending" && typeof item.trendingScore === "number" && (

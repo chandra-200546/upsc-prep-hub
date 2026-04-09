@@ -1,5 +1,6 @@
 import { randomUUID, createHash } from "node:crypto";
 import { queryNeon } from "./neon.js";
+import { config } from "../config.js";
 
 const TABLES = new Set([
   "profiles",
@@ -39,16 +40,33 @@ const validateSignUpInput = (name: string, email: string, password: string) => {
   }
 };
 
+const isConfiguredAdminEmail = (email: string) => {
+  const target = String(config.weeklyTestAdminEmail || "").trim().toLowerCase();
+  if (!target) return false;
+  return String(email || "").trim().toLowerCase() === target;
+};
+
+const syncConfiguredAdminFlags = async (userId: string, email: string) => {
+  if (!userId || !email) return;
+  if (!isConfiguredAdminEmail(email)) return;
+  await queryNeon(
+    `UPDATE user_accounts SET is_admin = 1, is_verified = 1 WHERE id = $1`,
+    [userId],
+  );
+};
+
 export const signUpUser = async (email: string, password: string, name: string) => {
   validateSignUpInput(name, email, password);
+  const normalizedEmail = email.trim().toLowerCase();
   const userId = randomUUID();
   const passHash = hashPassword(password);
-  const existing = await queryNeon<{ id: string }>("SELECT id FROM user_accounts WHERE email = $1 LIMIT 1", [email]);
+  const existing = await queryNeon<{ id: string }>("SELECT id FROM user_accounts WHERE email = $1 LIMIT 1", [normalizedEmail]);
   if (existing[0]) throw new Error("User already exists");
+  const isAdmin = isConfiguredAdminEmail(normalizedEmail);
 
   await queryNeon(
-    "INSERT INTO user_accounts (id, email, password_hash, name) VALUES ($1, $2, $3, $4)",
-    [userId, email, passHash, name],
+    "INSERT INTO user_accounts (id, email, password_hash, name, is_admin, is_verified) VALUES ($1, $2, $3, $4, $5, $6)",
+    [userId, normalizedEmail, passHash, name, isAdmin ? 1 : 0, isAdmin ? 1 : 0],
   );
   await queryNeon(
     `
@@ -61,18 +79,20 @@ export const signUpUser = async (email: string, password: string, name: string) 
     `,
     [userId, name || "Aspirant"],
   );
-  return createSession(userId, email);
+  return createSession(userId, normalizedEmail);
 };
 
 export const loginUser = async (email: string, password: string) => {
+  const normalizedEmail = email.trim().toLowerCase();
   const passHash = hashPassword(password);
   const result = await queryNeon<{ id: string; email: string }>(
     "SELECT id, email FROM user_accounts WHERE email = $1 AND password_hash = $2 LIMIT 1",
-    [email, passHash],
+    [normalizedEmail, passHash],
   );
   const user = result[0];
   if (!user) throw new Error("Invalid email or password");
 
+  await syncConfiguredAdminFlags(user.id, user.email);
   await queryNeon("UPDATE profiles SET last_login_date = date('now'), updated_at = CURRENT_TIMESTAMP WHERE id = $1", [user.id]);
   return createSession(user.id, user.email);
 };
@@ -92,9 +112,10 @@ export const loginOrCreateGoogleUser = async (email: string, name: string) => {
   if (!userId) {
     userId = randomUUID();
     const randomPass = hashPassword(`google-oauth-${randomUUID()}`);
+    const isAdmin = isConfiguredAdminEmail(normalizedEmail);
     await queryNeon(
-      "INSERT INTO user_accounts (id, email, password_hash, name) VALUES ($1, $2, $3, $4)",
-      [userId, normalizedEmail, randomPass, userName],
+      "INSERT INTO user_accounts (id, email, password_hash, name, is_admin, is_verified) VALUES ($1, $2, $3, $4, $5, $6)",
+      [userId, normalizedEmail, randomPass, userName, isAdmin ? 1 : 0, isAdmin ? 1 : 0],
     );
     await queryNeon(
       `
@@ -112,6 +133,7 @@ export const loginOrCreateGoogleUser = async (email: string, name: string) => {
     await queryNeon("UPDATE profiles SET name = $1, last_login_date = date('now'), updated_at = CURRENT_TIMESTAMP WHERE id = $2", [userName, userId]);
   }
 
+  await syncConfiguredAdminFlags(userId, normalizedEmail);
   return createSession(userId, normalizedEmail);
 };
 
