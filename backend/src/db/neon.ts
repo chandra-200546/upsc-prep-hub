@@ -358,7 +358,9 @@ export const ensureNeonSchema = async () => {
       user_id TEXT NOT NULL,
       type TEXT NOT NULL,
       message TEXT NOT NULL,
+      target_kind TEXT NOT NULL DEFAULT 'doubt',
       related_post_id TEXT,
+      related_note_id TEXT,
       related_answer_id TEXT,
       is_read INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -573,6 +575,8 @@ export const ensureNeonSchema = async () => {
   try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN likes_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
   try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN views_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
   try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN saves_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
+  try { sqlite.exec(`ALTER TABLE doubt_notifications ADD COLUMN target_kind TEXT NOT NULL DEFAULT 'doubt';`); } catch {}
+  try { sqlite.exec(`ALTER TABLE doubt_notifications ADD COLUMN related_note_id TEXT;`); } catch {}
   try { sqlite.exec(`ALTER TABLE notes_feed_posts ADD COLUMN views_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
   try { sqlite.exec(`ALTER TABLE doubt_answers ADD COLUMN is_ai_generated INTEGER NOT NULL DEFAULT 0;`); } catch {}
 

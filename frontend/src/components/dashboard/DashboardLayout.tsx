@@ -21,7 +21,9 @@ type DoubtNotification = {
   id: string;
   type: string;
   message: string;
+  targetKind?: "doubt" | "notes";
   relatedPostId?: string | null;
+  relatedNoteId?: string | null;
   isRead: boolean;
   createdAt: string;
 };
@@ -58,17 +60,38 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   };
 
-  const markNotificationRead = async (id: string, relatedPostId?: string | null) => {
+  const markAllNotificationsRead = async () => {
     try {
       const { data } = await supabase.auth.getSession();
       const token = data?.session?.access_token;
       if (!token) return;
-      await fetch(`${backendBase()}/functions/v1/notifications/${id}/read`, {
+      await fetch(`${backendBase()}/functions/v1/notifications/read-all`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
       await loadNotifications();
-      if (relatedPostId) navigate(`/doubt-feed?postId=${encodeURIComponent(relatedPostId)}`);
+    } catch {
+      // ignore notification update error
+    }
+  };
+
+  const markNotificationRead = async (item: DoubtNotification) => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token;
+      if (!token) return;
+      await fetch(`${backendBase()}/functions/v1/notifications/${item.id}/read`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      await loadNotifications();
+      if (item.targetKind === "notes" && item.relatedNoteId) {
+        navigate(`/notes-feed?noteId=${encodeURIComponent(item.relatedNoteId)}`);
+        return;
+      }
+      if (item.relatedPostId) {
+        navigate(`/doubt-feed?postId=${encodeURIComponent(item.relatedPostId)}`);
+      }
     } catch {
       // ignore notification update error
     }
@@ -76,7 +99,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   useEffect(() => {
     loadNotifications();
-    const timer = window.setInterval(loadNotifications, 45000);
+    const timer = window.setInterval(loadNotifications, 12000);
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -95,7 +118,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative">
+                  <Button variant="ghost" size="icon" className="relative" onClick={loadNotifications}>
                     <Bell className="h-4 w-4" />
                     {unreadCount > 0 && (
                       <Badge className="absolute -right-1 -top-1 min-w-[18px] px-1 h-[18px] text-[10px] flex items-center justify-center">
@@ -105,13 +128,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-80">
-                  <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                  <DropdownMenuLabel className="flex items-center justify-between gap-2">
+                    <span>Notifications</span>
+                    {unreadCount > 0 && (
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={markAllNotificationsRead}>
+                        Mark all read
+                      </Button>
+                    )}
+                  </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {!notifications.length && (
                     <DropdownMenuItem className="text-muted-foreground">No notifications yet.</DropdownMenuItem>
                   )}
                   {notifications.map((item) => (
-                    <DropdownMenuItem key={item.id} onClick={() => markNotificationRead(item.id, item.relatedPostId)}>
+                    <DropdownMenuItem key={item.id} onClick={() => markNotificationRead(item)}>
                       <div className="space-y-0.5">
                         <p className={`text-xs ${item.isRead ? "text-muted-foreground" : "font-semibold"}`}>{item.message}</p>
                         <p className="text-[11px] text-muted-foreground">{new Date(item.createdAt).toLocaleString()}</p>

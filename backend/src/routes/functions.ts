@@ -193,17 +193,37 @@ const normalizeSharePlatform = (value: unknown) => {
 
 const createDoubtNotification = async (params: {
   userId: string;
-  type: "answer_received" | "answer_liked" | "best_answer_selected";
+  type:
+    | "answer_received"
+    | "answer_liked"
+    | "best_answer_selected"
+    | "doubt_liked"
+    | "doubt_saved"
+    | "doubt_shared"
+    | "note_liked"
+    | "note_saved"
+    | "note_shared";
   message: string;
+  targetKind?: "doubt" | "notes";
   relatedPostId?: string;
+  relatedNoteId?: string;
   relatedAnswerId?: string;
 }) => {
   await queryNeon(
     `
-    INSERT INTO doubt_notifications (id, user_id, type, message, related_post_id, related_answer_id, is_read)
-    VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $6::uuid, FALSE)
+    INSERT INTO doubt_notifications (id, user_id, type, message, target_kind, related_post_id, related_note_id, related_answer_id, is_read)
+    VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::uuid, $7::uuid, $8::uuid, FALSE)
     `,
-    [randomUUID(), params.userId, params.type, params.message, params.relatedPostId || null, params.relatedAnswerId || null],
+    [
+      randomUUID(),
+      params.userId,
+      params.type,
+      params.message,
+      params.targetKind || "doubt",
+      params.relatedPostId || null,
+      params.relatedNoteId || null,
+      params.relatedAnswerId || null,
+    ],
   );
 };
 
@@ -1214,6 +1234,12 @@ functionsRouter.post("/doubts/:postId/like", async (c) => {
   if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
   const postId = String(c.req.param("postId") || "").trim();
   if (!postId) return c.json({ message: "postId is required" }, 400);
+  const postRows = await queryNeon<{ user_id: string }>(
+    `SELECT user_id::text FROM doubt_posts WHERE id = $1::uuid LIMIT 1`,
+    [postId],
+  );
+  const post = postRows[0];
+  if (!post) return c.json({ message: "Doubt post not found" }, 404);
 
   const existing = await queryNeon<{ id: string }>(
     `SELECT id::text FROM doubt_post_likes WHERE post_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
@@ -1229,6 +1255,15 @@ functionsRouter.post("/doubts/:postId/like", async (c) => {
       [randomUUID(), postId, user.id],
     );
     liked = true;
+    if (post.user_id !== user.id) {
+      await createDoubtNotification({
+        userId: post.user_id,
+        type: "doubt_liked",
+        message: "Someone liked your doubt post.",
+        targetKind: "doubt",
+        relatedPostId: postId,
+      });
+    }
   }
   const row = await queryNeon<{ count: number }>(
     `SELECT COUNT(*)::int AS count FROM doubt_post_likes WHERE post_id = $1::uuid`,
@@ -1243,6 +1278,12 @@ functionsRouter.post("/doubts/:postId/save", async (c) => {
   if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
   const postId = String(c.req.param("postId") || "").trim();
   if (!postId) return c.json({ message: "postId is required" }, 400);
+  const postRows = await queryNeon<{ user_id: string }>(
+    `SELECT user_id::text FROM doubt_posts WHERE id = $1::uuid LIMIT 1`,
+    [postId],
+  );
+  const post = postRows[0];
+  if (!post) return c.json({ message: "Doubt post not found" }, 404);
 
   const existing = await queryNeon<{ id: string }>(
     `SELECT id::text FROM doubt_post_saves WHERE post_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
@@ -1258,6 +1299,15 @@ functionsRouter.post("/doubts/:postId/save", async (c) => {
       [randomUUID(), postId, user.id],
     );
     saved = true;
+    if (post.user_id !== user.id) {
+      await createDoubtNotification({
+        userId: post.user_id,
+        type: "doubt_saved",
+        message: "Someone saved your doubt post.",
+        targetKind: "doubt",
+        relatedPostId: postId,
+      });
+    }
   }
   const row = await queryNeon<{ count: number }>(
     `SELECT COUNT(*)::int AS count FROM doubt_post_saves WHERE post_id = $1::uuid`,
@@ -1387,6 +1437,12 @@ functionsRouter.post("/doubts/:postId/share", async (c) => {
   if (!postId) return c.json({ message: "postId is required" }, 400);
   const body = await c.req.json().catch(() => ({}));
   const platform = normalizeSharePlatform(body?.platform);
+  const postRows = await queryNeon<{ user_id: string }>(
+    `SELECT user_id::text FROM doubt_posts WHERE id = $1::uuid LIMIT 1`,
+    [postId],
+  );
+  const post = postRows[0];
+  if (!post) return c.json({ message: "Doubt post not found" }, 404);
 
   await queryNeon(
     `INSERT INTO doubt_post_shares (id, post_id, user_id, platform) VALUES ($1::uuid, $2::uuid, $3::uuid, $4)`,
@@ -1397,6 +1453,16 @@ functionsRouter.post("/doubts/:postId/share", async (c) => {
     `SELECT COUNT(*)::int AS count FROM doubt_post_shares WHERE post_id = $1::uuid`,
     [postId],
   );
+
+  if (post.user_id !== user.id) {
+    await createDoubtNotification({
+      userId: post.user_id,
+      type: "doubt_shared",
+      message: "Someone shared your doubt post.",
+      targetKind: "doubt",
+      relatedPostId: postId,
+    });
+  }
   const platformRows = await queryNeon<{ platform: string; count: number }>(
     `SELECT platform, COUNT(*)::int AS count FROM doubt_post_shares WHERE post_id = $1::uuid GROUP BY platform`,
     [postId],
@@ -1655,13 +1721,15 @@ functionsRouter.get("/notifications", async (c) => {
     id: string;
     type: string;
     message: string;
+    target_kind: string;
     related_post_id: string | null;
+    related_note_id: string | null;
     related_answer_id: string | null;
     is_read: boolean;
     created_at: string;
   }>(
     `
-    SELECT id::text, type, message, related_post_id::text, related_answer_id::text, is_read, created_at::text
+    SELECT id::text, type, message, target_kind, related_post_id::text, related_note_id::text, related_answer_id::text, is_read, created_at::text
     FROM doubt_notifications
     WHERE user_id = $1::uuid
     ORDER BY created_at DESC
@@ -1679,7 +1747,9 @@ functionsRouter.get("/notifications", async (c) => {
       id: r.id,
       type: r.type,
       message: r.message,
+      targetKind: r.target_kind || "doubt",
       relatedPostId: r.related_post_id,
+      relatedNoteId: r.related_note_id,
       relatedAnswerId: r.related_answer_id,
       isRead: Boolean(r.is_read),
       createdAt: r.created_at,
@@ -2044,8 +2114,12 @@ functionsRouter.post("/notes-feed/:noteId/like", async (c) => {
   if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
   const noteId = String(c.req.param("noteId") || "").trim();
 
-  const noteRows = await queryNeon<{ id: string }>(`SELECT id::text FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`, [noteId]);
-  if (!noteRows[0]) return c.json({ message: "Note not found" }, 404);
+  const noteRows = await queryNeon<{ id: string; user_id: string }>(
+    `SELECT id::text, user_id::text FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`,
+    [noteId],
+  );
+  const note = noteRows[0];
+  if (!note) return c.json({ message: "Note not found" }, 404);
 
   const existing = await queryNeon<{ id: string }>(
     `SELECT id::text FROM notes_feed_likes WHERE note_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
@@ -2060,6 +2134,15 @@ functionsRouter.post("/notes-feed/:noteId/like", async (c) => {
     await queryNeon(`INSERT INTO notes_feed_likes (id, note_id, user_id) VALUES ($1::uuid, $2::uuid, $3::uuid)`, [randomUUID(), noteId, user.id]);
     await queryNeon(`UPDATE notes_feed_posts SET likes_count = likes_count + 1, updated_at = NOW() WHERE id = $1::uuid`, [noteId]);
     liked = true;
+    if (note.user_id !== user.id) {
+      await createDoubtNotification({
+        userId: note.user_id,
+        type: "note_liked",
+        message: "Someone liked your notes post.",
+        targetKind: "notes",
+        relatedNoteId: noteId,
+      });
+    }
   }
 
   const latest = await queryNeon<{ likes_count: number }>(`SELECT likes_count FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`, [noteId]);
@@ -2071,8 +2154,12 @@ functionsRouter.post("/notes-feed/:noteId/save", async (c) => {
   if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
   const noteId = String(c.req.param("noteId") || "").trim();
 
-  const noteRows = await queryNeon<{ id: string }>(`SELECT id::text FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`, [noteId]);
-  if (!noteRows[0]) return c.json({ message: "Note not found" }, 404);
+  const noteRows = await queryNeon<{ id: string; user_id: string }>(
+    `SELECT id::text, user_id::text FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`,
+    [noteId],
+  );
+  const note = noteRows[0];
+  if (!note) return c.json({ message: "Note not found" }, 404);
 
   const existing = await queryNeon<{ id: string }>(
     `SELECT id::text FROM notes_feed_saves WHERE note_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
@@ -2087,6 +2174,15 @@ functionsRouter.post("/notes-feed/:noteId/save", async (c) => {
     await queryNeon(`INSERT INTO notes_feed_saves (id, note_id, user_id) VALUES ($1::uuid, $2::uuid, $3::uuid)`, [randomUUID(), noteId, user.id]);
     await queryNeon(`UPDATE notes_feed_posts SET saves_count = saves_count + 1, updated_at = NOW() WHERE id = $1::uuid`, [noteId]);
     saved = true;
+    if (note.user_id !== user.id) {
+      await createDoubtNotification({
+        userId: note.user_id,
+        type: "note_saved",
+        message: "Someone saved your notes post.",
+        targetKind: "notes",
+        relatedNoteId: noteId,
+      });
+    }
   }
 
   const latest = await queryNeon<{ saves_count: number }>(`SELECT saves_count FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`, [noteId]);
@@ -2102,8 +2198,12 @@ functionsRouter.post("/notes-feed/:noteId/share", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const platform = normalizeSharePlatform(body?.platform);
 
-  const noteRows = await queryNeon<{ id: string }>(`SELECT id::text FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`, [noteId]);
-  if (!noteRows[0]) return c.json({ message: "Note not found" }, 404);
+  const noteRows = await queryNeon<{ id: string; user_id: string }>(
+    `SELECT id::text, user_id::text FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`,
+    [noteId],
+  );
+  const note = noteRows[0];
+  if (!note) return c.json({ message: "Note not found" }, 404);
 
   await queryNeon(
     `INSERT INTO notes_feed_shares (id, note_id, user_id, platform) VALUES ($1::uuid, $2::uuid, $3::uuid, $4)`,
@@ -2118,6 +2218,16 @@ functionsRouter.post("/notes-feed/:noteId/share", async (c) => {
     `SELECT platform, COUNT(*)::int AS count FROM notes_feed_shares WHERE note_id = $1::uuid GROUP BY platform`,
     [noteId],
   );
+
+  if (note.user_id !== user.id) {
+    await createDoubtNotification({
+      userId: note.user_id,
+      type: "note_shared",
+      message: "Someone shared your notes post.",
+      targetKind: "notes",
+      relatedNoteId: noteId,
+    });
+  }
 
   return c.json({
     ok: true,
