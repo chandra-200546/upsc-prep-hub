@@ -89,6 +89,14 @@ type PostDetail = {
   answers: FeedAnswer[];
 };
 
+type TrendingTag = {
+  tag: string;
+  score: number;
+  posts: number;
+  engagement: number;
+  lastSeenAt?: string | null;
+};
+
 const backendBase = () => String(import.meta.env.VITE_BACKEND_URL || "http://localhost:8787").replace(/\/$/, "");
 
 const initials = (name: string) =>
@@ -132,6 +140,7 @@ const DoubtFeed = () => {
   const [status, setStatus] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortKey>("latest");
   const [feedMode, setFeedMode] = useState<FeedMode>("all");
+  const [trendingTags, setTrendingTags] = useState<TrendingTag[]>([]);
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [details, setDetails] = useState<Record<string, PostDetail>>({});
@@ -181,6 +190,12 @@ const DoubtFeed = () => {
 
       const list = Array.isArray(payload?.posts) ? payload.posts : Array.isArray(payload?.items) ? payload.items : [];
       setPosts(list);
+
+      const trendRes = await fetch(`${backendBase()}/functions/v1/doubts/trending-tags?limit=12`, { headers });
+      const trendPayload = await trendRes.json().catch(() => ({}));
+      if (trendRes.ok) {
+        setTrendingTags(Array.isArray(trendPayload?.tags) ? trendPayload.tags : []);
+      }
     } catch (error: any) {
       toast({
         title: "Failed to load doubts",
@@ -823,6 +838,23 @@ const DoubtFeed = () => {
               <TabsTrigger value="unanswered">Unanswered</TabsTrigger>
             </TabsList>
           </Tabs>
+
+          {trendingTags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <span className="text-xs font-medium text-muted-foreground mr-1">Trending topics:</span>
+              {trendingTags.slice(0, 10).map((t) => (
+                <button
+                  key={t.tag}
+                  type="button"
+                  onClick={() => setSearch(t.tag)}
+                  className="rounded-full px-2.5 py-1 text-xs font-medium border border-transparent bg-gradient-to-r from-amber-100 via-orange-100 to-pink-100 text-orange-700 hover:opacity-90 dark:from-orange-500/20 dark:via-pink-500/20 dark:to-amber-500/20 dark:text-orange-200"
+                  title={`Posts: ${t.posts} • Engagement: ${t.engagement}`}
+                >
+                  #{t.tag}
+                </button>
+              ))}
+            </div>
+          )}
         </Card>
 
         <div className="space-y-3">
@@ -866,7 +898,14 @@ const DoubtFeed = () => {
                     {post.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {post.tags.map((tag) => (
-                          <Badge key={tag} variant="outline">#{tag}</Badge>
+                          <Badge
+                            key={tag}
+                            variant="outline"
+                            className="cursor-pointer border-transparent bg-gradient-to-r from-amber-100 via-orange-100 to-pink-100 text-orange-700 hover:opacity-90 dark:from-orange-500/20 dark:via-pink-500/20 dark:to-amber-500/20 dark:text-orange-200"
+                            onClick={() => setSearch(tag)}
+                          >
+                            #{tag}
+                          </Badge>
                         ))}
                       </div>
                     )}

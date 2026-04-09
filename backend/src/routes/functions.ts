@@ -162,6 +162,87 @@ const sanitizeTags = (tags: unknown) => {
     .slice(0, 8);
 };
 
+const normalizeTag = (tag: string) =>
+  String(tag || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^#/, "")
+    .replace(/\s+/g, "-")
+    .slice(0, 60);
+
+const parseTagArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((x) => normalizeTag(String(x || ""))).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((x) => normalizeTag(String(x || ""))).filter(Boolean);
+      }
+    } catch {
+      // ignore
+    }
+    return trimmed
+      .split(",")
+      .map((x) => normalizeTag(x))
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const ageWeight = (createdAt?: string | null) => {
+  if (!createdAt) return 1;
+  const ts = new Date(createdAt).getTime();
+  if (!Number.isFinite(ts)) return 1;
+  const ageDays = Math.max(0, (Date.now() - ts) / (1000 * 60 * 60 * 24));
+  return 1 / (1 + ageDays / 14);
+};
+
+const aggregateTrendingTags = (
+  rows: Array<{ tags: unknown; createdAt?: string | null; engagement: number }>,
+  limit = 12,
+) => {
+  const map = new Map<
+    string,
+    { tag: string; score: number; posts: number; engagement: number; lastSeenAt: string | null }
+  >();
+
+  for (const row of rows) {
+    const tags = Array.from(new Set(parseTagArray(row.tags)));
+    if (!tags.length) continue;
+    const engagement = Number(row.engagement || 0);
+    const createdAt = row.createdAt || null;
+    const weight = ageWeight(createdAt);
+    const perTagScore = (1 + engagement) * weight;
+    const perTagEngagement = engagement;
+
+    for (const tag of tags) {
+      const prev = map.get(tag) || { tag, score: 0, posts: 0, engagement: 0, lastSeenAt: null };
+      prev.score += perTagScore;
+      prev.posts += 1;
+      prev.engagement += perTagEngagement;
+      if (!prev.lastSeenAt || (createdAt && new Date(createdAt).getTime() > new Date(prev.lastSeenAt).getTime())) {
+        prev.lastSeenAt = createdAt;
+      }
+      map.set(tag, prev);
+    }
+  }
+
+  return Array.from(map.values())
+    .sort((a, b) => b.score - a.score || b.engagement - a.engagement || b.posts - a.posts)
+    .slice(0, Math.max(1, Math.min(30, limit)))
+    .map((x) => ({
+      tag: x.tag,
+      score: Number(x.score.toFixed(3)),
+      posts: x.posts,
+      engagement: x.engagement,
+      lastSeenAt: x.lastSeenAt,
+    }));
+};
+
 const analyzeUpscContent = (input: {
   title?: string;
   description?: string;
@@ -1922,6 +2003,51 @@ functionsRouter.get("/doubts", async (c) => {
   });
 });
 
+functionsRouter.get("/doubts/trending-tags", async (c) => {
+  await ensureDoubtEngagementSchema();
+  const limit = Math.max(1, Math.min(30, Number(c.req.query("limit") || 12)));
+  const rows = await queryNeon<{
+    tags: string[] | null;
+    created_at: string | null;
+    answer_count: number;
+    likes_count: number;
+    saves_count: number;
+    views_count: number;
+    shares_count: number;
+  }>(
+    `
+    SELECT
+      p.tags,
+      p.created_at::text AS created_at,
+      COALESCE(p.answer_count, 0)::int AS answer_count,
+      (SELECT COUNT(*)::int FROM doubt_post_likes l WHERE l.post_id = p.id) AS likes_count,
+      (SELECT COUNT(*)::int FROM doubt_post_saves s WHERE s.post_id = p.id) AS saves_count,
+      COALESCE(p.views_count, 0)::int AS views_count,
+      (SELECT COUNT(*)::int FROM doubt_post_shares sh WHERE sh.post_id = p.id) AS shares_count
+    FROM doubt_posts p
+    WHERE p.moderation_status <> 'hidden'
+    ORDER BY p.created_at DESC
+    LIMIT 1000
+    `,
+  );
+
+  const tags = aggregateTrendingTags(
+    rows.map((r) => ({
+      tags: r.tags,
+      createdAt: r.created_at,
+      engagement:
+        Number(r.answer_count || 0) * 4 +
+        Number(r.likes_count || 0) * 3 +
+        Number(r.saves_count || 0) * 3 +
+        Number(r.shares_count || 0) * 4 +
+        Number(r.views_count || 0) * 0.2,
+    })),
+    limit,
+  );
+
+  return c.json({ tags });
+});
+
 functionsRouter.post("/doubts/seed", async (c) => {
   const user = await getSessionUser(c);
   if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
@@ -2317,7 +2443,7 @@ functionsRouter.get("/doubts/saved/list", async (c) => {
   let idx = 2;
 
   if (search) {
-    where.push(`(p.title ILIKE $${idx} OR p.description ILIKE $${idx})`);
+    where.push(`(p.title ILIKE $${idx} OR p.description ILIKE $${idx} OR p.tags::text ILIKE $${idx})`);
     params.push(`%${search}%`);
     idx += 1;
   }
@@ -2893,7 +3019,7 @@ functionsRouter.get("/notes-feed", async (c) => {
   let idx = 1;
 
   if (search) {
-    where.push(`(p.title ILIKE $${idx} OR p.content ILIKE $${idx} OR EXISTS (SELECT 1 FROM unnest(p.tags) t WHERE t ILIKE $${idx}))`);
+    where.push(`(p.title ILIKE $${idx} OR p.content ILIKE $${idx} OR p.tags::text ILIKE $${idx} OR EXISTS (SELECT 1 FROM unnest(p.tags) t WHERE t ILIKE $${idx}))`);
     params.push(`%${search}%`);
     idx += 1;
   }
@@ -2979,6 +3105,48 @@ functionsRouter.get("/notes-feed", async (c) => {
     total,
     hasMore: page * limit < total,
   });
+});
+
+functionsRouter.get("/notes-feed/trending-tags", async (c) => {
+  await ensureNotesFeedShareSchema();
+  const limit = Math.max(1, Math.min(30, Number(c.req.query("limit") || 12)));
+  const rows = await queryNeon<{
+    tags: string[] | null;
+    created_at: string | null;
+    likes_count: number;
+    saves_count: number;
+    views_count: number;
+    shares_count: number;
+  }>(
+    `
+    SELECT
+      p.tags,
+      p.created_at::text AS created_at,
+      COALESCE(p.likes_count, 0)::int AS likes_count,
+      COALESCE(p.saves_count, 0)::int AS saves_count,
+      COALESCE(p.views_count, 0)::int AS views_count,
+      (SELECT COUNT(*)::int FROM notes_feed_shares sh WHERE sh.note_id = p.id) AS shares_count
+    FROM notes_feed_posts p
+    WHERE p.moderation_status <> 'hidden'
+    ORDER BY p.created_at DESC
+    LIMIT 1000
+    `,
+  );
+
+  const tags = aggregateTrendingTags(
+    rows.map((r) => ({
+      tags: r.tags,
+      createdAt: r.created_at,
+      engagement:
+        Number(r.likes_count || 0) * 3 +
+        Number(r.saves_count || 0) * 4 +
+        Number(r.shares_count || 0) * 4 +
+        Number(r.views_count || 0) * 0.2,
+    })),
+    limit,
+  );
+
+  return c.json({ tags });
 });
 
 functionsRouter.get("/notes-feed/:noteId", async (c) => {
