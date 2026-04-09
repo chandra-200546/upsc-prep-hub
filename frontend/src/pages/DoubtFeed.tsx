@@ -647,6 +647,51 @@ const DoubtFeed = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts, feedMode]);
 
+  useEffect(() => {
+    if (!posts.length) return;
+
+    const checkVisiblePosts = () => {
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const now = Date.now();
+
+      posts.forEach((post) => {
+        const el = document.querySelector(`[data-post-id="${post.id}"]`) as HTMLElement | null;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const visibleHeight = Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0);
+        const visibleRatio = Math.max(0, visibleHeight) / Math.max(1, rect.height);
+
+        const visibleSet = currentlyVisibleRef.current;
+        if (visibleRatio >= 0.45) {
+          const isFirstVisibleFrame = !visibleSet.has(post.id);
+          visibleSet.add(post.id);
+          if (!isFirstVisibleFrame) return;
+
+          const lastTracked = lastViewTrackedAtRef.current[post.id] || 0;
+          if (now - lastTracked < 1500) return;
+          lastViewTrackedAtRef.current[post.id] = now;
+          void trackPostView(post.id);
+        } else {
+          visibleSet.delete(post.id);
+        }
+      });
+    };
+
+    const onScrollOrResize = () => {
+      window.requestAnimationFrame(checkVisiblePosts);
+    };
+
+    window.addEventListener("scroll", onScrollOrResize, { passive: true });
+    window.addEventListener("resize", onScrollOrResize);
+    window.setTimeout(checkVisiblePosts, 80);
+
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts, feedMode]);
+
   const filteredPosts = useMemo(() => posts, [posts]);
 
   return (

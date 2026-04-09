@@ -1189,8 +1189,6 @@ functionsRouter.get("/doubts/:postId", async (c) => {
 
 functionsRouter.post("/doubts/:postId/view", async (c) => {
   await ensureDoubtEngagementSchema();
-  const user = await getSessionUser(c);
-  if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
   const postId = String(c.req.param("postId") || "").trim();
   if (!postId) return c.json({ message: "postId is required" }, 400);
 
