@@ -227,6 +227,21 @@ const createDoubtNotification = async (params: {
   );
 };
 
+const getNotificationActorName = async (userId: string): Promise<string> => {
+  if (!userId) return "Aspirant";
+  const rows = await queryNeon<{ name: string | null }>(
+    `
+    SELECT COALESCE(p.name, ua.name, 'Aspirant') AS name
+    FROM user_accounts ua
+    LEFT JOIN profiles p ON p.id = ua.id
+    WHERE ua.id = $1::uuid
+    LIMIT 1
+    `,
+    [userId],
+  );
+  return String(rows[0]?.name || "Aspirant").trim() || "Aspirant";
+};
+
 const refreshDoubtPostMeta = async (postId: string) => {
   const rows = await queryNeon<{ answer_count: number; best_answer_id: string | null }>(
     `
@@ -1240,6 +1255,7 @@ functionsRouter.post("/doubts/:postId/like", async (c) => {
   );
   const post = postRows[0];
   if (!post) return c.json({ message: "Doubt post not found" }, 404);
+  const actorName = await getNotificationActorName(user.id);
 
   const existing = await queryNeon<{ id: string }>(
     `SELECT id::text FROM doubt_post_likes WHERE post_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
@@ -1259,7 +1275,7 @@ functionsRouter.post("/doubts/:postId/like", async (c) => {
       await createDoubtNotification({
         userId: post.user_id,
         type: "doubt_liked",
-        message: "Someone liked your doubt post.",
+        message: `${actorName} liked your doubt post.`,
         targetKind: "doubt",
         relatedPostId: postId,
       });
@@ -1284,6 +1300,7 @@ functionsRouter.post("/doubts/:postId/save", async (c) => {
   );
   const post = postRows[0];
   if (!post) return c.json({ message: "Doubt post not found" }, 404);
+  const actorName = await getNotificationActorName(user.id);
 
   const existing = await queryNeon<{ id: string }>(
     `SELECT id::text FROM doubt_post_saves WHERE post_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
@@ -1303,7 +1320,7 @@ functionsRouter.post("/doubts/:postId/save", async (c) => {
       await createDoubtNotification({
         userId: post.user_id,
         type: "doubt_saved",
-        message: "Someone saved your doubt post.",
+        message: `${actorName} saved your doubt post.`,
         targetKind: "doubt",
         relatedPostId: postId,
       });
@@ -1443,6 +1460,7 @@ functionsRouter.post("/doubts/:postId/share", async (c) => {
   );
   const post = postRows[0];
   if (!post) return c.json({ message: "Doubt post not found" }, 404);
+  const actorName = await getNotificationActorName(user.id);
 
   await queryNeon(
     `INSERT INTO doubt_post_shares (id, post_id, user_id, platform) VALUES ($1::uuid, $2::uuid, $3::uuid, $4)`,
@@ -1458,7 +1476,7 @@ functionsRouter.post("/doubts/:postId/share", async (c) => {
     await createDoubtNotification({
       userId: post.user_id,
       type: "doubt_shared",
-      message: "Someone shared your doubt post.",
+      message: `${actorName} shared your doubt post.`,
       targetKind: "doubt",
       relatedPostId: postId,
     });
@@ -1548,6 +1566,7 @@ functionsRouter.post("/doubts/:postId/answers/create", async (c) => {
   );
   const post = postRows[0];
   if (!post) return c.json({ message: "Doubt post not found" }, 404);
+  const actorName = await getNotificationActorName(user.id);
 
   const contentCheck = analyzeUpscContent({ content, category: post.category, title: post.title });
   if (!contentCheck.allowed) return c.json({ message: contentCheck.warning }, 400);
@@ -1567,7 +1586,7 @@ functionsRouter.post("/doubts/:postId/answers/create", async (c) => {
     await createDoubtNotification({
       userId: post.user_id,
       type: "answer_received",
-      message: "Someone answered your UPSC doubt.",
+      message: `${actorName} answered your UPSC doubt.`,
       relatedPostId: postId,
       relatedAnswerId: answerId,
     });
@@ -1630,6 +1649,7 @@ functionsRouter.post("/answers/:answerId/vote", async (c) => {
   );
   const answer = answerRows[0];
   if (!answer) return c.json({ message: "Answer not found" }, 404);
+  const actorName = await getNotificationActorName(user.id);
 
   const existingVote = await queryNeon<{ id: string }>(
     `SELECT id::text FROM doubt_answer_votes WHERE answer_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
@@ -1658,7 +1678,7 @@ functionsRouter.post("/answers/:answerId/vote", async (c) => {
       await createDoubtNotification({
         userId: answer.user_id,
         type: "answer_liked",
-        message: "Someone marked your answer as helpful.",
+        message: `${actorName} marked your answer as helpful.`,
         relatedPostId: answer.post_id,
         relatedAnswerId: answerId,
       });
@@ -1695,6 +1715,7 @@ functionsRouter.post("/doubts/:postId/best-answer", async (c) => {
   );
   const answer = answerRows[0];
   if (!answer) return c.json({ message: "Answer not found for this doubt." }, 404);
+  const actorName = await getNotificationActorName(user.id);
 
   await queryNeon(`UPDATE doubt_answers SET is_best_answer = FALSE WHERE post_id = $1::uuid`, [postId]);
   await queryNeon(`UPDATE doubt_answers SET is_best_answer = TRUE, updated_at = NOW() WHERE id = $1::uuid`, [answerId]);
@@ -1704,7 +1725,7 @@ functionsRouter.post("/doubts/:postId/best-answer", async (c) => {
     await createDoubtNotification({
       userId: answer.user_id,
       type: "best_answer_selected",
-      message: "Your answer was selected as the best answer.",
+      message: `${actorName} selected your answer as the best answer.`,
       relatedPostId: postId,
       relatedAnswerId: answerId,
     });
@@ -2120,6 +2141,7 @@ functionsRouter.post("/notes-feed/:noteId/like", async (c) => {
   );
   const note = noteRows[0];
   if (!note) return c.json({ message: "Note not found" }, 404);
+  const actorName = await getNotificationActorName(user.id);
 
   const existing = await queryNeon<{ id: string }>(
     `SELECT id::text FROM notes_feed_likes WHERE note_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
@@ -2138,7 +2160,7 @@ functionsRouter.post("/notes-feed/:noteId/like", async (c) => {
       await createDoubtNotification({
         userId: note.user_id,
         type: "note_liked",
-        message: "Someone liked your notes post.",
+        message: `${actorName} liked your notes post.`,
         targetKind: "notes",
         relatedNoteId: noteId,
       });
@@ -2160,6 +2182,7 @@ functionsRouter.post("/notes-feed/:noteId/save", async (c) => {
   );
   const note = noteRows[0];
   if (!note) return c.json({ message: "Note not found" }, 404);
+  const actorName = await getNotificationActorName(user.id);
 
   const existing = await queryNeon<{ id: string }>(
     `SELECT id::text FROM notes_feed_saves WHERE note_id = $1::uuid AND user_id = $2::uuid LIMIT 1`,
@@ -2178,7 +2201,7 @@ functionsRouter.post("/notes-feed/:noteId/save", async (c) => {
       await createDoubtNotification({
         userId: note.user_id,
         type: "note_saved",
-        message: "Someone saved your notes post.",
+        message: `${actorName} saved your notes post.`,
         targetKind: "notes",
         relatedNoteId: noteId,
       });
@@ -2204,6 +2227,7 @@ functionsRouter.post("/notes-feed/:noteId/share", async (c) => {
   );
   const note = noteRows[0];
   if (!note) return c.json({ message: "Note not found" }, 404);
+  const actorName = await getNotificationActorName(user.id);
 
   await queryNeon(
     `INSERT INTO notes_feed_shares (id, note_id, user_id, platform) VALUES ($1::uuid, $2::uuid, $3::uuid, $4)`,
@@ -2223,7 +2247,7 @@ functionsRouter.post("/notes-feed/:noteId/share", async (c) => {
     await createDoubtNotification({
       userId: note.user_id,
       type: "note_shared",
-      message: "Someone shared your notes post.",
+      message: `${actorName} shared your notes post.`,
       targetKind: "notes",
       relatedNoteId: noteId,
     });
