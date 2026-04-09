@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -152,6 +152,9 @@ const DoubtFeed = () => {
   const [editDescription, setEditDescription] = useState("");
   const [editCategory, setEditCategory] = useState<string>(CATEGORIES[0]);
   const [editTagsInput, setEditTagsInput] = useState("");
+  const postCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const currentlyVisibleRef = useRef<Set<string>>(new Set());
+  const lastViewTrackedAtRef = useRef<Record<string, number>>({});
 
   const authHeaders = async () => {
     const { data } = await supabase.auth.getSession();
@@ -289,6 +292,38 @@ const DoubtFeed = () => {
       toast({ title: "Failed to open post", description: error?.message || "Try again.", variant: "destructive" });
     } finally {
       setLoadingDetail((prev) => ({ ...prev, [postId]: false }));
+    }
+  };
+
+  const trackPostView = async (postId: string) => {
+    try {
+      const headers = { "Content-Type": "application/json", ...(await authHeaders()) };
+      const res = await fetch(`${backendBase()}/functions/v1/doubts/${postId}/view`, {
+        method: "POST",
+        headers,
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      const nextViewsCount = Number(payload?.viewsCount ?? 0);
+      if (!Number.isFinite(nextViewsCount)) return;
+
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, viewsCount: nextViewsCount } : p)));
+      setDetails((prev) => {
+        const detail = prev[postId];
+        if (!detail) return prev;
+        return {
+          ...prev,
+          [postId]: {
+            ...detail,
+            post: {
+              ...detail.post,
+              viewsCount: nextViewsCount,
+            },
+          },
+        };
+      });
+    } catch {
+      // ignore silent failures for passive view tracking
     }
   };
 
@@ -575,6 +610,43 @@ const DoubtFeed = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts]);
 
+  useEffect(() => {
+    if (!posts.length) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const now = Date.now();
+        for (const entry of entries) {
+          const target = entry.target as HTMLDivElement;
+          const postId = target.dataset.postId || "";
+          if (!postId) continue;
+
+          const visibleSet = currentlyVisibleRef.current;
+          if (entry.isIntersecting) {
+            const isFirstVisibleFrame = !visibleSet.has(postId);
+            visibleSet.add(postId);
+            if (!isFirstVisibleFrame) continue;
+
+            const lastTracked = lastViewTrackedAtRef.current[postId] || 0;
+            if (now - lastTracked < 1500) continue;
+            lastViewTrackedAtRef.current[postId] = now;
+            void trackPostView(postId);
+          } else {
+            visibleSet.delete(postId);
+          }
+        }
+      },
+      { threshold: 0.6 },
+    );
+
+    posts.forEach((post) => {
+      const el = postCardRefs.current[post.id];
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts, feedMode]);
+
   const filteredPosts = useMemo(() => posts, [posts]);
 
   return (
@@ -721,7 +793,15 @@ const DoubtFeed = () => {
             const loadingThis = Boolean(loadingDetail[post.id]);
 
             return (
-              <Card id={`doubt-post-${post.id}`} key={post.id} className="p-3 md:p-4 rounded-2xl border-orange-200/70 dark:border-orange-900/40">
+              <Card
+                id={`doubt-post-${post.id}`}
+                key={post.id}
+                ref={(el) => {
+                  postCardRefs.current[post.id] = el;
+                }}
+                data-post-id={post.id}
+                className="p-3 md:p-4 rounded-2xl border-orange-200/70 dark:border-orange-900/40"
+              >
                 <div className="flex items-start gap-3">
                   <Avatar className="h-10 w-10 shrink-0">
                     <AvatarFallback>{initials(post.author.name)}</AvatarFallback>

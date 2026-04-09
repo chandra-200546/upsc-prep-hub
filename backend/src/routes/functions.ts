@@ -841,7 +841,7 @@ functionsRouter.get("/doubts", async (c) => {
         p.answer_count,
         (SELECT COUNT(*) FROM doubt_post_likes l WHERE l.post_id = p.id) AS likes_count,
         (SELECT COUNT(*) FROM doubt_post_saves s WHERE s.post_id = p.id) AS saves_count,
-        (SELECT COUNT(*) FROM doubt_post_views v WHERE v.post_id = p.id) AS views_count,
+        COALESCE(p.views_count, 0) AS views_count,
         (SELECT COUNT(*) FROM doubt_post_shares sh WHERE sh.post_id = p.id) AS shares_count,
         p.status, p.is_flagged, p.moderation_status, p.report_count,
         p.created_at::text, p.updated_at::text,
@@ -1021,7 +1021,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
         p.answer_count,
         (SELECT COUNT(*) FROM doubt_post_likes l WHERE l.post_id = p.id) AS likes_count,
         (SELECT COUNT(*) FROM doubt_post_saves s WHERE s.post_id = p.id) AS saves_count,
-        (SELECT COUNT(*) FROM doubt_post_views v WHERE v.post_id = p.id) AS views_count,
+        COALESCE(p.views_count, 0) AS views_count,
         (SELECT COUNT(*) FROM doubt_post_shares sh WHERE sh.post_id = p.id) AS shares_count,
         p.status, p.best_answer_id::text, p.is_flagged, p.moderation_status, p.report_count,
         CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_likes l WHERE l.post_id = p.id AND l.user_id = $2::uuid) THEN 1 ELSE 0 END AS liked_by_viewer,
@@ -1195,11 +1195,11 @@ functionsRouter.post("/doubts/:postId/view", async (c) => {
   if (!postId) return c.json({ message: "postId is required" }, 400);
 
   await queryNeon(
-    `INSERT OR IGNORE INTO doubt_post_views (id, post_id, user_id) VALUES ($1::uuid, $2::uuid, $3::uuid)`,
-    [randomUUID(), postId, user.id],
+    `UPDATE doubt_posts SET views_count = COALESCE(views_count, 0) + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`,
+    [postId],
   );
   const row = await queryNeon<{ count: number }>(
-    `SELECT COUNT(*)::int AS count FROM doubt_post_views WHERE post_id = $1::uuid`,
+    `SELECT COALESCE(views_count, 0)::int AS count FROM doubt_posts WHERE id = $1::uuid LIMIT 1`,
     [postId],
   );
   return c.json({ ok: true, viewsCount: Number(row[0]?.count || 0) });
@@ -1320,7 +1320,7 @@ functionsRouter.get("/doubts/saved/list", async (c) => {
       p.answer_count,
       (SELECT COUNT(*) FROM doubt_post_likes l WHERE l.post_id = p.id) AS likes_count,
       (SELECT COUNT(*) FROM doubt_post_saves ds WHERE ds.post_id = p.id) AS saves_count,
-      (SELECT COUNT(*) FROM doubt_post_views v WHERE v.post_id = p.id) AS views_count,
+      COALESCE(p.views_count, 0) AS views_count,
       (SELECT COUNT(*) FROM doubt_post_shares sh WHERE sh.post_id = p.id) AS shares_count,
       p.status, p.is_flagged, p.moderation_status, p.report_count,
       p.created_at::text, p.updated_at::text, s.created_at::text AS saved_at,
