@@ -755,7 +755,9 @@ functionsRouter.get("/doubts", async (c) => {
   const search = String(c.req.query("search") || "").trim();
   const category = String(c.req.query("category") || "").trim();
   const status = String(c.req.query("status") || "").trim();
-  const sort = String(c.req.query("sort") || "latest").trim();
+  const sortRaw = String(c.req.query("sort") || "latest").trim().toLowerCase();
+  const sort: "latest" | "most_answered" | "unanswered" =
+    sortRaw === "most_answered" || sortRaw === "unanswered" ? (sortRaw as "most_answered" | "unanswered") : "latest";
   const page = Math.max(1, Number(c.req.query("page") || 1));
   const limit = Math.max(1, Math.min(50, Number(c.req.query("limit") || 20)));
   const offset = (page - 1) * limit;
@@ -779,13 +781,16 @@ functionsRouter.get("/doubts", async (c) => {
     params.push(status);
     idx += 1;
   }
+  if (sort === "unanswered" && (!status || status === "all")) {
+    where.push(`(COALESCE(p.answer_count, 0) = 0 OR p.status = 'unanswered')`);
+  }
 
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const orderSql =
     sort === "most_answered"
-      ? "ORDER BY p.answer_count DESC, p.created_at DESC"
+      ? "ORDER BY COALESCE(p.answer_count, 0) DESC, p.updated_at DESC, p.created_at DESC"
       : sort === "unanswered"
-        ? "ORDER BY (CASE WHEN p.answer_count = 0 THEN 0 ELSE 1 END), p.created_at DESC"
+        ? "ORDER BY p.created_at DESC, p.updated_at DESC"
         : "ORDER BY p.created_at DESC";
 
   let rows: Array<{
@@ -1269,6 +1274,9 @@ functionsRouter.get("/doubts/saved/list", async (c) => {
   const search = String(c.req.query("search") || "").trim();
   const category = String(c.req.query("category") || "").trim();
   const status = String(c.req.query("status") || "").trim();
+  const sortRaw = String(c.req.query("sort") || "latest").trim().toLowerCase();
+  const sort: "latest" | "most_answered" | "unanswered" =
+    sortRaw === "most_answered" || sortRaw === "unanswered" ? (sortRaw as "most_answered" | "unanswered") : "latest";
 
   const where: string[] = ["s.user_id = $1::uuid"];
   const params: unknown[] = [user.id];
@@ -1289,6 +1297,16 @@ functionsRouter.get("/doubts/saved/list", async (c) => {
     params.push(status);
     idx += 1;
   }
+  if (sort === "unanswered" && (!status || status === "all")) {
+    where.push(`(COALESCE(p.answer_count, 0) = 0 OR p.status = 'unanswered')`);
+  }
+
+  const orderSql =
+    sort === "most_answered"
+      ? "ORDER BY COALESCE(p.answer_count, 0) DESC, p.updated_at DESC, s.created_at DESC"
+      : sort === "unanswered"
+        ? "ORDER BY p.created_at DESC, p.updated_at DESC"
+        : "ORDER BY s.created_at DESC";
 
   const rows = await queryNeon<{
     id: string;
@@ -1327,7 +1345,7 @@ functionsRouter.get("/doubts/saved/list", async (c) => {
     JOIN doubt_posts p ON p.id = s.post_id
     LEFT JOIN profiles pr ON pr.id = p.user_id
     WHERE ${where.join(" AND ")}
-    ORDER BY s.created_at DESC
+    ${orderSql}
     `,
     params,
   );
