@@ -374,6 +374,7 @@ export const ensureNeonSchema = async () => {
       image_urls TEXT NOT NULL DEFAULT '[]',
       likes_count INTEGER NOT NULL DEFAULT 0,
       saves_count INTEGER NOT NULL DEFAULT 0,
+      views_count INTEGER NOT NULL DEFAULT 0,
       report_count INTEGER NOT NULL DEFAULT 0,
       is_flagged INTEGER NOT NULL DEFAULT 0,
       moderation_status TEXT NOT NULL DEFAULT 'clean',
@@ -572,6 +573,7 @@ export const ensureNeonSchema = async () => {
   try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN likes_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
   try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN views_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
   try { sqlite.exec(`ALTER TABLE doubt_posts ADD COLUMN saves_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
+  try { sqlite.exec(`ALTER TABLE notes_feed_posts ADD COLUMN views_count INTEGER NOT NULL DEFAULT 0;`); } catch {}
   try { sqlite.exec(`ALTER TABLE doubt_answers ADD COLUMN is_ai_generated INTEGER NOT NULL DEFAULT 0;`); } catch {}
 
   return true;

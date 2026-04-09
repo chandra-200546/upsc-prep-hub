@@ -1809,7 +1809,9 @@ functionsRouter.get("/notes-feed", async (c) => {
   await ensureNotesFeedShareSchema();
   const search = String(c.req.query("search") || "").trim();
   const category = String(c.req.query("category") || "").trim();
-  const sort = String(c.req.query("sort") || "latest").trim();
+  const sortRaw = String(c.req.query("sort") || "latest").trim().toLowerCase();
+  const sort: "latest" | "trending" | "most_saved" =
+    sortRaw === "trending" || sortRaw === "most_saved" ? (sortRaw as "trending" | "most_saved") : "latest";
   const page = Math.max(1, Number(c.req.query("page") || 1));
   const limit = Math.max(1, Math.min(50, Number(c.req.query("limit") || 20)));
   const offset = (page - 1) * limit;
@@ -1847,6 +1849,7 @@ functionsRouter.get("/notes-feed", async (c) => {
     image_urls: string[] | null;
     likes_count: number;
     saves_count: number;
+    views_count: number;
     shares_count: number;
     report_count: number;
     is_flagged: boolean;
@@ -1858,7 +1861,7 @@ functionsRouter.get("/notes-feed", async (c) => {
     `
     SELECT
       p.id::text, p.user_id::text, p.title, p.content, p.category, p.tags, p.image_urls,
-      p.likes_count, p.saves_count,
+      p.likes_count, p.saves_count, COALESCE(p.views_count, 0) AS views_count,
       (SELECT COUNT(*) FROM notes_feed_shares sh WHERE sh.note_id = p.id) AS shares_count,
       p.report_count, p.is_flagged, p.moderation_status,
       p.created_at::text, p.updated_at::text, COALESCE(pr.name, 'Aspirant') AS author_name
@@ -1889,6 +1892,7 @@ functionsRouter.get("/notes-feed", async (c) => {
       imageUrls: Array.isArray(r.image_urls) ? r.image_urls : [],
       likesCount: Number(r.likes_count || 0),
       savesCount: Number(r.saves_count || 0),
+      viewsCount: Number(r.views_count || 0),
       sharesCount: Number(r.shares_count || 0),
       reportCount: Number(r.report_count || 0),
       isFlagged: Boolean(r.is_flagged),
@@ -1921,6 +1925,7 @@ functionsRouter.get("/notes-feed/:noteId", async (c) => {
     image_urls: string[] | null;
     likes_count: number;
     saves_count: number;
+    views_count: number;
     shares_count: number;
     report_count: number;
     is_flagged: boolean;
@@ -1934,7 +1939,7 @@ functionsRouter.get("/notes-feed/:noteId", async (c) => {
     `
     SELECT
       p.id::text, p.user_id::text, p.title, p.content, p.category, p.tags, p.image_urls,
-      p.likes_count, p.saves_count,
+      p.likes_count, p.saves_count, COALESCE(p.views_count, 0) AS views_count,
       (SELECT COUNT(*) FROM notes_feed_shares sh WHERE sh.note_id = p.id) AS shares_count,
       p.report_count, p.is_flagged, p.moderation_status,
       p.created_at::text, p.updated_at::text,
@@ -1963,6 +1968,7 @@ functionsRouter.get("/notes-feed/:noteId", async (c) => {
       imageUrls: Array.isArray(note.image_urls) ? note.image_urls : [],
       likesCount: Number(note.likes_count || 0),
       savesCount: Number(note.saves_count || 0),
+      viewsCount: Number(note.views_count || 0),
       sharesCount: Number(note.shares_count || 0),
       reportCount: Number(note.report_count || 0),
       isFlagged: Boolean(note.is_flagged),
@@ -2124,11 +2130,30 @@ functionsRouter.post("/notes-feed/:noteId/share", async (c) => {
   });
 });
 
+functionsRouter.post("/notes-feed/:noteId/view", async (c) => {
+  await ensureNotesFeedShareSchema();
+  const noteId = String(c.req.param("noteId") || "").trim();
+  if (!noteId) return c.json({ message: "noteId is required" }, 400);
+
+  await queryNeon(
+    `UPDATE notes_feed_posts SET views_count = COALESCE(views_count, 0) + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`,
+    [noteId],
+  );
+  const row = await queryNeon<{ count: number }>(
+    `SELECT COALESCE(views_count, 0)::int AS count FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`,
+    [noteId],
+  );
+  return c.json({ ok: true, viewsCount: Number(row[0]?.count || 0) });
+});
+
 functionsRouter.get("/notes-feed/saved/list", async (c) => {
   const user = await getSessionUser(c);
   if (!user?.id) return c.json({ message: "Unauthorized" }, 401);
   const search = String(c.req.query("search") || "").trim();
   const category = String(c.req.query("category") || "").trim();
+  const sortRaw = String(c.req.query("sort") || "latest").trim().toLowerCase();
+  const sort: "latest" | "trending" | "most_saved" =
+    sortRaw === "trending" || sortRaw === "most_saved" ? (sortRaw as "trending" | "most_saved") : "latest";
 
   const where = [`s.user_id = $1::uuid`, `p.moderation_status <> 'hidden'`];
   const params: unknown[] = [user.id];
@@ -2143,6 +2168,13 @@ functionsRouter.get("/notes-feed/saved/list", async (c) => {
     params.push(category);
   }
 
+  const orderSql =
+    sort === "trending"
+      ? "ORDER BY (COALESCE(p.saves_count, 0) * 3 + COALESCE(p.likes_count, 0) * 2) DESC, p.updated_at DESC, p.created_at DESC"
+      : sort === "most_saved"
+        ? "ORDER BY COALESCE(p.saves_count, 0) DESC, p.updated_at DESC, p.created_at DESC"
+        : "ORDER BY s.created_at DESC";
+
   const rows = await queryNeon<{
     id: string;
     user_id: string;
@@ -2153,6 +2185,8 @@ functionsRouter.get("/notes-feed/saved/list", async (c) => {
     image_urls: string[] | null;
     likes_count: number;
     saves_count: number;
+    views_count: number;
+    shares_count: number;
     created_at: string;
     author_name: string | null;
     saved_at: string;
@@ -2160,13 +2194,15 @@ functionsRouter.get("/notes-feed/saved/list", async (c) => {
     `
     SELECT
       p.id::text, p.user_id::text, p.title, p.content, p.category, p.tags, p.image_urls,
-      p.likes_count, p.saves_count, p.created_at::text,
+      p.likes_count, p.saves_count, COALESCE(p.views_count, 0) AS views_count,
+      (SELECT COUNT(*) FROM notes_feed_shares sh WHERE sh.note_id = p.id) AS shares_count,
+      p.created_at::text,
       COALESCE(pr.name, 'Aspirant') AS author_name, s.created_at::text AS saved_at
     FROM notes_feed_saves s
     JOIN notes_feed_posts p ON p.id = s.note_id
     LEFT JOIN profiles pr ON pr.id = p.user_id
     WHERE ${where.join(" AND ")}
-    ORDER BY s.created_at DESC
+    ${orderSql}
     `,
     params,
   );
@@ -2183,9 +2219,12 @@ functionsRouter.get("/notes-feed/saved/list", async (c) => {
       imageUrls: Array.isArray(r.image_urls) ? r.image_urls : [],
       likesCount: Number(r.likes_count || 0),
       savesCount: Number(r.saves_count || 0),
+      viewsCount: Number(r.views_count || 0),
+      sharesCount: Number(r.shares_count || 0),
       createdAt: r.created_at,
       savedAt: r.saved_at,
       author: { id: r.user_id, name: r.author_name || "Aspirant" },
+      trendingScore: Number(r.saves_count || 0) * 3 + Number(r.likes_count || 0) * 2,
     })),
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,7 @@ type NotesPost = {
   imageUrls: string[];
   likesCount: number;
   savesCount: number;
+  viewsCount: number;
   sharesCount: number;
   reportCount?: number;
   isFlagged?: boolean;
@@ -129,6 +130,9 @@ const NotesFeed = () => {
   const [editContent, setEditContent] = useState("");
   const [editCategory, setEditCategory] = useState<string>(CATEGORIES[0]);
   const [editTagsInput, setEditTagsInput] = useState("");
+  const noteCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const currentlyVisibleRef = useRef<Set<string>>(new Set());
+  const lastViewTrackedAtRef = useRef<Record<string, number>>({});
 
   const authHeaders = async () => {
     const { data } = await supabase.auth.getSession();
@@ -239,6 +243,7 @@ const NotesFeed = () => {
                 ...p,
                 likesCount: item.likesCount,
                 savesCount: item.savesCount,
+                viewsCount: item.viewsCount,
                 sharesCount: item.sharesCount,
                 likedByViewer: item.likedByViewer,
                 savedByViewer: item.savedByViewer,
@@ -248,6 +253,29 @@ const NotesFeed = () => {
       );
     } catch {
       // ignore silent for open/close interaction
+    }
+  };
+
+  const trackNoteView = async (noteId: string) => {
+    try {
+      const headers = { "Content-Type": "application/json", ...(await authHeaders()) };
+      const res = await fetch(`${backendBase()}/functions/v1/notes-feed/${noteId}/view`, {
+        method: "POST",
+        headers,
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      const nextViewsCount = Number(payload?.viewsCount ?? 0);
+      if (!Number.isFinite(nextViewsCount)) return;
+
+      setItems((prev) => prev.map((item) => (item.id === noteId ? { ...item, viewsCount: nextViewsCount } : item)));
+      setDetailCache((prev) => {
+        const detail = prev[noteId];
+        if (!detail) return prev;
+        return { ...prev, [noteId]: { ...detail, viewsCount: nextViewsCount } };
+      });
+    } catch {
+      // ignore passive view tracking failures
     }
   };
 
@@ -436,6 +464,87 @@ const NotesFeed = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
 
+  useEffect(() => {
+    if (!items.length) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const now = Date.now();
+        for (const entry of entries) {
+          const target = entry.target as HTMLDivElement;
+          const noteId = target.dataset.postId || "";
+          if (!noteId) continue;
+
+          const visibleSet = currentlyVisibleRef.current;
+          if (entry.isIntersecting) {
+            const isFirstVisibleFrame = !visibleSet.has(noteId);
+            visibleSet.add(noteId);
+            if (!isFirstVisibleFrame) continue;
+
+            const lastTracked = lastViewTrackedAtRef.current[noteId] || 0;
+            if (now - lastTracked < 1500) continue;
+            lastViewTrackedAtRef.current[noteId] = now;
+            void trackNoteView(noteId);
+          } else {
+            visibleSet.delete(noteId);
+          }
+        }
+      },
+      { threshold: 0.6 },
+    );
+
+    items.forEach((item) => {
+      const el = noteCardRefs.current[item.id];
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, feedMode]);
+
+  useEffect(() => {
+    if (!items.length) return;
+    const checkVisibleItems = () => {
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const now = Date.now();
+
+      items.forEach((item) => {
+        const el = document.querySelector(`[data-post-id="${item.id}"]`) as HTMLElement | null;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const visibleHeight = Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0);
+        const visibleRatio = Math.max(0, visibleHeight) / Math.max(1, rect.height);
+
+        const visibleSet = currentlyVisibleRef.current;
+        if (visibleRatio >= 0.45) {
+          const isFirstVisibleFrame = !visibleSet.has(item.id);
+          visibleSet.add(item.id);
+          if (!isFirstVisibleFrame) return;
+
+          const lastTracked = lastViewTrackedAtRef.current[item.id] || 0;
+          if (now - lastTracked < 1500) return;
+          lastViewTrackedAtRef.current[item.id] = now;
+          void trackNoteView(item.id);
+        } else {
+          visibleSet.delete(item.id);
+        }
+      });
+    };
+
+    const onScrollOrResize = () => {
+      window.requestAnimationFrame(checkVisibleItems);
+    };
+
+    window.addEventListener("scroll", onScrollOrResize, { passive: true });
+    window.addEventListener("resize", onScrollOrResize);
+    window.setTimeout(checkVisibleItems, 80);
+
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, feedMode]);
+
   const visibleItems = useMemo(() => items, [items]);
 
   return (
@@ -567,7 +676,15 @@ const NotesFeed = () => {
             const fullImages = detail?.imageUrls || item.imageUrls || [];
 
             return (
-              <Card id={`note-post-${item.id}`} key={item.id} className="p-3 md:p-4 rounded-2xl border-orange-200/70 dark:border-orange-900/40">
+              <Card
+                id={`note-post-${item.id}`}
+                key={item.id}
+                ref={(el) => {
+                  noteCardRefs.current[item.id] = el;
+                }}
+                data-post-id={item.id}
+                className="p-3 md:p-4 rounded-2xl border-orange-200/70 dark:border-orange-900/40"
+              >
                 <div className="flex items-start gap-3">
                   <Avatar className="h-10 w-10 shrink-0">
                     <AvatarFallback>{initials(item.author.name)}</AvatarFallback>
@@ -604,9 +721,12 @@ const NotesFeed = () => {
 
                     <div className="flex items-center gap-2 pt-1 text-muted-foreground">
                       <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => toggleOpenCard(item.id)}>
-                        <Eye className="h-4 w-4" />
                         {expanded ? "Collapse" : "Read"}
                       </Button>
+                      <div className="inline-flex items-center gap-1.5 text-sm px-2 py-1">
+                        <Eye className="h-4 w-4" />
+                        {Number(item.viewsCount || 0)}
+                      </div>
 
                       <Button
                         variant="ghost"
