@@ -459,6 +459,31 @@ const ensureNotesFeedShareSchema = async () => {
   } catch {}
 };
 
+const ensureWeeklyAnnouncementSchema = async () => {
+  try {
+    await queryNeon(
+      `CREATE TABLE IF NOT EXISTS weekly_test_announcements (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        week_label TEXT,
+        starts_at TEXT,
+        ends_at TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_by TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+    );
+  } catch {}
+  try {
+    await queryNeon(
+      `CREATE INDEX IF NOT EXISTS idx_weekly_test_announcements_active_created
+       ON weekly_test_announcements(is_active, created_at)`,
+    );
+  } catch {}
+};
+
 functionsRouter.post("/auth/signup", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const email = String(body?.email ?? "").trim().toLowerCase();
@@ -615,6 +640,7 @@ functionsRouter.get("/weekly-tests/list", async (c) => {
 });
 
 functionsRouter.get("/weekly-tests/announcement", async (c) => {
+  await ensureWeeklyAnnouncementSchema();
   const rows = await queryNeon<{
     id: string;
     title: string;
@@ -831,6 +857,7 @@ functionsRouter.post("/admin/panel/weekly-tests/publish", async (c) => {
 functionsRouter.get("/admin/panel/weekly-tests/announcements", async (c) => {
   const admin = await requirePlatformAdmin(c);
   if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+  await ensureWeeklyAnnouncementSchema();
 
   const rows = await queryNeon<{
     id: string;
@@ -857,6 +884,7 @@ functionsRouter.get("/admin/panel/weekly-tests/announcements", async (c) => {
 functionsRouter.post("/admin/panel/weekly-tests/announcement", async (c) => {
   const admin = await requirePlatformAdmin(c);
   if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+  await ensureWeeklyAnnouncementSchema();
 
   const body = await c.req.json().catch(() => ({}));
   const title = String(body?.title ?? "").trim();
@@ -867,33 +895,41 @@ functionsRouter.post("/admin/panel/weekly-tests/announcement", async (c) => {
   const isActive = body?.isActive !== false;
   if (!title || !message) return c.json({ message: "title and message are required" }, 400);
 
-  const id = randomUUID();
-  await queryNeon(
-    `
-    INSERT INTO weekly_test_announcements
-    (id, title, message, week_label, starts_at, ends_at, is_active, created_by, created_at, updated_at)
-    VALUES ($1, $2, $3, $4, $5::timestamptz, $6::timestamptz, $7, $8::uuid, NOW(), NOW())
-    `,
-    [id, title, message, weekLabel || null, startsAt, endsAt, isActive, admin.id],
-  );
-
-  return c.json({ ok: true, id });
+  try {
+    const id = randomUUID();
+    await queryNeon(
+      `
+      INSERT INTO weekly_test_announcements
+      (id, title, message, week_label, starts_at, ends_at, is_active, created_by, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5::timestamptz, $6::timestamptz, $7, $8::uuid, NOW(), NOW())
+      `,
+      [id, title, message, weekLabel || null, startsAt, endsAt, isActive, admin.id],
+    );
+    return c.json({ ok: true, id });
+  } catch (error: any) {
+    return c.json({ message: error?.message || "Failed to publish announcement" }, 500);
+  }
 });
 
 functionsRouter.post("/admin/panel/weekly-tests/announcement/status", async (c) => {
   const admin = await requirePlatformAdmin(c);
   if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+  await ensureWeeklyAnnouncementSchema();
 
   const body = await c.req.json().catch(() => ({}));
   const id = String(body?.id ?? "").trim();
   const isActive = Boolean(body?.isActive);
   if (!id) return c.json({ message: "id is required" }, 400);
 
-  await queryNeon(
-    `UPDATE weekly_test_announcements SET is_active = $1, updated_at = NOW() WHERE id = $2::uuid`,
-    [isActive, id],
-  );
-  return c.json({ ok: true });
+  try {
+    await queryNeon(
+      `UPDATE weekly_test_announcements SET is_active = $1, updated_at = NOW() WHERE id = $2::uuid`,
+      [isActive, id],
+    );
+    return c.json({ ok: true });
+  } catch (error: any) {
+    return c.json({ message: error?.message || "Failed to update announcement status" }, 500);
+  }
 });
 
 functionsRouter.get("/admin/panel/access", async (c) => {
