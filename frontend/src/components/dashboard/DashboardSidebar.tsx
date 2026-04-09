@@ -22,10 +22,12 @@ import {
   ClipboardList,
   MessageCircleQuestion,
   NotebookPen,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import FeedbackForm from "@/components/FeedbackForm";
+import { supabase } from "@/integrations/supabase/client";
 
 const mainNav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -61,6 +63,8 @@ export function DashboardSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [showFeedback, setShowFeedback] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const backendBase = () => String(import.meta.env.VITE_BACKEND_URL || "http://localhost:8787").replace(/\/$/, "");
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -68,6 +72,27 @@ export function DashboardSidebar() {
     await signOut();
     navigate("/auth");
   };
+
+  useEffect(() => {
+    const checkAdminAccess = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token;
+        if (!token) {
+          setIsAdmin(false);
+          return;
+        }
+        const res = await fetch(`${backendBase()}/functions/v1/admin/panel/access`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const payload = await res.json().catch(() => ({}));
+        setIsAdmin(Boolean(payload?.isAdmin));
+      } catch {
+        setIsAdmin(false);
+      }
+    };
+    void checkAdminAccess();
+  }, []);
 
   return (
     <>
@@ -111,6 +136,20 @@ export function DashboardSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {isAdmin && (
+                <SidebarMenuItem key="/admin-panel">
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/admin-panel"
+                      className="hover:bg-muted/50"
+                      activeClassName="bg-primary/10 text-primary font-medium"
+                    >
+                      <Shield className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Admin Panel</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

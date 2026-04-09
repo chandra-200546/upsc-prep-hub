@@ -89,6 +89,24 @@ const requireWeeklyAdmin = async (c: any) => {
   return rows[0] || null;
 };
 
+const isPlatformAdminEmail = async (email: string) => {
+  const normalized = String(email || "").trim().toLowerCase();
+  if (!normalized) return false;
+  if (config.weeklyTestAdminEmail) {
+    return normalized === config.weeklyTestAdminEmail.toLowerCase();
+  }
+  const firstUser = await queryNeon<{ email: string }>(`SELECT email FROM user_accounts ORDER BY created_at ASC LIMIT 1`);
+  return normalized === String(firstUser[0]?.email || "").toLowerCase();
+};
+
+const requirePlatformAdmin = async (c: any) => {
+  const user = await getSessionUser(c);
+  if (!user?.id || !user?.email) return null;
+  const ok = await isPlatformAdminEmail(user.email);
+  if (!ok) return null;
+  return user;
+};
+
 const verifyGoogleIdToken = async (idToken: string) => {
   const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
   const tokenInfo = await tokenInfoRes.json().catch(() => ({}));
@@ -686,6 +704,233 @@ functionsRouter.post("/weekly-tests/admin/publish", async (c) => {
   if (!testId) return c.json({ message: "testId is required" }, 400);
   await queryNeon(`UPDATE weekly_tests SET is_published = $1 WHERE id = $2::uuid`, [isPublished, testId]);
   return c.json({ ok: true });
+});
+
+functionsRouter.get("/admin/panel/access", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user?.id || !user?.email) return c.json({ isAdmin: false }, 401);
+  const isAdmin = await isPlatformAdminEmail(user.email);
+  return c.json({ isAdmin, email: user.email });
+});
+
+functionsRouter.get("/admin/panel/overview", async (c) => {
+  const admin = await requirePlatformAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+
+  const [users, profiles, doubtPosts, doubtAnswers, notesPosts, notifications, weeklyTests, prelimAttempts, mainsSubmissions] =
+    await Promise.all([
+      queryNeon<{ count: number }>(`SELECT COUNT(*)::int AS count FROM user_accounts`),
+      queryNeon<{ count: number }>(`SELECT COUNT(*)::int AS count FROM profiles`),
+      queryNeon<{ count: number }>(`SELECT COUNT(*)::int AS count FROM doubt_posts`),
+      queryNeon<{ count: number }>(`SELECT COUNT(*)::int AS count FROM doubt_answers`),
+      queryNeon<{ count: number }>(`SELECT COUNT(*)::int AS count FROM notes_feed_posts`),
+      queryNeon<{ count: number }>(`SELECT COUNT(*)::int AS count FROM doubt_notifications`),
+      queryNeon<{ count: number }>(`SELECT COUNT(*)::int AS count FROM weekly_tests`),
+      queryNeon<{ count: number }>(`SELECT COUNT(*)::int AS count FROM prelims_attempts`),
+      queryNeon<{ count: number }>(`SELECT COUNT(*)::int AS count FROM mains_submissions`),
+    ]);
+
+  const latestRows = await queryNeon<{
+    latest_user_created_at: string | null;
+    latest_doubt_created_at: string | null;
+    latest_note_created_at: string | null;
+    latest_notification_created_at: string | null;
+  }>(
+    `
+    SELECT
+      (SELECT created_at::text FROM user_accounts ORDER BY created_at DESC LIMIT 1) AS latest_user_created_at,
+      (SELECT created_at::text FROM doubt_posts ORDER BY created_at DESC LIMIT 1) AS latest_doubt_created_at,
+      (SELECT created_at::text FROM notes_feed_posts ORDER BY created_at DESC LIMIT 1) AS latest_note_created_at,
+      (SELECT created_at::text FROM doubt_notifications ORDER BY created_at DESC LIMIT 1) AS latest_notification_created_at
+    `,
+  );
+
+  return c.json({
+    admin: { id: admin.id, email: admin.email },
+    counts: {
+      users: Number(users[0]?.count || 0),
+      profiles: Number(profiles[0]?.count || 0),
+      doubtPosts: Number(doubtPosts[0]?.count || 0),
+      doubtAnswers: Number(doubtAnswers[0]?.count || 0),
+      notesPosts: Number(notesPosts[0]?.count || 0),
+      notifications: Number(notifications[0]?.count || 0),
+      weeklyTests: Number(weeklyTests[0]?.count || 0),
+      prelimAttempts: Number(prelimAttempts[0]?.count || 0),
+      mainsSubmissions: Number(mainsSubmissions[0]?.count || 0),
+    },
+    latest: latestRows[0] || {
+      latest_user_created_at: null,
+      latest_doubt_created_at: null,
+      latest_note_created_at: null,
+      latest_notification_created_at: null,
+    },
+  });
+});
+
+functionsRouter.get("/admin/panel/activity", async (c) => {
+  const admin = await requirePlatformAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+  const limit = Math.max(1, Math.min(200, Number(c.req.query("limit") || 50)));
+
+  const rows = await queryNeon<{
+    type: string;
+    id: string;
+    user_id: string | null;
+    email: string | null;
+    name: string | null;
+    summary: string;
+    created_at: string;
+  }>(
+    `
+    SELECT * FROM (
+      SELECT
+        'user_signup' AS type,
+        ua.id::text AS id,
+        ua.id::text AS user_id,
+        ua.email AS email,
+        ua.name AS name,
+        ('New account: ' || ua.email) AS summary,
+        ua.created_at::text AS created_at
+      FROM user_accounts ua
+      UNION ALL
+      SELECT
+        'doubt_post' AS type,
+        dp.id::text AS id,
+        dp.user_id::text AS user_id,
+        ua.email AS email,
+        COALESCE(pr.name, ua.name, 'Aspirant') AS name,
+        ('Doubt: ' || dp.title) AS summary,
+        dp.created_at::text AS created_at
+      FROM doubt_posts dp
+      LEFT JOIN user_accounts ua ON ua.id = dp.user_id
+      LEFT JOIN profiles pr ON pr.id = dp.user_id
+      UNION ALL
+      SELECT
+        'notes_post' AS type,
+        np.id::text AS id,
+        np.user_id::text AS user_id,
+        ua.email AS email,
+        COALESCE(pr.name, ua.name, 'Aspirant') AS name,
+        ('Notes: ' || np.title) AS summary,
+        np.created_at::text AS created_at
+      FROM notes_feed_posts np
+      LEFT JOIN user_accounts ua ON ua.id = np.user_id
+      LEFT JOIN profiles pr ON pr.id = np.user_id
+      UNION ALL
+      SELECT
+        'notification' AS type,
+        n.id::text AS id,
+        n.user_id::text AS user_id,
+        ua.email AS email,
+        COALESCE(pr.name, ua.name, 'Aspirant') AS name,
+        n.message AS summary,
+        n.created_at::text AS created_at
+      FROM doubt_notifications n
+      LEFT JOIN user_accounts ua ON ua.id = n.user_id
+      LEFT JOIN profiles pr ON pr.id = n.user_id
+    ) t
+    ORDER BY t.created_at DESC
+    LIMIT $1
+    `,
+    [limit],
+  );
+
+  return c.json({
+    admin: { id: admin.id, email: admin.email },
+    items: rows.map((r) => ({
+      type: r.type,
+      id: r.id,
+      userId: r.user_id,
+      email: r.email,
+      name: r.name || "Aspirant",
+      summary: r.summary,
+      createdAt: r.created_at,
+    })),
+  });
+});
+
+functionsRouter.get("/admin/panel/users", async (c) => {
+  const admin = await requirePlatformAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+
+  const search = String(c.req.query("search") || "").trim();
+  const page = Math.max(1, Number(c.req.query("page") || 1));
+  const limit = Math.max(1, Math.min(200, Number(c.req.query("limit") || 50)));
+  const offset = (page - 1) * limit;
+  const sortRaw = String(c.req.query("sort") || "newest").trim().toLowerCase();
+  const sort: "newest" | "oldest" | "xp_desc" =
+    sortRaw === "oldest" || sortRaw === "xp_desc" ? (sortRaw as "oldest" | "xp_desc") : "newest";
+
+  const where: string[] = [];
+  const params: unknown[] = [];
+  let idx = 1;
+  if (search) {
+    where.push(`(ua.email ILIKE $${idx} OR ua.name ILIKE $${idx} OR COALESCE(p.name, '') ILIKE $${idx})`);
+    params.push(`%${search}%`);
+    idx += 1;
+  }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const orderSql =
+    sort === "oldest"
+      ? "ORDER BY ua.created_at ASC"
+      : sort === "xp_desc"
+        ? "ORDER BY COALESCE(p.total_xp, 0) DESC, ua.created_at DESC"
+        : "ORDER BY ua.created_at DESC";
+
+  const rows = await queryNeon<{
+    user_id: string;
+    email: string;
+    account_name: string;
+    account_created_at: string;
+    profile_name: string | null;
+    current_streak: number | null;
+    total_xp: number | null;
+    level: number | null;
+    last_login_date: string | null;
+  }>(
+    `
+    SELECT
+      ua.id::text AS user_id,
+      ua.email,
+      ua.name AS account_name,
+      ua.created_at::text AS account_created_at,
+      p.name AS profile_name,
+      p.current_streak,
+      p.total_xp,
+      p.level,
+      p.last_login_date
+    FROM user_accounts ua
+    LEFT JOIN profiles p ON p.id = ua.id
+    ${whereSql}
+    ${orderSql}
+    LIMIT $${idx} OFFSET $${idx + 1}
+    `,
+    [...params, limit, offset],
+  );
+
+  const countRows = await queryNeon<{ total: number }>(
+    `SELECT COUNT(*)::int AS total FROM user_accounts ua LEFT JOIN profiles p ON p.id = ua.id ${whereSql}`,
+    params,
+  );
+  const total = Number(countRows[0]?.total || 0);
+
+  return c.json({
+    page,
+    limit,
+    total,
+    hasMore: page * limit < total,
+    users: rows.map((r) => ({
+      id: r.user_id,
+      email: r.email,
+      accountName: r.account_name,
+      accountCreatedAt: r.account_created_at,
+      profileName: r.profile_name || r.account_name,
+      currentStreak: Number(r.current_streak || 0),
+      totalXp: Number(r.total_xp || 0),
+      level: Number(r.level || 1),
+      lastLoginDate: r.last_login_date,
+    })),
+  });
 });
 
 functionsRouter.get("/admin/users/profiles", async (c) => {

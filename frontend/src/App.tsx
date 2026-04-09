@@ -31,6 +31,7 @@ import Subscription from "./pages/Subscription";
 import WeeklyTestSeries from "./pages/WeeklyTestSeries";
 import DoubtFeed from "./pages/DoubtFeed";
 import NotesFeed from "./pages/NotesFeed";
+import AdminPanel from "./pages/AdminPanel";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -71,6 +72,7 @@ const App = () => (
             <Route path="/weekly-test-series" element={<WeeklyTestSeries />} />
             <Route path="/doubt-feed" element={<DoubtFeed />} />
             <Route path="/notes-feed" element={<NotesFeed />} />
+            <Route path="/admin-panel" element={<AdminPanel />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
