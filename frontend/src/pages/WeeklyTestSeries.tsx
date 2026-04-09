@@ -5,8 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-local-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
@@ -51,22 +49,6 @@ const WeeklyTestSeries = () => {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ score: number; totalQuestions: number; percentage: number } | null>(null);
 
-  const [adminEmail, setAdminEmail] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
-  const [adminToken, setAdminToken] = useState(() => sessionStorage.getItem("weekly_admin_token") || "");
-  const [adminTests, setAdminTests] = useState<TestItem[]>([]);
-  const [newTest, setNewTest] = useState({ title: "", description: "", weekLabel: "", durationMinutes: "60" });
-  const [newQ, setNewQ] = useState({
-    testId: "",
-    questionText: "",
-    optionA: "",
-    optionB: "",
-    optionC: "",
-    optionD: "",
-    correctAnswer: "A",
-    explanation: "",
-  });
-
   const selectedTestName = useMemo(() => selectedTest?.title || "Weekly Test", [selectedTest]);
 
   const api = async (path: string, options?: RequestInit & { auth?: boolean; admin?: boolean }) => {
@@ -78,9 +60,6 @@ const WeeklyTestSeries = () => {
       const { data } = await supabase.auth.getSession();
       const token = data?.session?.access_token;
       if (token) headers.Authorization = `Bearer ${token}`;
-    }
-    if (options?.admin && adminToken) {
-      headers["X-Weekly-Admin-Token"] = adminToken;
     }
     const response = await fetch(`${backendBase()}/functions/v1${path}`, {
       ...options,
@@ -96,12 +75,6 @@ const WeeklyTestSeries = () => {
   const loadTests = async () => {
     const data = await api("/weekly-tests/list");
     setTests(data.tests || []);
-  };
-
-  const loadAdminTests = async () => {
-    if (!adminToken) return;
-    const data = await api("/weekly-tests/admin/tests", { admin: true });
-    setAdminTests(data.tests || []);
   };
 
   const loadLeaderboard = async (testId: string) => {
@@ -144,81 +117,6 @@ const WeeklyTestSeries = () => {
     }
   };
 
-  const adminLogin = async () => {
-    try {
-      const data = await api("/weekly-tests/admin/login", {
-        method: "POST",
-        body: JSON.stringify({ email: adminEmail, password: adminPassword }),
-      });
-      setAdminToken(data.token || "");
-      sessionStorage.setItem("weekly_admin_token", data.token || "");
-      toast({ title: "Admin access granted" });
-      await loadAdminTests();
-    } catch (error: any) {
-      toast({ title: "Admin login failed", description: error?.message || "Invalid admin credentials", variant: "destructive" });
-    }
-  };
-
-  const createTest = async () => {
-    try {
-      await api("/weekly-tests/admin/create", {
-        method: "POST",
-        admin: true,
-        body: JSON.stringify({
-          title: newTest.title,
-          description: newTest.description,
-          weekLabel: newTest.weekLabel,
-          durationMinutes: Number(newTest.durationMinutes || 60),
-          isPublished: false,
-        }),
-      });
-      setNewTest({ title: "", description: "", weekLabel: "", durationMinutes: "60" });
-      await loadAdminTests();
-      await loadTests();
-      toast({ title: "Weekly test created" });
-    } catch (error: any) {
-      toast({ title: "Create failed", description: error?.message || "Could not create test", variant: "destructive" });
-    }
-  };
-
-  const addQuestion = async () => {
-    try {
-      await api("/weekly-tests/admin/question", {
-        method: "POST",
-        admin: true,
-        body: JSON.stringify(newQ),
-      });
-      setNewQ({
-        testId: newQ.testId,
-        questionText: "",
-        optionA: "",
-        optionB: "",
-        optionC: "",
-        optionD: "",
-        correctAnswer: "A",
-        explanation: "",
-      });
-      await loadAdminTests();
-      await loadTests();
-      toast({ title: "Question added" });
-    } catch (error: any) {
-      toast({ title: "Add question failed", description: error?.message || "Could not add question", variant: "destructive" });
-    }
-  };
-
-  const togglePublish = async (testId: string, isPublished: boolean) => {
-    try {
-      await api("/weekly-tests/admin/publish", {
-        method: "POST",
-        admin: true,
-        body: JSON.stringify({ testId, isPublished }),
-      });
-      await loadAdminTests();
-      await loadTests();
-    } catch (error: any) {
-      toast({ title: "Publish update failed", description: error?.message || "Could not update publish status", variant: "destructive" });
-    }
-  };
 
   useEffect(() => {
     if (!user) {
@@ -230,10 +128,9 @@ const WeeklyTestSeries = () => {
       navigate("/auth");
       return;
     }
-    Promise.all([loadTests(), adminToken ? loadAdminTests() : Promise.resolve()])
-      .finally(() => setLoading(false));
+    Promise.all([loadTests()]).finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, isLocalMode, adminToken]);
+  }, [user, isLocalMode]);
 
   if (loading) {
     return (
@@ -334,71 +231,9 @@ const WeeklyTestSeries = () => {
             </Card>
           </div>
         )}
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Admin Access (Weekly Tests)</CardTitle>
-            <CardDescription>Only authorized admin can create tests and add questions.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!adminToken ? (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <Input placeholder="Admin Email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} />
-                <Input type="password" placeholder="Admin Password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} />
-                <Button onClick={adminLogin}>Unlock Admin</Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                  <Input placeholder="Test title" value={newTest.title} onChange={(e) => setNewTest((p) => ({ ...p, title: e.target.value }))} />
-                  <Input placeholder="Week label" value={newTest.weekLabel} onChange={(e) => setNewTest((p) => ({ ...p, weekLabel: e.target.value }))} />
-                  <Input placeholder="Duration minutes" value={newTest.durationMinutes} onChange={(e) => setNewTest((p) => ({ ...p, durationMinutes: e.target.value }))} />
-                  <Button onClick={createTest}>Create Test</Button>
-                </div>
-                <Input placeholder="Description" value={newTest.description} onChange={(e) => setNewTest((p) => ({ ...p, description: e.target.value }))} />
-
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                  {adminTests.map((t) => (
-                    <div key={t.id} className="rounded border p-2 text-sm flex items-center justify-between">
-                      <span>{t.title} ({t.questions_count}Q)</span>
-                      <Button size="sm" variant="outline" onClick={() => togglePublish(t.id, !t.is_published)}>
-                        {t.is_published ? "Unpublish" : "Publish"}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <Label className="md:col-span-3">Add Question</Label>
-                  <select
-                    className="rounded-md border bg-background px-3 py-2 text-sm"
-                    value={newQ.testId}
-                    onChange={(e) => setNewQ((p) => ({ ...p, testId: e.target.value }))}
-                  >
-                    <option value="">Select Test</option>
-                    {adminTests.map((t) => (
-                      <option key={t.id} value={t.id}>{t.title}</option>
-                    ))}
-                  </select>
-                  <Input placeholder="Correct (A/B/C/D)" value={newQ.correctAnswer} onChange={(e) => setNewQ((p) => ({ ...p, correctAnswer: e.target.value.toUpperCase() }))} />
-                  <Button onClick={addQuestion}>Add Question</Button>
-                </div>
-                <Input placeholder="Question text" value={newQ.questionText} onChange={(e) => setNewQ((p) => ({ ...p, questionText: e.target.value }))} />
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <Input placeholder="Option A" value={newQ.optionA} onChange={(e) => setNewQ((p) => ({ ...p, optionA: e.target.value }))} />
-                  <Input placeholder="Option B" value={newQ.optionB} onChange={(e) => setNewQ((p) => ({ ...p, optionB: e.target.value }))} />
-                  <Input placeholder="Option C" value={newQ.optionC} onChange={(e) => setNewQ((p) => ({ ...p, optionC: e.target.value }))} />
-                  <Input placeholder="Option D" value={newQ.optionD} onChange={(e) => setNewQ((p) => ({ ...p, optionD: e.target.value }))} />
-                </div>
-                <Input placeholder="Explanation (optional)" value={newQ.explanation} onChange={(e) => setNewQ((p) => ({ ...p, explanation: e.target.value }))} />
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </DashboardLayout>
   );
 };
 
 export default WeeklyTestSeries;
-

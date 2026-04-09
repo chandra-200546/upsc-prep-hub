@@ -706,6 +706,103 @@ functionsRouter.post("/weekly-tests/admin/publish", async (c) => {
   return c.json({ ok: true });
 });
 
+functionsRouter.get("/admin/panel/weekly-tests", async (c) => {
+  const admin = await requirePlatformAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+
+  const rows = await queryNeon<{
+    id: string;
+    title: string;
+    description: string | null;
+    week_label: string | null;
+    duration_minutes: number;
+    start_at: string | null;
+    end_at: string | null;
+    is_published: boolean;
+    questions_count: number;
+  }>(
+    `
+    SELECT t.id::text, t.title, t.description, t.week_label, t.duration_minutes, t.start_at::text, t.end_at::text, t.is_published,
+           COUNT(q.id)::int AS questions_count
+    FROM weekly_tests t
+    LEFT JOIN weekly_test_questions q ON q.test_id = t.id
+    GROUP BY t.id
+    ORDER BY t.created_at DESC
+    `,
+  );
+
+  return c.json({ tests: rows });
+});
+
+functionsRouter.post("/admin/panel/weekly-tests", async (c) => {
+  const admin = await requirePlatformAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+
+  const body = await c.req.json().catch(() => ({}));
+  const title = String(body?.title ?? "").trim();
+  const description = String(body?.description ?? "").trim();
+  const weekLabel = String(body?.weekLabel ?? "").trim();
+  const durationMinutes = Math.max(15, Math.min(180, Number(body?.durationMinutes ?? 60)));
+  const startAt = String(body?.startAt ?? "").trim() || null;
+  const endAt = String(body?.endAt ?? "").trim() || null;
+  const isPublished = Boolean(body?.isPublished ?? false);
+  if (!title) return c.json({ message: "title is required" }, 400);
+
+  const id = randomUUID();
+  await queryNeon(
+    `
+    INSERT INTO weekly_tests (id, title, description, week_label, duration_minutes, start_at, end_at, is_published)
+    VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz, $8)
+    `,
+    [id, title, description || null, weekLabel || null, durationMinutes, startAt, endAt, isPublished],
+  );
+  return c.json({ ok: true, id });
+});
+
+functionsRouter.post("/admin/panel/weekly-tests/question", async (c) => {
+  const admin = await requirePlatformAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+
+  const body = await c.req.json().catch(() => ({}));
+  const testId = String(body?.testId ?? "").trim();
+  const questionText = String(body?.questionText ?? "").trim();
+  const optionA = String(body?.optionA ?? "").trim();
+  const optionB = String(body?.optionB ?? "").trim();
+  const optionC = String(body?.optionC ?? "").trim();
+  const optionD = String(body?.optionD ?? "").trim();
+  const correctAnswer = String(body?.correctAnswer ?? "").trim().toUpperCase();
+  const explanation = String(body?.explanation ?? "").trim();
+  if (!testId || !questionText || !optionA || !optionB || !optionC || !optionD) {
+    return c.json({ message: "testId, questionText and all options are required" }, 400);
+  }
+  if (!["A", "B", "C", "D"].includes(correctAnswer)) {
+    return c.json({ message: "correctAnswer must be one of A/B/C/D" }, 400);
+  }
+
+  const id = randomUUID();
+  await queryNeon(
+    `
+    INSERT INTO weekly_test_questions
+    (id, test_id, question_text, option_a, option_b, option_c, option_d, correct_answer, explanation)
+    VALUES ($1, $2::uuid, $3, $4, $5, $6, $7, $8, $9)
+    `,
+    [id, testId, questionText, optionA, optionB, optionC, optionD, correctAnswer, explanation || null],
+  );
+  return c.json({ ok: true, id });
+});
+
+functionsRouter.post("/admin/panel/weekly-tests/publish", async (c) => {
+  const admin = await requirePlatformAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+
+  const body = await c.req.json().catch(() => ({}));
+  const testId = String(body?.testId ?? "").trim();
+  const isPublished = Boolean(body?.isPublished);
+  if (!testId) return c.json({ message: "testId is required" }, 400);
+  await queryNeon(`UPDATE weekly_tests SET is_published = $1 WHERE id = $2::uuid`, [isPublished, testId]);
+  return c.json({ ok: true });
+});
+
 functionsRouter.get("/admin/panel/access", async (c) => {
   const user = await getSessionUser(c);
   if (!user?.id || !user?.email) return c.json({ isAdmin: false }, 401);

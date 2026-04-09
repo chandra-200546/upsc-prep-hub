@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 type OverviewResponse = {
   admin?: { id: string; email: string };
@@ -77,6 +78,18 @@ type FullReportResponse = {
   };
 };
 
+type WeeklyTestItem = {
+  id: string;
+  title: string;
+  description?: string | null;
+  week_label?: string | null;
+  duration_minutes: number;
+  start_at?: string | null;
+  end_at?: string | null;
+  is_published?: boolean;
+  questions_count: number;
+};
+
 const backendBase = () => String(import.meta.env.VITE_BACKEND_URL || "http://localhost:8787").replace(/\/$/, "");
 
 const formatTs = (value?: string | null) => {
@@ -87,6 +100,7 @@ const formatTs = (value?: string | null) => {
 };
 
 const AdminPanel = () => {
+  const { toast } = useToast();
   const [accessChecked, setAccessChecked] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -96,11 +110,114 @@ const AdminPanel = () => {
   const [fullReport, setFullReport] = useState<FullReportResponse>({});
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"newest" | "oldest" | "xp_desc">("newest");
+  const [weeklyTests, setWeeklyTests] = useState<WeeklyTestItem[]>([]);
+  const [weeklyBusy, setWeeklyBusy] = useState(false);
+  const [newTest, setNewTest] = useState({ title: "", description: "", weekLabel: "", durationMinutes: "60" });
+  const [newQ, setNewQ] = useState({
+    testId: "",
+    questionText: "",
+    optionA: "",
+    optionB: "",
+    optionC: "",
+    optionD: "",
+    correctAnswer: "A",
+    explanation: "",
+  });
 
   const authHeaders = async () => {
     const { data } = await supabase.auth.getSession();
     const token = data?.session?.access_token;
     return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  const adminApi = async (path: string, options?: RequestInit) => {
+    const headers = await authHeaders();
+    const response = await fetch(`${backendBase()}/functions/v1${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...headers,
+        ...(options?.headers || {}),
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload?.message || payload?.error || "Request failed");
+    }
+    return payload;
+  };
+
+  const loadWeeklyTests = async () => {
+    const data = await adminApi("/admin/panel/weekly-tests");
+    setWeeklyTests(Array.isArray(data?.tests) ? data.tests : []);
+  };
+
+  const createWeeklyTest = async () => {
+    setWeeklyBusy(true);
+    try {
+      await adminApi("/admin/panel/weekly-tests", {
+        method: "POST",
+        body: JSON.stringify({
+          title: newTest.title,
+          description: newTest.description,
+          weekLabel: newTest.weekLabel,
+          durationMinutes: Number(newTest.durationMinutes || 60),
+          isPublished: false,
+        }),
+      });
+      setNewTest({ title: "", description: "", weekLabel: "", durationMinutes: "60" });
+      await loadWeeklyTests();
+      await loadData();
+      toast({ title: "Weekly test created" });
+    } catch (error: any) {
+      toast({ title: "Create failed", description: error?.message || "Could not create test", variant: "destructive" });
+    } finally {
+      setWeeklyBusy(false);
+    }
+  };
+
+  const addWeeklyQuestion = async () => {
+    setWeeklyBusy(true);
+    try {
+      await adminApi("/admin/panel/weekly-tests/question", {
+        method: "POST",
+        body: JSON.stringify(newQ),
+      });
+      setNewQ((prev) => ({
+        ...prev,
+        questionText: "",
+        optionA: "",
+        optionB: "",
+        optionC: "",
+        optionD: "",
+        correctAnswer: "A",
+        explanation: "",
+      }));
+      await loadWeeklyTests();
+      await loadData();
+      toast({ title: "Question added" });
+    } catch (error: any) {
+      toast({ title: "Add question failed", description: error?.message || "Could not add question", variant: "destructive" });
+    } finally {
+      setWeeklyBusy(false);
+    }
+  };
+
+  const toggleWeeklyPublish = async (testId: string, isPublished: boolean) => {
+    setWeeklyBusy(true);
+    try {
+      await adminApi("/admin/panel/weekly-tests/publish", {
+        method: "POST",
+        body: JSON.stringify({ testId, isPublished }),
+      });
+      await loadWeeklyTests();
+      await loadData();
+      toast({ title: isPublished ? "Test published" : "Test unpublished" });
+    } catch (error: any) {
+      toast({ title: "Publish update failed", description: error?.message || "Could not update publish status", variant: "destructive" });
+    } finally {
+      setWeeklyBusy(false);
+    }
   };
 
   const loadData = async () => {
@@ -136,6 +253,12 @@ const AdminPanel = () => {
       setActivities(Array.isArray(activityPayload?.items) ? activityPayload.items : []);
       setUsers(Array.isArray(usersPayload?.users) ? usersPayload.users : []);
       setFullReport(fullPayload || {});
+      try {
+        const weeklyPayload = await adminApi("/admin/panel/weekly-tests");
+        setWeeklyTests(Array.isArray(weeklyPayload?.tests) ? weeklyPayload.tests : []);
+      } catch {
+        setWeeklyTests([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -343,6 +466,92 @@ const AdminPanel = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card className="p-4 overflow-auto lg:col-span-2">
+                <h2 className="font-semibold mb-3">Weekly Test Series Management</h2>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                  <Input
+                    placeholder="Test title"
+                    value={newTest.title}
+                    onChange={(e) => setNewTest((p) => ({ ...p, title: e.target.value }))}
+                  />
+                  <Input
+                    placeholder="Week label"
+                    value={newTest.weekLabel}
+                    onChange={(e) => setNewTest((p) => ({ ...p, weekLabel: e.target.value }))}
+                  />
+                  <Input
+                    placeholder="Duration minutes"
+                    value={newTest.durationMinutes}
+                    onChange={(e) => setNewTest((p) => ({ ...p, durationMinutes: e.target.value }))}
+                  />
+                  <Button onClick={() => void createWeeklyTest()} disabled={weeklyBusy}>
+                    {weeklyBusy ? "Saving..." : "Create Test"}
+                  </Button>
+                </div>
+                <div className="mt-3">
+                  <Input
+                    placeholder="Description"
+                    value={newTest.description}
+                    onChange={(e) => setNewTest((p) => ({ ...p, description: e.target.value }))}
+                  />
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
+                  {weeklyTests.map((t) => (
+                    <div key={t.id} className="rounded border p-2 text-sm flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-medium">{t.title}</p>
+                        <p className="text-muted-foreground">{t.week_label || "-"} • {t.questions_count}Q</p>
+                      </div>
+                      <Button size="sm" variant="outline" onClick={() => void toggleWeeklyPublish(t.id, !t.is_published)} disabled={weeklyBusy}>
+                        {t.is_published ? "Unpublish" : "Publish"}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <select
+                    className="rounded-md border bg-background px-3 py-2 text-sm"
+                    value={newQ.testId}
+                    onChange={(e) => setNewQ((p) => ({ ...p, testId: e.target.value }))}
+                  >
+                    <option value="">Select Test</option>
+                    {weeklyTests.map((t) => (
+                      <option key={t.id} value={t.id}>{t.title}</option>
+                    ))}
+                  </select>
+                  <Input
+                    placeholder="Correct (A/B/C/D)"
+                    value={newQ.correctAnswer}
+                    onChange={(e) => setNewQ((p) => ({ ...p, correctAnswer: e.target.value.toUpperCase() }))}
+                  />
+                  <Button onClick={() => void addWeeklyQuestion()} disabled={weeklyBusy}>
+                    {weeklyBusy ? "Saving..." : "Add Question"}
+                  </Button>
+                </div>
+                <div className="mt-3">
+                  <Input
+                    placeholder="Question text"
+                    value={newQ.questionText}
+                    onChange={(e) => setNewQ((p) => ({ ...p, questionText: e.target.value }))}
+                  />
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <Input placeholder="Option A" value={newQ.optionA} onChange={(e) => setNewQ((p) => ({ ...p, optionA: e.target.value }))} />
+                  <Input placeholder="Option B" value={newQ.optionB} onChange={(e) => setNewQ((p) => ({ ...p, optionB: e.target.value }))} />
+                  <Input placeholder="Option C" value={newQ.optionC} onChange={(e) => setNewQ((p) => ({ ...p, optionC: e.target.value }))} />
+                  <Input placeholder="Option D" value={newQ.optionD} onChange={(e) => setNewQ((p) => ({ ...p, optionD: e.target.value }))} />
+                </div>
+                <div className="mt-3">
+                  <Input
+                    placeholder="Explanation (optional)"
+                    value={newQ.explanation}
+                    onChange={(e) => setNewQ((p) => ({ ...p, explanation: e.target.value }))}
+                  />
+                </div>
+              </Card>
+
               <Card className="p-4 overflow-auto">
                 <h2 className="font-semibold mb-3">Recent Weekly Tests</h2>
                 <div className="space-y-2">
