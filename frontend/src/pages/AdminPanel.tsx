@@ -111,6 +111,15 @@ const formatTs = (value?: string | null) => {
   return d.toLocaleString();
 };
 
+const formatAnnouncementWindow = (weekLabel?: string | null, startsAt?: string | null, endsAt?: string | null) => {
+  const label = String(weekLabel || "").trim();
+  if (label) return label;
+  const start = startsAt ? formatTs(startsAt) : "";
+  const end = endsAt ? formatTs(endsAt) : "";
+  if (start && end) return `${start} to ${end}`;
+  return start || end || "-";
+};
+
 const AdminPanel = () => {
   const { toast } = useToast();
   const [accessChecked, setAccessChecked] = useState(false);
@@ -663,7 +672,7 @@ const AdminPanel = () => {
                           <p className="font-medium">{a.title}</p>
                           <p className="text-muted-foreground">{a.message}</p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {a.week_label || "-"} • {formatTs(a.starts_at)} to {formatTs(a.ends_at)}
+                            {formatAnnouncementWindow(a.week_label, a.starts_at, a.ends_at)}
                           </p>
                         </div>
                         <Button

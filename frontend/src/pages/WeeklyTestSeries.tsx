@@ -44,6 +44,15 @@ const backendBase = () => {
   return "http://localhost:8787";
 };
 
+const formatAnnouncementWindow = (weekLabel?: string | null, startsAt?: string | null, endsAt?: string | null) => {
+  const label = String(weekLabel || "").trim();
+  if (label) return label;
+  const start = startsAt ? new Date(startsAt).toLocaleString() : "";
+  const end = endsAt ? new Date(endsAt).toLocaleString() : "";
+  if (start && end) return `${start} to ${end}`;
+  return start || end || "Weekly Update";
+};
+
 const WeeklyTestSeries = () => {
   const { user, isLocalMode } = useAuth();
   const navigate = useNavigate();
@@ -170,9 +179,9 @@ const WeeklyTestSeries = () => {
               <CardDescription>{announcement.message}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-              <Badge variant="secondary">{announcement.week_label || "Weekly Update"}</Badge>
-              <span>Starts: {announcement.starts_at ? new Date(announcement.starts_at).toLocaleString() : "-"}</span>
-              <span>Ends: {announcement.ends_at ? new Date(announcement.ends_at).toLocaleString() : "-"}</span>
+              <Badge variant="secondary">
+                {formatAnnouncementWindow(announcement.week_label, announcement.starts_at, announcement.ends_at)}
+              </Badge>
             </CardContent>
           </Card>
         )}
