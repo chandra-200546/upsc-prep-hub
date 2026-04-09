@@ -204,6 +204,7 @@ const createDoubtNotification = async (params: {
     | "note_saved"
     | "note_shared";
   message: string;
+  actorUserId?: string;
   targetKind?: "doubt" | "notes";
   relatedPostId?: string;
   relatedNoteId?: string;
@@ -211,14 +212,15 @@ const createDoubtNotification = async (params: {
 }) => {
   await queryNeon(
     `
-    INSERT INTO doubt_notifications (id, user_id, type, message, target_kind, related_post_id, related_note_id, related_answer_id, is_read)
-    VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::uuid, $7::uuid, $8::uuid, FALSE)
+    INSERT INTO doubt_notifications (id, user_id, type, message, actor_user_id, target_kind, related_post_id, related_note_id, related_answer_id, is_read)
+    VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $6, $7::uuid, $8::uuid, $9::uuid, FALSE)
     `,
     [
       randomUUID(),
       params.userId,
       params.type,
       params.message,
+      params.actorUserId || null,
       params.targetKind || "doubt",
       params.relatedPostId || null,
       params.relatedNoteId || null,
@@ -240,6 +242,116 @@ const getNotificationActorName = async (userId: string): Promise<string> => {
     [userId],
   );
   return String(rows[0]?.name || "Aspirant").trim() || "Aspirant";
+};
+
+const toIsoFromDbTimestamp = (value: string | null | undefined): string => {
+  const raw = String(value || "").trim();
+  if (!raw) return new Date().toISOString();
+  if (/[zZ]$/.test(raw) || /[+\-]\d{2}:\d{2}$/.test(raw)) {
+    const dt = new Date(raw);
+    return Number.isNaN(dt.getTime()) ? new Date().toISOString() : dt.toISOString();
+  }
+  const normalized = raw.replace(" ", "T");
+  const dt = new Date(`${normalized}Z`);
+  return Number.isNaN(dt.getTime()) ? new Date().toISOString() : dt.toISOString();
+};
+
+const formatNotificationMessage = (type: string, actorName: string): string => {
+  const actor = actorName || "Aspirant";
+  switch (type) {
+    case "answer_received":
+      return `${actor} answered your UPSC doubt.`;
+    case "answer_liked":
+      return `${actor} marked your answer as helpful.`;
+    case "best_answer_selected":
+      return `${actor} selected your answer as the best answer.`;
+    case "doubt_liked":
+      return `${actor} liked your doubt post.`;
+    case "doubt_saved":
+      return `${actor} saved your doubt post.`;
+    case "doubt_shared":
+      return `${actor} shared your doubt post.`;
+    case "note_liked":
+      return `${actor} liked your notes post.`;
+    case "note_saved":
+      return `${actor} saved your notes post.`;
+    case "note_shared":
+      return `${actor} shared your notes post.`;
+    default:
+      return `${actor} interacted with your post.`;
+  }
+};
+
+const resolveNotificationActorName = async (row: {
+  type: string;
+  actor_user_id: string | null;
+  related_post_id: string | null;
+  related_note_id: string | null;
+  related_answer_id: string | null;
+}): Promise<string> => {
+  if (row.actor_user_id) return getNotificationActorName(row.actor_user_id);
+  if (row.type === "answer_received" || row.type === "answer_liked") {
+    if (!row.related_answer_id) return "Aspirant";
+    const a = await queryNeon<{ user_id: string }>(
+      `SELECT user_id::text FROM doubt_answers WHERE id = $1::uuid LIMIT 1`,
+      [row.related_answer_id],
+    );
+    return getNotificationActorName(String(a[0]?.user_id || ""));
+  }
+  if (row.type === "best_answer_selected" || row.type.startsWith("doubt_")) {
+    if (!row.related_post_id) return "Aspirant";
+    if (row.type === "doubt_liked") {
+      const r = await queryNeon<{ user_id: string }>(
+        `SELECT user_id::text FROM doubt_post_likes WHERE post_id = $1::uuid ORDER BY created_at DESC LIMIT 1`,
+        [row.related_post_id],
+      );
+      return getNotificationActorName(String(r[0]?.user_id || ""));
+    }
+    if (row.type === "doubt_saved") {
+      const r = await queryNeon<{ user_id: string }>(
+        `SELECT user_id::text FROM doubt_post_saves WHERE post_id = $1::uuid ORDER BY created_at DESC LIMIT 1`,
+        [row.related_post_id],
+      );
+      return getNotificationActorName(String(r[0]?.user_id || ""));
+    }
+    if (row.type === "doubt_shared") {
+      const r = await queryNeon<{ user_id: string }>(
+        `SELECT user_id::text FROM doubt_post_shares WHERE post_id = $1::uuid ORDER BY created_at DESC LIMIT 1`,
+        [row.related_post_id],
+      );
+      return getNotificationActorName(String(r[0]?.user_id || ""));
+    }
+    const r = await queryNeon<{ user_id: string }>(
+      `SELECT user_id::text FROM doubt_posts WHERE id = $1::uuid LIMIT 1`,
+      [row.related_post_id],
+    );
+    return getNotificationActorName(String(r[0]?.user_id || ""));
+  }
+  if (row.type.startsWith("note_")) {
+    if (!row.related_note_id) return "Aspirant";
+    if (row.type === "note_liked") {
+      const r = await queryNeon<{ user_id: string }>(
+        `SELECT user_id::text FROM notes_feed_likes WHERE note_id = $1::uuid ORDER BY created_at DESC LIMIT 1`,
+        [row.related_note_id],
+      );
+      return getNotificationActorName(String(r[0]?.user_id || ""));
+    }
+    if (row.type === "note_saved") {
+      const r = await queryNeon<{ user_id: string }>(
+        `SELECT user_id::text FROM notes_feed_saves WHERE note_id = $1::uuid ORDER BY created_at DESC LIMIT 1`,
+        [row.related_note_id],
+      );
+      return getNotificationActorName(String(r[0]?.user_id || ""));
+    }
+    if (row.type === "note_shared") {
+      const r = await queryNeon<{ user_id: string }>(
+        `SELECT user_id::text FROM notes_feed_shares WHERE note_id = $1::uuid ORDER BY created_at DESC LIMIT 1`,
+        [row.related_note_id],
+      );
+      return getNotificationActorName(String(r[0]?.user_id || ""));
+    }
+  }
+  return "Aspirant";
 };
 
 const refreshDoubtPostMeta = async (postId: string) => {
@@ -1275,6 +1387,7 @@ functionsRouter.post("/doubts/:postId/like", async (c) => {
       await createDoubtNotification({
         userId: post.user_id,
         type: "doubt_liked",
+        actorUserId: user.id,
         message: `${actorName} liked your doubt post.`,
         targetKind: "doubt",
         relatedPostId: postId,
@@ -1320,6 +1433,7 @@ functionsRouter.post("/doubts/:postId/save", async (c) => {
       await createDoubtNotification({
         userId: post.user_id,
         type: "doubt_saved",
+        actorUserId: user.id,
         message: `${actorName} saved your doubt post.`,
         targetKind: "doubt",
         relatedPostId: postId,
@@ -1476,6 +1590,7 @@ functionsRouter.post("/doubts/:postId/share", async (c) => {
     await createDoubtNotification({
       userId: post.user_id,
       type: "doubt_shared",
+      actorUserId: user.id,
       message: `${actorName} shared your doubt post.`,
       targetKind: "doubt",
       relatedPostId: postId,
@@ -1586,6 +1701,7 @@ functionsRouter.post("/doubts/:postId/answers/create", async (c) => {
     await createDoubtNotification({
       userId: post.user_id,
       type: "answer_received",
+      actorUserId: user.id,
       message: `${actorName} answered your UPSC doubt.`,
       relatedPostId: postId,
       relatedAnswerId: answerId,
@@ -1678,6 +1794,7 @@ functionsRouter.post("/answers/:answerId/vote", async (c) => {
       await createDoubtNotification({
         userId: answer.user_id,
         type: "answer_liked",
+        actorUserId: user.id,
         message: `${actorName} marked your answer as helpful.`,
         relatedPostId: answer.post_id,
         relatedAnswerId: answerId,
@@ -1725,6 +1842,7 @@ functionsRouter.post("/doubts/:postId/best-answer", async (c) => {
     await createDoubtNotification({
       userId: answer.user_id,
       type: "best_answer_selected",
+      actorUserId: user.id,
       message: `${actorName} selected your answer as the best answer.`,
       relatedPostId: postId,
       relatedAnswerId: answerId,
@@ -1742,6 +1860,7 @@ functionsRouter.get("/notifications", async (c) => {
     id: string;
     type: string;
     message: string;
+    actor_user_id: string | null;
     target_kind: string;
     related_post_id: string | null;
     related_note_id: string | null;
@@ -1750,7 +1869,7 @@ functionsRouter.get("/notifications", async (c) => {
     created_at: string;
   }>(
     `
-    SELECT id::text, type, message, target_kind, related_post_id::text, related_note_id::text, related_answer_id::text, is_read, created_at::text
+    SELECT id::text, type, message, actor_user_id::text, target_kind, related_post_id::text, related_note_id::text, related_answer_id::text, is_read, created_at::text
     FROM doubt_notifications
     WHERE user_id = $1::uuid
     ORDER BY created_at DESC
@@ -1763,18 +1882,27 @@ functionsRouter.get("/notifications", async (c) => {
     [user.id],
   );
 
+  const items = await Promise.all(
+    rows.map(async (r) => {
+      const actorName = await resolveNotificationActorName(r);
+      const raw = String(r.message || "");
+      const needsRewrite = /^someone\b/i.test(raw) || /^your answer was selected\b/i.test(raw);
+      return {
+        id: r.id,
+        type: r.type,
+        message: needsRewrite ? formatNotificationMessage(r.type, actorName) : raw,
+        targetKind: r.target_kind || "doubt",
+        relatedPostId: r.related_post_id,
+        relatedNoteId: r.related_note_id,
+        relatedAnswerId: r.related_answer_id,
+        isRead: Boolean(r.is_read),
+        createdAt: toIsoFromDbTimestamp(r.created_at),
+      };
+    }),
+  );
+
   return c.json({
-    items: rows.map((r) => ({
-      id: r.id,
-      type: r.type,
-      message: r.message,
-      targetKind: r.target_kind || "doubt",
-      relatedPostId: r.related_post_id,
-      relatedNoteId: r.related_note_id,
-      relatedAnswerId: r.related_answer_id,
-      isRead: Boolean(r.is_read),
-      createdAt: r.created_at,
-    })),
+    items,
     unreadCount: Number(unreadRows[0]?.count || 0),
   });
 });
@@ -2160,6 +2288,7 @@ functionsRouter.post("/notes-feed/:noteId/like", async (c) => {
       await createDoubtNotification({
         userId: note.user_id,
         type: "note_liked",
+        actorUserId: user.id,
         message: `${actorName} liked your notes post.`,
         targetKind: "notes",
         relatedNoteId: noteId,
@@ -2201,6 +2330,7 @@ functionsRouter.post("/notes-feed/:noteId/save", async (c) => {
       await createDoubtNotification({
         userId: note.user_id,
         type: "note_saved",
+        actorUserId: user.id,
         message: `${actorName} saved your notes post.`,
         targetKind: "notes",
         relatedNoteId: noteId,
@@ -2247,6 +2377,7 @@ functionsRouter.post("/notes-feed/:noteId/share", async (c) => {
     await createDoubtNotification({
       userId: note.user_id,
       type: "note_shared",
+      actorUserId: user.id,
       message: `${actorName} shared your notes post.`,
       targetKind: "notes",
       relatedNoteId: noteId,
