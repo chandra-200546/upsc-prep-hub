@@ -94,11 +94,18 @@ const WeeklyTestSeries = () => {
   const loadTests = async () => {
     const data = await api("/weekly-tests/list");
     setTests(data.tests || []);
+    if (data?.announcement) {
+      setAnnouncement(data.announcement);
+    }
   };
 
   const loadAnnouncement = async () => {
-    const data = await api("/weekly-tests/announcement");
-    setAnnouncement(data?.announcement || null);
+    try {
+      const data = await api("/weekly-tests/announcement");
+      setAnnouncement(data?.announcement || null);
+    } catch {
+      // Keep whatever announcement came from /weekly-tests/list.
+    }
   };
 
   const loadLeaderboard = async (testId: string) => {

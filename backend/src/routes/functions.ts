@@ -484,6 +484,46 @@ const ensureWeeklyAnnouncementSchema = async () => {
   } catch {}
 };
 
+const getActiveWeeklyAnnouncement = async () => {
+  await ensureWeeklyAnnouncementSchema();
+  const rows = await queryNeon<{
+    id: string;
+    title: string;
+    message: string;
+    week_label: string | null;
+    starts_at: string | null;
+    ends_at: string | null;
+    is_active: boolean;
+    created_at: string;
+  }>(
+    `
+    SELECT id::text, title, message, week_label, starts_at::text, ends_at::text, is_active, created_at::text
+    FROM weekly_test_announcements
+    WHERE is_active = TRUE
+    ORDER BY created_at DESC
+    LIMIT 30
+    `,
+  );
+
+  const now = Date.now();
+  const toMs = (value?: string | null) => {
+    const raw = String(value || "").trim();
+    if (!raw) return null;
+    const t = new Date(raw).getTime();
+    return Number.isFinite(t) ? t : null;
+  };
+
+  const withinWindow = rows.find((row) => {
+    const startMs = toMs(row.starts_at);
+    const endMs = toMs(row.ends_at);
+    if (startMs !== null && now < startMs) return false;
+    if (endMs !== null && now > endMs) return false;
+    return true;
+  });
+
+  return withinWindow || rows[0] || null;
+};
+
 functionsRouter.post("/auth/signup", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const email = String(body?.email ?? "").trim().toLowerCase();
@@ -636,46 +676,13 @@ functionsRouter.get("/weekly-tests/list", async (c) => {
     ORDER BY t.created_at DESC
     `,
   );
-  return c.json({ tests: rows });
+  const announcement = await getActiveWeeklyAnnouncement();
+  return c.json({ tests: rows, announcement });
 });
 
 functionsRouter.get("/weekly-tests/announcement", async (c) => {
-  await ensureWeeklyAnnouncementSchema();
-  const rows = await queryNeon<{
-    id: string;
-    title: string;
-    message: string;
-    week_label: string | null;
-    starts_at: string | null;
-    ends_at: string | null;
-    is_active: boolean;
-    created_at: string;
-  }>(
-    `
-    SELECT id::text, title, message, week_label, starts_at::text, ends_at::text, is_active, created_at::text
-    FROM weekly_test_announcements
-    WHERE is_active = TRUE
-    ORDER BY created_at DESC
-    LIMIT 30
-    `,
-  );
-  const now = Date.now();
-  const toMs = (value?: string | null) => {
-    const raw = String(value || "").trim();
-    if (!raw) return null;
-    const t = new Date(raw).getTime();
-    return Number.isFinite(t) ? t : null;
-  };
-
-  const withinWindow = rows.find((row) => {
-    const startMs = toMs(row.starts_at);
-    const endMs = toMs(row.ends_at);
-    if (startMs !== null && now < startMs) return false;
-    if (endMs !== null && now > endMs) return false;
-    return true;
-  });
-
-  return c.json({ announcement: withinWindow || rows[0] || null });
+  const announcement = await getActiveWeeklyAnnouncement();
+  return c.json({ announcement });
 });
 
 functionsRouter.get("/weekly-tests/admin/tests", async (c) => {
