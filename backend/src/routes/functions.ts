@@ -3402,33 +3402,75 @@ functionsRouter.post("/generate-prelims-questions", async (c) => {
   const subject = body?.subject ?? "Indian Polity";
   const count = Number(body?.count ?? 5);
 
-  const fallback = {
-    questions: Array.from({ length: count }).map((_, i) => ({
-      id: randomUUID(),
-      question: `${subject} practice question ${i + 1} (Level ${level})`,
-      option_a: "Option A",
-      option_b: "Option B",
-      option_c: "Option C",
-      option_d: "Option D",
-      correct_answer: "A",
-      explanation: "This is a fallback explanation."
-        + " Replace with your own source-backed explanation in production.",
-      subject,
-      topic: "General",
-      difficulty: `Level ${level}`,
-    })),
-    level,
-    subject,
-  };
-
   const prompt = `Generate ${count} UPSC prelims MCQs for ${subject} at level ${level}. Return strict JSON:\n{"questions":[{"question":"","option_a":"","option_b":"","option_c":"","option_d":"","correct_answer":"A","explanation":"","subject":"","topic":"","difficulty":""}]}`;
 
-  const result = await withCache("generate-prelims-questions", body, () =>
-    generateJson([{ role: "system", content: "Return strict JSON only." }, { role: "user", content: prompt }], fallback, 0.7),
-  );
+  const parseBestEffortJson = (raw: string) => {
+    const cleaned = String(raw || "")
+      .replace(/^```json/i, "")
+      .replace(/^```/, "")
+      .replace(/```$/, "")
+      .trim();
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      const first = cleaned.indexOf("{");
+      const last = cleaned.lastIndexOf("}");
+      if (first >= 0 && last > first) {
+        return JSON.parse(cleaned.slice(first, last + 1));
+      }
+      throw new Error("Invalid AI JSON");
+    }
+  };
 
-  await persistLog("generate-prelims-questions", body, result);
-  return c.json(result);
+  try {
+    const cachePayload = { ...(body || {}), _cacheVersion: "prelims-gemini-v2" };
+    const result = await withCache("generate-prelims-questions", cachePayload, async () => {
+      const text = await generateText(
+        [{ role: "system", content: "Return strict JSON only." }, { role: "user", content: prompt }],
+        0.7,
+      );
+      const parsed = parseBestEffortJson(text) as any;
+      const list = Array.isArray(parsed?.questions) ? parsed.questions : [];
+      const normalized = list
+        .slice(0, count)
+        .map((q: any, idx: number) => ({
+          id: String(q?.id || randomUUID()),
+          question: String(q?.question || "").trim(),
+          option_a: String(q?.option_a || "").trim(),
+          option_b: String(q?.option_b || "").trim(),
+          option_c: String(q?.option_c || "").trim(),
+          option_d: String(q?.option_d || "").trim(),
+          correct_answer: String(q?.correct_answer || "").trim().toUpperCase(),
+          explanation: String(q?.explanation || "").trim(),
+          subject: String(q?.subject || subject).trim(),
+          topic: String(q?.topic || "General").trim(),
+          difficulty: String(q?.difficulty || `Level ${level}`).trim(),
+          order: idx + 1,
+        }))
+        .filter(
+          (q: any) =>
+            q.question &&
+            q.option_a &&
+            q.option_b &&
+            q.option_c &&
+            q.option_d &&
+            ["A", "B", "C", "D"].includes(q.correct_answer),
+        );
+
+      if (normalized.length < Math.min(3, count)) {
+        throw new Error("AI returned insufficient valid prelims questions");
+      }
+
+      return { questions: normalized, level, subject };
+    });
+
+    await persistLog("generate-prelims-questions", cachePayload, result);
+    return c.json(result);
+  } catch (error: any) {
+    const message = error?.message || "AI generation failed";
+    await persistLog("generate-prelims-questions", { ...(body || {}), _cacheVersion: "prelims-gemini-v2" }, { error: message });
+    return c.json({ error: message }, 500);
+  }
 });
 
 functionsRouter.post("/mains-question", async (c) => {
