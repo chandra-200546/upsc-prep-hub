@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Bell, CalendarDays, Sparkles } from "lucide-react";
 
 type TestItem = {
   id: string;
@@ -51,6 +52,13 @@ const formatAnnouncementWindow = (weekLabel?: string | null, startsAt?: string |
   const end = endsAt ? new Date(endsAt).toLocaleString() : "";
   if (start && end) return `${start} to ${end}`;
   return start || end || "Weekly Update";
+};
+
+const formatDateRange = (startsAt?: string | null, endsAt?: string | null) => {
+  const start = startsAt ? new Date(startsAt).toLocaleString() : "";
+  const end = endsAt ? new Date(endsAt).toLocaleString() : "";
+  if (start && end) return `${start} - ${end}`;
+  return start || end || "";
 };
 
 const WeeklyTestSeries = () => {
@@ -180,15 +188,51 @@ const WeeklyTestSeries = () => {
         </div>
 
         {announcement && (
-          <Card className="border-primary/30 bg-primary/5">
-            <CardHeader>
-              <CardTitle className="text-lg">{announcement.title}</CardTitle>
-              <CardDescription>{announcement.message}</CardDescription>
+          <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-800 text-white">
+            <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+            <CardHeader className="relative pb-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/20">
+                    <Bell className="h-4 w-4" />
+                  </span>
+                  <Badge className="bg-white/20 text-white hover:bg-white/25 border-0">
+                    Weekly Test Announcement
+                  </Badge>
+                </div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/20 px-3 py-1 text-xs font-medium text-emerald-100">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Live
+                </span>
+              </div>
+              <CardTitle className="text-xl text-white mt-3">{announcement.title}</CardTitle>
+              <CardDescription className="text-white/90 text-sm leading-relaxed">
+                {announcement.message}
+              </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-              <Badge variant="secondary">
-                {formatAnnouncementWindow(announcement.week_label, announcement.starts_at, announcement.ends_at)}
-              </Badge>
+            <CardContent className="relative pt-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <Badge className="bg-white text-slate-900 hover:bg-white/95 border-0">
+                  {formatAnnouncementWindow(announcement.week_label, announcement.starts_at, announcement.ends_at)}
+                </Badge>
+                {formatDateRange(announcement.starts_at, announcement.ends_at) && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-white/90">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    {formatDateRange(announcement.starts_at, announcement.ends_at)}
+                  </span>
+                )}
+              </div>
+              <Button
+                onClick={() => {
+                  const firstPublished = tests[0];
+                  if (firstPublished) {
+                    void openTest(firstPublished);
+                  }
+                }}
+                className="bg-white text-slate-900 hover:bg-white/90"
+              >
+                Start Weekly Test
+              </Button>
             </CardContent>
           </Card>
         )}
