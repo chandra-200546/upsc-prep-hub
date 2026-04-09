@@ -41,6 +41,42 @@ type UsersResponse = {
   }>;
 };
 
+type FullReportResponse = {
+  admin?: { id: string; email: string };
+  generatedAt?: string;
+  database?: {
+    tables: Array<{ name: string; rows: number }>;
+    totalTables: number;
+  };
+  metrics?: {
+    usersTotal: number;
+    profilesTotal: number;
+    activeSessions: number;
+    notifications: number;
+    doubt: { posts: number; answers: number; solved: number; likes: number; saves: number; shares: number };
+    notes: { posts: number; likes: number; saves: number; shares: number };
+    tests: { weeklyTests: number; weeklyQuestions: number; weeklyAttempts: number; prelimAttempts: number; mainsSubmissions: number };
+    ai: { logs: number; cacheEntries: number };
+  };
+  latest?: Record<string, string | null>;
+  topUsers?: Array<{
+    id: string;
+    email: string;
+    name: string;
+    total_xp: number;
+    current_streak: number;
+    level: number;
+    created_at: string;
+    last_login_date: string | null;
+  }>;
+  recent?: {
+    doubts?: Array<{ id: string; title: string; category: string; status: string; created_at: string; author: string }>;
+    notes?: Array<{ id: string; title: string; category: string; created_at: string; author: string }>;
+    tests?: Array<{ id: string; title: string; week_label: string | null; is_published: boolean; created_at: string }>;
+    aiLogs?: Array<{ id: number; function_name: string; cache_key: string | null; created_at: string }>;
+  };
+};
+
 const backendBase = () => String(import.meta.env.VITE_BACKEND_URL || "http://localhost:8787").replace(/\/$/, "");
 
 const formatTs = (value?: string | null) => {
@@ -57,6 +93,7 @@ const AdminPanel = () => {
   const [overview, setOverview] = useState<OverviewResponse>({});
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [users, setUsers] = useState<UsersResponse["users"]>([]);
+  const [fullReport, setFullReport] = useState<FullReportResponse>({});
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"newest" | "oldest" | "xp_desc">("newest");
 
@@ -78,7 +115,7 @@ const AdminPanel = () => {
       setAccessChecked(true);
       if (!allowed) return;
 
-      const [overviewRes, activityRes, usersRes] = await Promise.all([
+      const [overviewRes, activityRes, usersRes, fullRes] = await Promise.all([
         fetch(`${backendBase()}/functions/v1/admin/panel/overview`, { headers }),
         fetch(`${backendBase()}/functions/v1/admin/panel/activity?limit=80`, { headers }),
         fetch(
@@ -87,15 +124,18 @@ const AdminPanel = () => {
           }`,
           { headers },
         ),
+        fetch(`${backendBase()}/functions/v1/admin/panel/full-report`, { headers }),
       ]);
 
       const overviewPayload = await overviewRes.json().catch(() => ({}));
       const activityPayload = await activityRes.json().catch(() => ({}));
       const usersPayload = await usersRes.json().catch(() => ({}));
+      const fullPayload = await fullRes.json().catch(() => ({}));
 
       setOverview(overviewPayload || {});
       setActivities(Array.isArray(activityPayload?.items) ? activityPayload.items : []);
       setUsers(Array.isArray(usersPayload?.users) ? usersPayload.users : []);
+      setFullReport(fullPayload || {});
     } finally {
       setLoading(false);
     }
@@ -152,6 +192,13 @@ const AdminPanel = () => {
 
         {isAdmin && (
           <>
+            <Card className="p-4">
+              <h2 className="font-semibold mb-2">Complete Website Snapshot</h2>
+              <p className="text-xs text-muted-foreground">
+                Generated at: {formatTs(fullReport.generatedAt)} | Tables: {Number(fullReport.database?.totalTables || 0)}
+              </p>
+            </Card>
+
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               {Object.entries(overview.counts || {}).map(([key, val]) => (
                 <Card key={key} className="p-3">
@@ -161,16 +208,65 @@ const AdminPanel = () => {
               ))}
             </div>
 
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              <Card className="p-3"><p className="text-xs text-muted-foreground">Users Total</p><p className="text-xl font-bold">{Number(fullReport.metrics?.usersTotal || 0)}</p></Card>
+              <Card className="p-3"><p className="text-xs text-muted-foreground">Active Sessions</p><p className="text-xl font-bold">{Number(fullReport.metrics?.activeSessions || 0)}</p></Card>
+              <Card className="p-3"><p className="text-xs text-muted-foreground">Doubt Posts</p><p className="text-xl font-bold">{Number(fullReport.metrics?.doubt?.posts || 0)}</p></Card>
+              <Card className="p-3"><p className="text-xs text-muted-foreground">Notes Posts</p><p className="text-xl font-bold">{Number(fullReport.metrics?.notes?.posts || 0)}</p></Card>
+              <Card className="p-3"><p className="text-xs text-muted-foreground">Weekly Attempts</p><p className="text-xl font-bold">{Number(fullReport.metrics?.tests?.weeklyAttempts || 0)}</p></Card>
+              <Card className="p-3"><p className="text-xs text-muted-foreground">AI Logs</p><p className="text-xl font-bold">{Number(fullReport.metrics?.ai?.logs || 0)}</p></Card>
+            </div>
+
             <Card className="p-4">
               <h2 className="font-semibold mb-2">Latest Timestamps</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                {Object.entries(overview.latest || {}).map(([k, v]) => (
+                {Object.entries(fullReport.latest || overview.latest || {}).map(([k, v]) => (
                   <div key={k} className="flex items-center justify-between border rounded-md px-3 py-2">
                     <span className="text-muted-foreground">{k}</span>
                     <span>{formatTs(v)}</span>
                   </div>
                 ))}
               </div>
+            </Card>
+
+            <Card className="p-4 overflow-auto">
+              <h2 className="font-semibold mb-3">Database Tables</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+                {(fullReport.database?.tables || []).map((t) => (
+                  <div key={t.name} className="flex items-center justify-between border rounded-md px-3 py-2">
+                    <span className="text-muted-foreground">{t.name}</span>
+                    <span className="font-semibold">{Number(t.rows || 0)}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="p-4 overflow-auto">
+              <h2 className="font-semibold mb-3">Top Users by XP</h2>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b">
+                    <th className="py-2 pr-3">Name</th>
+                    <th className="py-2 pr-3">Email</th>
+                    <th className="py-2 pr-3">XP</th>
+                    <th className="py-2 pr-3">Level</th>
+                    <th className="py-2 pr-3">Streak</th>
+                    <th className="py-2 pr-3">Last Login</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(fullReport.topUsers || []).map((u) => (
+                    <tr key={u.id} className="border-b">
+                      <td className="py-2 pr-3">{u.name}</td>
+                      <td className="py-2 pr-3">{u.email}</td>
+                      <td className="py-2 pr-3">{Number(u.total_xp || 0)}</td>
+                      <td className="py-2 pr-3">{Number(u.level || 1)}</td>
+                      <td className="py-2 pr-3">{Number(u.current_streak || 0)}</td>
+                      <td className="py-2 pr-3">{formatTs(u.last_login_date)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </Card>
 
             <Card className="p-4 overflow-auto">
@@ -219,6 +315,61 @@ const AdminPanel = () => {
                 ))}
               </div>
             </Card>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card className="p-4 overflow-auto">
+                <h2 className="font-semibold mb-3">Recent Doubts</h2>
+                <div className="space-y-2">
+                  {(fullReport.recent?.doubts || []).map((d) => (
+                    <div key={d.id} className="border rounded-md px-3 py-2 text-sm">
+                      <p className="font-medium">{d.title}</p>
+                      <p className="text-muted-foreground">{d.author} • {d.category} • {d.status} • {formatTs(d.created_at)}</p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card className="p-4 overflow-auto">
+                <h2 className="font-semibold mb-3">Recent Notes</h2>
+                <div className="space-y-2">
+                  {(fullReport.recent?.notes || []).map((n) => (
+                    <div key={n.id} className="border rounded-md px-3 py-2 text-sm">
+                      <p className="font-medium">{n.title}</p>
+                      <p className="text-muted-foreground">{n.author} • {n.category} • {formatTs(n.created_at)}</p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card className="p-4 overflow-auto">
+                <h2 className="font-semibold mb-3">Recent Weekly Tests</h2>
+                <div className="space-y-2">
+                  {(fullReport.recent?.tests || []).map((t) => (
+                    <div key={t.id} className="border rounded-md px-3 py-2 text-sm flex items-center justify-between gap-2">
+                      <div>
+                        <p className="font-medium">{t.title}</p>
+                        <p className="text-muted-foreground">{t.week_label || "-"} • {formatTs(t.created_at)}</p>
+                      </div>
+                      <Badge variant={t.is_published ? "default" : "secondary"}>{t.is_published ? "Published" : "Draft"}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card className="p-4 overflow-auto">
+                <h2 className="font-semibold mb-3">Recent AI Logs</h2>
+                <div className="space-y-2">
+                  {(fullReport.recent?.aiLogs || []).map((l) => (
+                    <div key={String(l.id)} className="border rounded-md px-3 py-2 text-sm">
+                      <p className="font-medium">{l.function_name}</p>
+                      <p className="text-muted-foreground">cache: {l.cache_key || "-"} • {formatTs(l.created_at)}</p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
           </>
         )}
       </div>
@@ -227,4 +378,3 @@ const AdminPanel = () => {
 };
 
 export default AdminPanel;
-

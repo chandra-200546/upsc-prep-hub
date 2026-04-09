@@ -933,6 +933,250 @@ functionsRouter.get("/admin/panel/users", async (c) => {
   });
 });
 
+functionsRouter.get("/admin/panel/full-report", async (c) => {
+  const admin = await requirePlatformAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+
+  const countOrZero = async (sql: string, params: unknown[] = []) => {
+    try {
+      const rows = await queryNeon<{ count: number }>(sql, params);
+      return Number(rows[0]?.count || 0);
+    } catch {
+      return 0;
+    }
+  };
+
+  const listOrEmpty = async <T = unknown>(sql: string, params: unknown[] = []) => {
+    try {
+      return await queryNeon<T>(sql, params);
+    } catch {
+      return [] as T[];
+    }
+  };
+
+  const tableRows = await listOrEmpty<{ name: string }>(
+    `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC`,
+  );
+
+  const tableCounts: Array<{ name: string; rows: number }> = [];
+  for (const tr of tableRows) {
+    const name = String(tr.name || "").trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) continue;
+    const rows = await countOrZero(`SELECT COUNT(*)::int AS count FROM ${name}`);
+    tableCounts.push({ name, rows });
+  }
+
+  const [
+    usersTotal,
+    profilesTotal,
+    activeSessions,
+    doubtPosts,
+    doubtAnswers,
+    doubtSolved,
+    doubtLikes,
+    doubtSaves,
+    doubtShares,
+    notesPosts,
+    notesLikes,
+    notesSaves,
+    notesShares,
+    weeklyTests,
+    weeklyQuestions,
+    weeklyAttempts,
+    prelimAttempts,
+    mainsSubmissions,
+    aiLogs,
+    aiCacheEntries,
+    notifications,
+  ] = await Promise.all([
+    countOrZero(`SELECT COUNT(*)::int AS count FROM user_accounts`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM profiles`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM auth_sessions WHERE datetime(expires_at) > CURRENT_TIMESTAMP`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM doubt_posts`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM doubt_answers`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM doubt_posts WHERE status = 'solved'`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM doubt_post_likes`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM doubt_post_saves`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM doubt_post_shares`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM notes_feed_posts`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM notes_feed_likes`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM notes_feed_saves`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM notes_feed_shares`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM weekly_tests`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM weekly_test_questions`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM weekly_test_attempts`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM prelims_attempts`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM mains_submissions`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM ai_function_logs`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM ai_cache_entries`),
+    countOrZero(`SELECT COUNT(*)::int AS count FROM doubt_notifications`),
+  ]);
+
+  const topUsers = await listOrEmpty<{
+    id: string;
+    email: string;
+    name: string;
+    total_xp: number | null;
+    current_streak: number | null;
+    level: number | null;
+    created_at: string;
+    last_login_date: string | null;
+  }>(
+    `
+    SELECT
+      ua.id::text AS id, ua.email,
+      COALESCE(p.name, ua.name, 'Aspirant') AS name,
+      p.total_xp, p.current_streak, p.level,
+      ua.created_at::text AS created_at,
+      p.last_login_date
+    FROM user_accounts ua
+    LEFT JOIN profiles p ON p.id = ua.id
+    ORDER BY COALESCE(p.total_xp, 0) DESC, ua.created_at DESC
+    LIMIT 20
+    `,
+  );
+
+  const recentDoubts = await listOrEmpty<{
+    id: string;
+    title: string;
+    category: string;
+    status: string;
+    created_at: string;
+    author: string;
+  }>(
+    `
+    SELECT
+      d.id::text AS id, d.title, d.category, d.status, d.created_at::text AS created_at,
+      COALESCE(p.name, ua.name, 'Aspirant') AS author
+    FROM doubt_posts d
+    LEFT JOIN user_accounts ua ON ua.id = d.user_id
+    LEFT JOIN profiles p ON p.id = d.user_id
+    ORDER BY d.created_at DESC
+    LIMIT 20
+    `,
+  );
+
+  const recentNotes = await listOrEmpty<{
+    id: string;
+    title: string;
+    category: string;
+    created_at: string;
+    author: string;
+  }>(
+    `
+    SELECT
+      n.id::text AS id, n.title, n.category, n.created_at::text AS created_at,
+      COALESCE(p.name, ua.name, 'Aspirant') AS author
+    FROM notes_feed_posts n
+    LEFT JOIN user_accounts ua ON ua.id = n.user_id
+    LEFT JOIN profiles p ON p.id = n.user_id
+    ORDER BY n.created_at DESC
+    LIMIT 20
+    `,
+  );
+
+  const recentTests = await listOrEmpty<{
+    id: string;
+    title: string;
+    week_label: string | null;
+    is_published: boolean;
+    created_at: string;
+  }>(
+    `
+    SELECT id::text, title, week_label, is_published, created_at::text AS created_at
+    FROM weekly_tests
+    ORDER BY created_at DESC
+    LIMIT 20
+    `,
+  );
+
+  const recentAiLogs = await listOrEmpty<{
+    id: number;
+    function_name: string;
+    cache_key: string | null;
+    created_at: string;
+  }>(
+    `
+    SELECT id, function_name, cache_key, created_at::text AS created_at
+    FROM ai_function_logs
+    ORDER BY created_at DESC
+    LIMIT 30
+    `,
+  );
+
+  const latestRows = await listOrEmpty<{
+    latest_user_created_at: string | null;
+    latest_doubt_created_at: string | null;
+    latest_note_created_at: string | null;
+    latest_notification_created_at: string | null;
+    latest_weekly_attempt_at: string | null;
+    latest_mains_submission_at: string | null;
+  }>(
+    `
+    SELECT
+      (SELECT created_at::text FROM user_accounts ORDER BY created_at DESC LIMIT 1) AS latest_user_created_at,
+      (SELECT created_at::text FROM doubt_posts ORDER BY created_at DESC LIMIT 1) AS latest_doubt_created_at,
+      (SELECT created_at::text FROM notes_feed_posts ORDER BY created_at DESC LIMIT 1) AS latest_note_created_at,
+      (SELECT created_at::text FROM doubt_notifications ORDER BY created_at DESC LIMIT 1) AS latest_notification_created_at,
+      (SELECT submitted_at::text FROM weekly_test_attempts ORDER BY submitted_at DESC LIMIT 1) AS latest_weekly_attempt_at,
+      (SELECT submitted_at::text FROM mains_submissions ORDER BY submitted_at DESC LIMIT 1) AS latest_mains_submission_at
+    `,
+  );
+
+  return c.json({
+    admin: { id: admin.id, email: admin.email },
+    generatedAt: new Date().toISOString(),
+    database: {
+      tables: tableCounts,
+      totalTables: tableCounts.length,
+    },
+    metrics: {
+      usersTotal,
+      profilesTotal,
+      activeSessions,
+      notifications,
+      doubt: {
+        posts: doubtPosts,
+        answers: doubtAnswers,
+        solved: doubtSolved,
+        likes: doubtLikes,
+        saves: doubtSaves,
+        shares: doubtShares,
+      },
+      notes: {
+        posts: notesPosts,
+        likes: notesLikes,
+        saves: notesSaves,
+        shares: notesShares,
+      },
+      tests: {
+        weeklyTests,
+        weeklyQuestions,
+        weeklyAttempts,
+        prelimAttempts,
+        mainsSubmissions,
+      },
+      ai: {
+        logs: aiLogs,
+        cacheEntries: aiCacheEntries,
+      },
+    },
+    latest: latestRows[0] || {},
+    topUsers: topUsers.map((u) => ({
+      ...u,
+      total_xp: Number(u.total_xp || 0),
+      current_streak: Number(u.current_streak || 0),
+      level: Number(u.level || 1),
+    })),
+    recent: {
+      doubts: recentDoubts,
+      notes: recentNotes,
+      tests: recentTests,
+      aiLogs: recentAiLogs,
+    },
+  });
+});
+
 functionsRouter.get("/admin/users/profiles", async (c) => {
   const admin = await requireWeeklyAdmin(c);
   if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
