@@ -1,16 +1,9 @@
-import { config, hasXai } from "../config.js";
+import { config, hasGemini } from "../config.js";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
-const xaiEndpoint = "https://api.x.ai/v1/chat/completions";
-const fallbackModels = [
-  "grok-beta",
-  "grok-2-1212",
-  "grok-2",
-  "grok-3-mini",
-  "grok-3-mini-fast",
-  "grok-3-fast",
-];
+const geminiBase = "https://generativelanguage.googleapis.com/v1beta/models";
+const geminiFallbackModels = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.5-flash-8b"];
 
 const normalizeMessages = (messages: ChatMessage[]): ChatMessage[] => {
   return (Array.isArray(messages) ? messages : [])
@@ -23,41 +16,51 @@ const normalizeMessages = (messages: ChatMessage[]): ChatMessage[] => {
 };
 
 export const generateText = async (messages: ChatMessage[], temperature = 0.2) => {
-  if (!hasXai) throw new Error("XAI_API_KEY is missing");
+  if (!hasGemini) throw new Error("GEMINI_API_KEY is missing");
+
   const normalizedMessages = normalizeMessages(messages);
   if (normalizedMessages.length === 0) throw new Error("messages are required");
 
   const candidates = Array.from(
-    new Set([config.xaiModel, ...fallbackModels].map((m) => String(m || "").trim()).filter(Boolean)),
+    new Set([config.geminiModel, ...geminiFallbackModels].map((m) => String(m || "").trim()).filter(Boolean)),
   );
-
   const errors: string[] = [];
+
+  const systemText = normalizedMessages
+    .filter((m) => m.role === "system")
+    .map((m) => m.content)
+    .join("\n")
+    .trim();
+
+  const chatMessages = normalizedMessages.filter((m) => m.role !== "system");
+  const contents = chatMessages.length
+    ? chatMessages.map((m) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }))
+    : [{ role: "user", parts: [{ text: "Provide a valid response." }] }];
+
   for (const model of candidates) {
     try {
-      const response = await fetch(xaiEndpoint, {
+      const url = `${geminiBase}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(config.geminiApiKey)}`;
+      const response = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${config.xaiApiKey}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model,
-          temperature,
-          messages: normalizedMessages,
+          contents,
+          systemInstruction: systemText ? { parts: [{ text: systemText }] } : undefined,
+          generationConfig: { temperature },
         }),
       });
 
       const raw = await response.text();
       if (!response.ok) {
-        errors.push(`${model}: xAI ${response.status}: ${raw}`);
-        if (response.status === 400 && raw.toLowerCase().includes("model not found")) {
-          continue;
-        }
+        errors.push(`${model}: Gemini ${response.status}: ${raw}`);
         continue;
       }
 
       const parsed = JSON.parse(raw) as any;
-      const text = String(parsed?.choices?.[0]?.message?.content || "").trim();
+      const text = String(parsed?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
       if (!text) {
         errors.push(`${model}: empty response`);
         continue;
@@ -68,7 +71,7 @@ export const generateText = async (messages: ChatMessage[], temperature = 0.2) =
     }
   }
 
-  throw new Error(`xAI generation failed. Tried models: ${candidates.join(", ")}. Errors: ${errors.join(" | ")}`);
+  throw new Error(`Gemini generation failed. Tried models: ${candidates.join(", ")}. Errors: ${errors.join(" | ")}`);
 };
 
 export const generateJson = async <T>(messages: ChatMessage[], fallback: T, temperature = 0.2): Promise<T> => {
@@ -80,3 +83,4 @@ export const generateJson = async <T>(messages: ChatMessage[], fallback: T, temp
     return fallback;
   }
 };
+

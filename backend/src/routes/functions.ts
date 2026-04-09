@@ -7,7 +7,7 @@ import { getProfileById, listProfiles, parseProfilesCsv, upsertProfiles } from "
 import { getHistoryRagStats, ingestHistoryChunks, queryHistoryRag } from "../rag/history-rag.js";
 import { generateSubjectBookAnswer, generateSubjectRagNotes, getSubjectRagStats, ingestSubjectPdf } from "../rag/subject-rag.js";
 import { generateJson, generateText } from "../lib/gemini.js";
-import { config, hasXai } from "../config.js";
+import { config, hasGemini } from "../config.js";
 import { deleteFile, getStoragePublicPath, saveBase64File } from "../lib/storage.js";
 import { hashPayload } from "../lib/utils.js";
 
@@ -3296,9 +3296,10 @@ functionsRouter.post("/ai-generate", async (c) => {
 functionsRouter.get("/ai-health", async (c) => {
   return c.json({
     ok: true,
-    provider: "xai",
-    model: config.xaiModel || "grok-2-latest",
-    hasXaiKey: hasXai,
+    provider: "gemini",
+    availableProviders: hasGemini ? ["gemini"] : [],
+    model: config.geminiModel || "gemini-1.5-flash",
+    hasGeminiKey: hasGemini,
   });
 });
 
@@ -3459,7 +3460,7 @@ functionsRouter.post("/map-questions", async (c) => {
   const count = Number(body?.count ?? 5);
 
   const seed = mapType === "world" ? "World" : "India";
-  const questions = Array.from({ length: count }).map((_, i) => ({
+  const fallbackQuestions = Array.from({ length: count }).map((_, i) => ({
     id: randomUUID(),
     question: `${seed} map question ${i + 1} (Level ${level})`,
     options: ["Option A", "Option B", "Option C", "Option D"],
@@ -3467,7 +3468,22 @@ functionsRouter.post("/map-questions", async (c) => {
     explanation: `Explanation for ${seed} map question ${i + 1}.`,
   }));
 
-  const response = { questions, mapType, level };
+  const fallback = { questions: fallbackQuestions, mapType, level };
+  const response = await withCache("map-questions", body, () =>
+    generateJson(
+      [
+        { role: "system", content: "Generate UPSC map practice MCQs. Return strict JSON only." },
+        {
+          role: "user",
+          content:
+            `Generate exactly ${count} ${seed} map-based UPSC MCQs for level ${level}. ` +
+            `Return JSON: {"questions":[{"id":"","question":"","options":["","","",""],"correct":0,"explanation":""}],"mapType":"${mapType}","level":${level}}`,
+        },
+      ],
+      fallback,
+      0.35,
+    ),
+  );
   await persistLog("map-questions", body, response);
   return c.json(response);
 });
@@ -3524,7 +3540,7 @@ functionsRouter.post("/optional-professor", async (c) => {
   let response: any;
 
   if (mode === "trends") {
-    response = {
+    const fallback = {
       recurringTopics: ["Governance", "Accountability", "Ethics in Administration"],
       predictions: ["Digital governance and public service delivery", "Civil service reforms"],
       ignoredTopics: ["Comparative Public Administration"],
@@ -3534,8 +3550,25 @@ functionsRouter.post("/optional-professor", async (c) => {
       ],
       strategy: "Prioritize high-frequency themes, integrate current affairs, and practice 250-word answers.",
     };
+    response = await withCache("optional-professor-trends", body, () =>
+      generateJson(
+        [
+          { role: "system", content: `You are UPSC Optional professor for ${subject}. Return strict JSON only.` },
+          {
+            role: "user",
+            content:
+              `Generate Optional trends analysis for ${subject}. Return JSON with keys ` +
+              `recurringTopics, predictions, ignoredTopics, yearWiseBreakdown[{topic,frequency}], strategy.`,
+          },
+        ],
+        fallback,
+        0.3,
+      ),
+    );
   } else if (mode === "evaluate") {
-    response = {
+    const answer = String(body?.answer || "").trim();
+    const question = String(body?.question || "").trim();
+    const fallback = {
       score: 12,
       breakdown: { structure: 3, content: 3, analysis: 3, examples: 3 },
       strengths: ["Relevant introduction", "Balanced conclusion"],
@@ -3543,16 +3576,44 @@ functionsRouter.post("/optional-professor", async (c) => {
       feedback: "Good attempt. Improve depth with optional-specific frameworks and examples.",
       modelAnswer: "Start with definition, explain dimensions, add case evidence, and conclude with way forward.",
     };
+    response = await withCache("optional-professor-evaluate", body, () =>
+      generateJson(
+        [
+          { role: "system", content: `Evaluate UPSC optional answers for ${subject}. Return strict JSON only.` },
+          {
+            role: "user",
+            content:
+              `Question: ${question || "NA"}\nAnswer: ${answer || "NA"}\n` +
+              `Return JSON keys: score(0-20), breakdown{structure,content,analysis,examples}, strengths[], improvements[], feedback, modelAnswer.`,
+          },
+        ],
+        fallback,
+        0.25,
+      ),
+    );
   } else if (mode === "daily-practice") {
-    response = {
+    const fallback = {
       question: `Discuss a contemporary issue in ${subject} with suitable illustrations.`,
       type: "Long Answer",
       marks: 20,
       hint: "Use intro-body-conclusion with one relevant case study.",
     };
+    response = await withCache("optional-professor-daily-practice", body, () =>
+      generateJson(
+        [
+          { role: "system", content: `Generate UPSC optional daily practice for ${subject}. Return strict JSON only.` },
+          {
+            role: "user",
+            content: `Return JSON keys question, type, marks, hint for one high-quality ${subject} practice question.`,
+          },
+        ],
+        fallback,
+        0.35,
+      ),
+    );
   } else if (mode === "revision") {
     const topic = body?.topic ?? "General Topic";
-    response = {
+    const fallback = {
       topic,
       keyPoints: ["Definition", "Key dimensions", "Challenges", "Way forward"],
       mindMap: `${topic} -> Dimensions -> Issues -> Reforms`,
@@ -3560,6 +3621,20 @@ functionsRouter.post("/optional-professor", async (c) => {
       importantFacts: ["Committee recommendations", "Recent policy updates"],
       pyqConnection: "Often asked in analytical form with governance linkage.",
     };
+    response = await withCache("optional-professor-revision", body, () =>
+      generateJson(
+        [
+          { role: "system", content: `Generate revision sheet for UPSC optional ${subject}. Return strict JSON only.` },
+          {
+            role: "user",
+            content:
+              `Topic: ${topic}\nReturn JSON keys topic, keyPoints[], mindMap, oneLiners[], importantFacts[], pyqConnection.`,
+          },
+        ],
+        fallback,
+        0.25,
+      ),
+    );
   } else {
     const topic = body?.topic ?? "General topic";
     const overview = await withCache("optional-professor-explain", body, () =>
@@ -3611,7 +3686,7 @@ functionsRouter.post("/pyq-analysis", async (c) => {
     expectedApproach: "Define, analyze, support with examples, conclude with way forward.",
   }));
 
-  const response = {
+  const fallback = {
     trends: [
       { subject, weightage: 24, trend: "rising", yearsAnalyzed: "2013-2025", keyInsight: "Conceptual + current-affairs blend." },
       { subject: "Governance", weightage: 18, trend: "stable", yearsAnalyzed: "2013-2025", keyInsight: "Applied questions continue." },
@@ -3626,6 +3701,22 @@ functionsRouter.post("/pyq-analysis", async (c) => {
     ],
     pyqQuestions: examType === "prelims" ? prelimQuestions : descriptiveQuestions,
   };
+  const response = await withCache("pyq-analysis", body, () =>
+    generateJson(
+      [
+        { role: "system", content: "Generate UPSC PYQ analysis. Return strict JSON only." },
+        {
+          role: "user",
+          content:
+            `Exam type: ${examType}, subject: ${subject}, level: ${level}. ` +
+            `Return JSON keys trends[], predictions[], strategy[], pyqQuestions[]. For prelims include MCQ format with options and correctAnswer. ` +
+            `For mains/optional/essay include descriptive format with expectedApproach.`,
+        },
+      ],
+      fallback,
+      0.3,
+    ),
+  );
 
   await persistLog("pyq-analysis", body, response);
   return c.json(response);
@@ -3720,7 +3811,22 @@ functionsRouter.post("/generate-current-affairs", async (c) => {
     tags: ["GS2", "Prelims", "Mains"],
   }));
 
-  const response = { affairs, type };
+  const fallback = { affairs, type };
+  const response = await withCache("generate-current-affairs", body, () =>
+    generateJson(
+      [
+        { role: "system", content: "Generate UPSC current affairs list. Return strict JSON only." },
+        {
+          role: "user",
+          content:
+            `Type: ${type}, Topic: ${topic}. Return JSON: { affairs:[{title,summary,full_content,date,category,importance_level,tags}], type }. ` +
+            `Keep UPSC-relevant and exam-oriented.`,
+        },
+      ],
+      fallback,
+      0.35,
+    ),
+  );
   await persistLog("generate-current-affairs", body, response);
   return c.json(response);
 });
@@ -3752,7 +3858,21 @@ functionsRouter.post("/daily-intel-report", async (c) => {
     },
   };
 
-  const response = await withCache("daily-intel-report", body, async () => fallback);
+  const response = await withCache("daily-intel-report", body, async () =>
+    generateJson(
+      [
+        { role: "system", content: "Generate UPSC daily intel report JSON only." },
+        {
+          role: "user",
+          content:
+            "Return JSON with { report: { date, sections:[{title,icon,items:[{headline,detail,upscTag}]}], oneLineNotes[] } }. " +
+            "Keep sections concise and useful for revision.",
+        },
+      ],
+      fallback,
+      0.25,
+    ),
+  );
   await persistLog("daily-intel-report", body, response);
   return c.json(response);
 });

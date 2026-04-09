@@ -39,8 +39,8 @@ const parseAllowedOrigins = (raw: string) => {
 export const config = {
   port: Number(required("PORT", "8787")),
   nodeEnv: required("NODE_ENV", "development"),
-  xaiApiKey: required("XAI_API_KEY") || required("XAI_KEY"),
-  xaiModel: required("XAI_MODEL", "grok-beta"),
+  geminiApiKey: required("GEMINI_API_KEY") || required("GOOGLE_GEMINI_API_KEY") || required("GOOGLE_API_KEY"),
+  geminiModel: required("GEMINI_MODEL", "gemini-1.5-flash"),
   sqlitePath: required("SQLITE_PATH", "./data/app.db"),
   allowedOrigins: parseAllowedOrigins(required("ALLOWED_ORIGIN", "*")),
   googleClientId: required("GOOGLE_CLIENT_ID"),
@@ -49,4 +49,4 @@ export const config = {
   weeklyTestAdminPassword: required("WEEKLY_TEST_ADMIN_PASSWORD"),
 };
 
-export const hasXai = Boolean(config.xaiApiKey);
+export const hasGemini = Boolean(config.geminiApiKey);
