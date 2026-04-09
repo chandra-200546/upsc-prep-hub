@@ -655,14 +655,27 @@ functionsRouter.get("/weekly-tests/announcement", async (c) => {
     SELECT id::text, title, message, week_label, starts_at::text, ends_at::text, is_active, created_at::text
     FROM weekly_test_announcements
     WHERE is_active = TRUE
-      AND (starts_at IS NULL OR starts_at <= NOW())
-      AND (ends_at IS NULL OR ends_at >= NOW())
     ORDER BY created_at DESC
-    LIMIT 1
+    LIMIT 30
     `,
   );
+  const now = Date.now();
+  const toMs = (value?: string | null) => {
+    const raw = String(value || "").trim();
+    if (!raw) return null;
+    const t = new Date(raw).getTime();
+    return Number.isFinite(t) ? t : null;
+  };
 
-  return c.json({ announcement: rows[0] || null });
+  const withinWindow = rows.find((row) => {
+    const startMs = toMs(row.starts_at);
+    const endMs = toMs(row.ends_at);
+    if (startMs !== null && now < startMs) return false;
+    if (endMs !== null && now > endMs) return false;
+    return true;
+  });
+
+  return c.json({ announcement: withinWindow || rows[0] || null });
 });
 
 functionsRouter.get("/weekly-tests/admin/tests", async (c) => {
