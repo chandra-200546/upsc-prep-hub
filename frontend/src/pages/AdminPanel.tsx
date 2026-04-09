@@ -90,6 +90,18 @@ type WeeklyTestItem = {
   questions_count: number;
 };
 
+type WeeklyAnnouncementItem = {
+  id: string;
+  title: string;
+  message: string;
+  week_label?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
 const backendBase = () => String(import.meta.env.VITE_BACKEND_URL || "http://localhost:8787").replace(/\/$/, "");
 
 const formatTs = (value?: string | null) => {
@@ -123,6 +135,14 @@ const AdminPanel = () => {
     correctAnswer: "A",
     explanation: "",
   });
+  const [announcements, setAnnouncements] = useState<WeeklyAnnouncementItem[]>([]);
+  const [newAnnouncement, setNewAnnouncement] = useState({
+    title: "",
+    message: "",
+    weekLabel: "",
+    startsAt: "",
+    endsAt: "",
+  });
 
   const authHeaders = async () => {
     const { data } = await supabase.auth.getSession();
@@ -150,6 +170,11 @@ const AdminPanel = () => {
   const loadWeeklyTests = async () => {
     const data = await adminApi("/admin/panel/weekly-tests");
     setWeeklyTests(Array.isArray(data?.tests) ? data.tests : []);
+  };
+
+  const loadAnnouncements = async () => {
+    const data = await adminApi("/admin/panel/weekly-tests/announcements");
+    setAnnouncements(Array.isArray(data?.announcements) ? data.announcements : []);
   };
 
   const createWeeklyTest = async () => {
@@ -220,6 +245,46 @@ const AdminPanel = () => {
     }
   };
 
+  const createAnnouncement = async () => {
+    setWeeklyBusy(true);
+    try {
+      await adminApi("/admin/panel/weekly-tests/announcement", {
+        method: "POST",
+        body: JSON.stringify({
+          title: newAnnouncement.title,
+          message: newAnnouncement.message,
+          weekLabel: newAnnouncement.weekLabel,
+          startsAt: newAnnouncement.startsAt || null,
+          endsAt: newAnnouncement.endsAt || null,
+          isActive: true,
+        }),
+      });
+      setNewAnnouncement({ title: "", message: "", weekLabel: "", startsAt: "", endsAt: "" });
+      await loadAnnouncements();
+      toast({ title: "Announcement published" });
+    } catch (error: any) {
+      toast({ title: "Announcement failed", description: error?.message || "Could not publish announcement", variant: "destructive" });
+    } finally {
+      setWeeklyBusy(false);
+    }
+  };
+
+  const toggleAnnouncement = async (id: string, isActive: boolean) => {
+    setWeeklyBusy(true);
+    try {
+      await adminApi("/admin/panel/weekly-tests/announcement/status", {
+        method: "POST",
+        body: JSON.stringify({ id, isActive }),
+      });
+      await loadAnnouncements();
+      toast({ title: isActive ? "Announcement enabled" : "Announcement disabled" });
+    } catch (error: any) {
+      toast({ title: "Update failed", description: error?.message || "Could not update announcement", variant: "destructive" });
+    } finally {
+      setWeeklyBusy(false);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -258,6 +323,12 @@ const AdminPanel = () => {
         setWeeklyTests(Array.isArray(weeklyPayload?.tests) ? weeklyPayload.tests : []);
       } catch {
         setWeeklyTests([]);
+      }
+      try {
+        const annPayload = await adminApi("/admin/panel/weekly-tests/announcements");
+        setAnnouncements(Array.isArray(annPayload?.announcements) ? annPayload.announcements : []);
+      } catch {
+        setAnnouncements([]);
       }
     } finally {
       setLoading(false);
@@ -549,6 +620,63 @@ const AdminPanel = () => {
                     value={newQ.explanation}
                     onChange={(e) => setNewQ((p) => ({ ...p, explanation: e.target.value }))}
                   />
+                </div>
+
+                <div className="mt-6 border-t pt-4 space-y-3">
+                  <h3 className="font-medium">Weekly Test Announcement</h3>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <Input
+                      placeholder="Announcement title"
+                      value={newAnnouncement.title}
+                      onChange={(e) => setNewAnnouncement((p) => ({ ...p, title: e.target.value }))}
+                    />
+                    <Input
+                      placeholder="Week label"
+                      value={newAnnouncement.weekLabel}
+                      onChange={(e) => setNewAnnouncement((p) => ({ ...p, weekLabel: e.target.value }))}
+                    />
+                    <Button onClick={() => void createAnnouncement()} disabled={weeklyBusy}>
+                      {weeklyBusy ? "Saving..." : "Publish Announcement"}
+                    </Button>
+                  </div>
+                  <Input
+                    placeholder="Announcement message"
+                    value={newAnnouncement.message}
+                    onChange={(e) => setNewAnnouncement((p) => ({ ...p, message: e.target.value }))}
+                  />
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <Input
+                      type="datetime-local"
+                      value={newAnnouncement.startsAt}
+                      onChange={(e) => setNewAnnouncement((p) => ({ ...p, startsAt: e.target.value }))}
+                    />
+                    <Input
+                      type="datetime-local"
+                      value={newAnnouncement.endsAt}
+                      onChange={(e) => setNewAnnouncement((p) => ({ ...p, endsAt: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    {announcements.map((a) => (
+                      <div key={a.id} className="rounded border p-3 text-sm flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{a.title}</p>
+                          <p className="text-muted-foreground">{a.message}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {a.week_label || "-"} • {formatTs(a.starts_at)} to {formatTs(a.ends_at)}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void toggleAnnouncement(a.id, !a.is_active)}
+                          disabled={weeklyBusy}
+                        >
+                          {a.is_active ? "Disable" : "Enable"}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </Card>
 

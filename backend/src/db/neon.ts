@@ -276,6 +276,21 @@ export const ensureNeonSchema = async () => {
       expires_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS weekly_test_announcements (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      week_label TEXT,
+      starts_at TEXT,
+      ends_at TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_weekly_test_announcements_active_created
+      ON weekly_test_announcements(is_active, created_at);
+
     CREATE TABLE IF NOT EXISTS doubt_posts (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,

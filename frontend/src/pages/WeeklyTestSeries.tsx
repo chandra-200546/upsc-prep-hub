@@ -29,6 +29,15 @@ type TestQuestion = {
   option_d: string;
 };
 
+type WeeklyAnnouncement = {
+  id: string;
+  title: string;
+  message: string;
+  week_label?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+};
+
 const backendBase = () => {
   const configured = String(import.meta.env.VITE_BACKEND_URL || "").trim();
   if (configured) return configured.replace(/\/$/, "");
@@ -45,6 +54,7 @@ const WeeklyTestSeries = () => {
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [announcement, setAnnouncement] = useState<WeeklyAnnouncement | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ score: number; totalQuestions: number; percentage: number } | null>(null);
@@ -75,6 +85,11 @@ const WeeklyTestSeries = () => {
   const loadTests = async () => {
     const data = await api("/weekly-tests/list");
     setTests(data.tests || []);
+  };
+
+  const loadAnnouncement = async () => {
+    const data = await api("/weekly-tests/announcement");
+    setAnnouncement(data?.announcement || null);
   };
 
   const loadLeaderboard = async (testId: string) => {
@@ -128,7 +143,7 @@ const WeeklyTestSeries = () => {
       navigate("/auth");
       return;
     }
-    Promise.all([loadTests()]).finally(() => setLoading(false));
+    Promise.all([loadTests(), loadAnnouncement()]).finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isLocalMode]);
 
@@ -147,6 +162,20 @@ const WeeklyTestSeries = () => {
           <h1 className="text-2xl font-bold">Weekly Test Series</h1>
           <p className="text-sm text-muted-foreground">Prelims weekly tests with per-test leaderboard.</p>
         </div>
+
+        {announcement && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="text-lg">{announcement.title}</CardTitle>
+              <CardDescription>{announcement.message}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+              <Badge variant="secondary">{announcement.week_label || "Weekly Update"}</Badge>
+              <span>Starts: {announcement.starts_at ? new Date(announcement.starts_at).toLocaleString() : "-"}</span>
+              <span>Ends: {announcement.ends_at ? new Date(announcement.ends_at).toLocaleString() : "-"}</span>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {tests.map((test) => (

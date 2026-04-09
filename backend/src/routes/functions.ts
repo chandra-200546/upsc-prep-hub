@@ -614,6 +614,31 @@ functionsRouter.get("/weekly-tests/list", async (c) => {
   return c.json({ tests: rows });
 });
 
+functionsRouter.get("/weekly-tests/announcement", async (c) => {
+  const rows = await queryNeon<{
+    id: string;
+    title: string;
+    message: string;
+    week_label: string | null;
+    starts_at: string | null;
+    ends_at: string | null;
+    is_active: boolean;
+    created_at: string;
+  }>(
+    `
+    SELECT id::text, title, message, week_label, starts_at::text, ends_at::text, is_active, created_at::text
+    FROM weekly_test_announcements
+    WHERE is_active = TRUE
+      AND (starts_at IS NULL OR starts_at <= NOW())
+      AND (ends_at IS NULL OR ends_at >= NOW())
+    ORDER BY created_at DESC
+    LIMIT 1
+    `,
+  );
+
+  return c.json({ announcement: rows[0] || null });
+});
+
 functionsRouter.get("/weekly-tests/admin/tests", async (c) => {
   const admin = await requireWeeklyAdmin(c);
   if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
@@ -800,6 +825,74 @@ functionsRouter.post("/admin/panel/weekly-tests/publish", async (c) => {
   const isPublished = Boolean(body?.isPublished);
   if (!testId) return c.json({ message: "testId is required" }, 400);
   await queryNeon(`UPDATE weekly_tests SET is_published = $1 WHERE id = $2::uuid`, [isPublished, testId]);
+  return c.json({ ok: true });
+});
+
+functionsRouter.get("/admin/panel/weekly-tests/announcements", async (c) => {
+  const admin = await requirePlatformAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+
+  const rows = await queryNeon<{
+    id: string;
+    title: string;
+    message: string;
+    week_label: string | null;
+    starts_at: string | null;
+    ends_at: string | null;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+  }>(
+    `
+    SELECT id::text, title, message, week_label, starts_at::text, ends_at::text, is_active, created_at::text, updated_at::text
+    FROM weekly_test_announcements
+    ORDER BY created_at DESC
+    LIMIT 30
+    `,
+  );
+
+  return c.json({ announcements: rows });
+});
+
+functionsRouter.post("/admin/panel/weekly-tests/announcement", async (c) => {
+  const admin = await requirePlatformAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+
+  const body = await c.req.json().catch(() => ({}));
+  const title = String(body?.title ?? "").trim();
+  const message = String(body?.message ?? "").trim();
+  const weekLabel = String(body?.weekLabel ?? "").trim();
+  const startsAt = String(body?.startsAt ?? "").trim() || null;
+  const endsAt = String(body?.endsAt ?? "").trim() || null;
+  const isActive = body?.isActive !== false;
+  if (!title || !message) return c.json({ message: "title and message are required" }, 400);
+
+  const id = randomUUID();
+  await queryNeon(
+    `
+    INSERT INTO weekly_test_announcements
+    (id, title, message, week_label, starts_at, ends_at, is_active, created_by, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, $5::timestamptz, $6::timestamptz, $7, $8::uuid, NOW(), NOW())
+    `,
+    [id, title, message, weekLabel || null, startsAt, endsAt, isActive, admin.id],
+  );
+
+  return c.json({ ok: true, id });
+});
+
+functionsRouter.post("/admin/panel/weekly-tests/announcement/status", async (c) => {
+  const admin = await requirePlatformAdmin(c);
+  if (!admin) return c.json({ message: "Unauthorized admin access" }, 401);
+
+  const body = await c.req.json().catch(() => ({}));
+  const id = String(body?.id ?? "").trim();
+  const isActive = Boolean(body?.isActive);
+  if (!id) return c.json({ message: "id is required" }, 400);
+
+  await queryNeon(
+    `UPDATE weekly_test_announcements SET is_active = $1, updated_at = NOW() WHERE id = $2::uuid`,
+    [isActive, id],
+  );
   return c.json({ ok: true });
 });
 
