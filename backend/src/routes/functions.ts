@@ -1788,12 +1788,13 @@ functionsRouter.get("/weekly-tests/:testId/leaderboard", async (c) => {
   const rows = await queryNeon<{
     user_id: string;
     name: string;
+    profile_photo_url: string | null;
     score: number;
     total_questions: number;
     submitted_at: string;
   }>(
     `
-    SELECT a.user_id::text, COALESCE(p.name, 'Aspirant') AS name, a.score, a.total_questions, a.submitted_at::text
+    SELECT a.user_id::text, COALESCE(p.name, 'Aspirant') AS name, p.profile_photo_url, a.score, a.total_questions, a.submitted_at::text
     FROM weekly_test_attempts a
     LEFT JOIN profiles p ON p.id = a.user_id
     WHERE a.test_id = $1::uuid
@@ -1807,6 +1808,7 @@ functionsRouter.get("/weekly-tests/:testId/leaderboard", async (c) => {
     rank: idx + 1,
     userId: r.user_id,
     name: r.name,
+    profilePhotoUrl: r.profile_photo_url || null,
     score: r.score,
     totalQuestions: r.total_questions,
     percentage: r.total_questions ? Math.round((r.score / r.total_questions) * 100) : 0,

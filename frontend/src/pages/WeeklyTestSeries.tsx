@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-local-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Bell, CalendarDays, Sparkles } from "lucide-react";
 
@@ -39,6 +40,17 @@ type WeeklyAnnouncement = {
   ends_at?: string | null;
 };
 
+type LeaderboardRow = {
+  rank: number;
+  userId: string;
+  name: string;
+  profilePhotoUrl?: string | null;
+  score: number;
+  totalQuestions: number;
+  percentage: number;
+  submittedAt: string;
+};
+
 const backendBase = () => {
   const configured = String(import.meta.env.VITE_BACKEND_URL || "").trim();
   if (configured) return configured.replace(/\/$/, "");
@@ -70,13 +82,20 @@ const WeeklyTestSeries = () => {
   const [selectedTest, setSelectedTest] = useState<TestItem | null>(null);
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [announcement, setAnnouncement] = useState<WeeklyAnnouncement | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ score: number; totalQuestions: number; percentage: number } | null>(null);
 
   const selectedTestName = useMemo(() => selectedTest?.title || "Weekly Test", [selectedTest]);
+  const initials = (name: string) =>
+    String(name || "A")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((x) => x[0]?.toUpperCase() || "")
+      .join("") || "A";
 
   const api = async (path: string, options?: RequestInit & { auth?: boolean; admin?: boolean }) => {
     const headers: Record<string, string> = {
@@ -311,7 +330,13 @@ const WeeklyTestSeries = () => {
               <CardContent className="space-y-2">
                 {leaderboard.map((row) => (
                   <div key={row.userId} className="flex items-center justify-between rounded border p-2 text-sm">
-                    <span>#{row.rank} {row.name}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Avatar className="h-7 w-7">
+                        <AvatarImage src={row.profilePhotoUrl || ""} alt={row.name} />
+                        <AvatarFallback>{initials(row.name)}</AvatarFallback>
+                      </Avatar>
+                      <span className="truncate">#{row.rank} {row.name}</span>
+                    </div>
                     <span>{row.score}/{row.totalQuestions}</span>
                   </div>
                 ))}
