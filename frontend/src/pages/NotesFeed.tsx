@@ -125,6 +125,7 @@ const NotesFeed = () => {
 
   const [openCard, setOpenCard] = useState<Record<string, boolean>>({});
   const [detailCache, setDetailCache] = useState<Record<string, NotesPost>>({});
+  const [authorPhotoMap, setAuthorPhotoMap] = useState<Record<string, string | null>>({});
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -150,6 +151,35 @@ const NotesFeed = () => {
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
+  const hydrateAuthorPhotos = async (authorIds: string[]) => {
+    const unique = Array.from(new Set(authorIds.map((x) => String(x || "").trim()).filter(Boolean)));
+    const missing = unique.filter((id) => typeof authorPhotoMap[id] === "undefined");
+    if (!missing.length) return;
+    const next: Record<string, string | null> = {};
+    await Promise.all(
+      missing.map(async (id) => {
+        try {
+          const res = await fetch(`${backendBase()}/functions/v1/profiles/${encodeURIComponent(id)}`);
+          const payload = await res.json().catch(() => ({}));
+          if (res.ok) {
+            next[id] = String(payload?.profile_photo_url || "").trim() || null;
+            return;
+          }
+        } catch {
+          // ignore
+        }
+        next[id] = null;
+      }),
+    );
+    setAuthorPhotoMap((prev) => ({ ...prev, ...next }));
+  };
+
+  const getAuthorPhoto = (author: { id: string; photoUrl?: string | null }) => {
+    const direct = String(author?.photoUrl || "").trim();
+    if (direct) return direct;
+    return authorPhotoMap[author.id] || "";
+  };
+
   const loadItems = async () => {
     setLoading(true);
     try {
@@ -167,6 +197,7 @@ const NotesFeed = () => {
       if (!res.ok) throw new Error(payload?.message || "Failed to load notes feed");
 
       setItems(Array.isArray(payload?.items) ? payload.items : []);
+      void hydrateAuthorPhotos((Array.isArray(payload?.items) ? payload.items : []).map((i: NotesPost) => i.author?.id));
 
       const trendRes = await fetch(`${backendBase()}/functions/v1/notes-feed/trending-tags?limit=12`, { headers });
       const trendPayload = await trendRes.json().catch(() => ({}));
@@ -252,6 +283,7 @@ const NotesFeed = () => {
       if (!item) return;
 
       setDetailCache((prev) => ({ ...prev, [noteId]: item }));
+      void hydrateAuthorPhotos([item.author?.id]);
       setItems((prev) =>
         prev.map((p) =>
           p.id === noteId
@@ -720,7 +752,7 @@ const NotesFeed = () => {
               >
                 <div className="flex items-start gap-3">
                   <Avatar className="h-10 w-10 shrink-0">
-                    <AvatarImage src={item.author.photoUrl || ""} alt={item.author.name} />
+                    <AvatarImage src={getAuthorPhoto(item.author)} alt={item.author.name} />
                     <AvatarFallback>{initials(item.author.name)}</AvatarFallback>
                   </Avatar>
 

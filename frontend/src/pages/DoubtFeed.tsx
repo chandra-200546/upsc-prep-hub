@@ -148,6 +148,7 @@ const DoubtFeed = () => {
   const [loadingDetail, setLoadingDetail] = useState<Record<string, boolean>>({});
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
   const [postingComment, setPostingComment] = useState<Record<string, boolean>>({});
+  const [authorPhotoMap, setAuthorPhotoMap] = useState<Record<string, string | null>>({});
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -172,6 +173,35 @@ const DoubtFeed = () => {
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
+  const hydrateAuthorPhotos = async (authorIds: string[]) => {
+    const unique = Array.from(new Set(authorIds.map((x) => String(x || "").trim()).filter(Boolean)));
+    const missing = unique.filter((id) => typeof authorPhotoMap[id] === "undefined");
+    if (!missing.length) return;
+    const next: Record<string, string | null> = {};
+    await Promise.all(
+      missing.map(async (id) => {
+        try {
+          const res = await fetch(`${backendBase()}/functions/v1/profiles/${encodeURIComponent(id)}`);
+          const payload = await res.json().catch(() => ({}));
+          if (res.ok) {
+            next[id] = String(payload?.profile_photo_url || "").trim() || null;
+            return;
+          }
+        } catch {
+          // ignore
+        }
+        next[id] = null;
+      }),
+    );
+    setAuthorPhotoMap((prev) => ({ ...prev, ...next }));
+  };
+
+  const getAuthorPhoto = (author: { id: string; photoUrl?: string | null }) => {
+    const direct = String(author?.photoUrl || "").trim();
+    if (direct) return direct;
+    return authorPhotoMap[author.id] || "";
+  };
+
   const loadPosts = async () => {
     setLoading(true);
     try {
@@ -191,6 +221,7 @@ const DoubtFeed = () => {
 
       const list = Array.isArray(payload?.posts) ? payload.posts : Array.isArray(payload?.items) ? payload.items : [];
       setPosts(list);
+      void hydrateAuthorPhotos(list.map((p: FeedPost) => p.author?.id));
 
       const trendRes = await fetch(`${backendBase()}/functions/v1/doubts/trending-tags?limit=12`, { headers });
       const trendPayload = await trendRes.json().catch(() => ({}));
@@ -287,6 +318,7 @@ const DoubtFeed = () => {
       if (!res.ok) throw new Error(payload?.message || "Failed to load post detail");
       const detail: PostDetail = { post: payload.post, answers: payload.answers || [] };
       setDetails((prev) => ({ ...prev, [postId]: detail }));
+      void hydrateAuthorPhotos([detail.post.author?.id, ...(detail.answers || []).map((a) => a.author?.id)]);
 
       setPosts((prev) =>
         prev.map((p) =>
@@ -882,7 +914,7 @@ const DoubtFeed = () => {
               >
                 <div className="flex items-start gap-3">
                   <Avatar className="h-10 w-10 shrink-0">
-                    <AvatarImage src={post.author.photoUrl || ""} alt={post.author.name} />
+                    <AvatarImage src={getAuthorPhoto(post.author)} alt={post.author.name} />
                     <AvatarFallback>{initials(post.author.name)}</AvatarFallback>
                   </Avatar>
 
@@ -990,7 +1022,7 @@ const DoubtFeed = () => {
                           <div key={ans.id} className={`rounded-lg border p-3 ${ans.isBestAnswer ? "border-green-500/40 bg-green-500/5" : ""}`}>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5">
                               <Avatar className="h-6 w-6">
-                                <AvatarImage src={ans.author.photoUrl || ""} alt={ans.author.name} />
+                                <AvatarImage src={getAuthorPhoto(ans.author)} alt={ans.author.name} />
                                 <AvatarFallback>{initials(ans.author.name)}</AvatarFallback>
                               </Avatar>
                               <span className="inline-flex items-center gap-1 font-semibold text-foreground">
