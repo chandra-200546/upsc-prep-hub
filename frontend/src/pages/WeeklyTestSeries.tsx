@@ -74,7 +74,7 @@ const formatDateRange = (startsAt?: string | null, endsAt?: string | null) => {
 };
 
 const WeeklyTestSeries = () => {
-  const { user, isLocalMode } = useAuth();
+  const { user, profile, isLocalMode } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -83,6 +83,7 @@ const WeeklyTestSeries = () => {
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
+  const [leaderboardPhotoMap, setLeaderboardPhotoMap] = useState<Record<string, string | null>>({});
   const [announcement, setAnnouncement] = useState<WeeklyAnnouncement | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -118,6 +119,57 @@ const WeeklyTestSeries = () => {
     return data;
   };
 
+  const normalizePhotoUrl = (raw: string | null | undefined) => {
+    const value = String(raw || "").trim();
+    if (!value) return "";
+    if (/^https?:\/\//i.test(value) || value.startsWith("data:")) return value;
+    if (value.startsWith("/")) return `${backendBase()}${value}`;
+    return `${backendBase()}/${value}`;
+  };
+
+  const hydrateLeaderboardPhotos = async (rows: LeaderboardRow[]) => {
+    const missing = Array.from(
+      new Set(
+        rows
+          .filter((r) => !String(r.profilePhotoUrl || "").trim())
+          .map((r) => String(r.userId || "").trim())
+          .filter(Boolean),
+      ),
+    ).filter((id) => typeof leaderboardPhotoMap[id] === "undefined");
+
+    if (!missing.length) return;
+
+    const next: Record<string, string | null> = {};
+    await Promise.all(
+      missing.map(async (id) => {
+        try {
+          const res = await fetch(`${backendBase()}/functions/v1/profiles/${encodeURIComponent(id)}`);
+          const payload = await res.json().catch(() => ({}));
+          if (res.ok) {
+            const url = normalizePhotoUrl(payload?.profile_photo_url);
+            next[id] = url || null;
+            return;
+          }
+        } catch {
+          // ignore
+        }
+        next[id] = null;
+      }),
+    );
+    setLeaderboardPhotoMap((prev) => ({ ...prev, ...next }));
+  };
+
+  const getLeaderboardPhoto = (row: LeaderboardRow) => {
+    const direct = normalizePhotoUrl(row.profilePhotoUrl);
+    if (direct) return direct;
+    const mapped = normalizePhotoUrl(leaderboardPhotoMap[row.userId]);
+    if (mapped) return mapped;
+    if (String(row.userId || "") === String(user?.id || "")) {
+      return normalizePhotoUrl(profile?.profile_photo_url);
+    }
+    return "";
+  };
+
   const loadTests = async () => {
     const data = await api("/weekly-tests/list");
     setTests(data.tests || []);
@@ -137,7 +189,9 @@ const WeeklyTestSeries = () => {
 
   const loadLeaderboard = async (testId: string) => {
     const data = await api(`/weekly-tests/${testId}/leaderboard`);
-    setLeaderboard(data.leaderboard || []);
+    const rows = data.leaderboard || [];
+    setLeaderboard(rows);
+    await hydrateLeaderboardPhotos(rows);
   };
 
   const openTest = async (test: TestItem) => {
@@ -332,7 +386,7 @@ const WeeklyTestSeries = () => {
                   <div key={row.userId} className="flex items-center justify-between rounded border p-2 text-sm">
                     <div className="flex items-center gap-2 min-w-0">
                       <Avatar className="h-7 w-7">
-                        <AvatarImage src={row.profilePhotoUrl || ""} alt={row.name} />
+                        <AvatarImage src={getLeaderboardPhoto(row)} alt={row.name} />
                         <AvatarFallback>{initials(row.name)}</AvatarFallback>
                       </Avatar>
                       <span className="truncate">#{row.rank} {row.name}</span>

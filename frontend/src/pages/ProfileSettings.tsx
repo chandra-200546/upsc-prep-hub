@@ -29,6 +29,49 @@ const ProfileSettings = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
 
+  const backendBase = () => {
+    const configured = String(import.meta.env.VITE_BACKEND_URL || "").trim();
+    if (configured) return configured.replace(/\/$/, "");
+    return "http://localhost:8787";
+  };
+
+  const syncProfileToBackend = async (patch: {
+    name?: string;
+    target_year?: number | null;
+    optional_subject?: string | null;
+    study_hours_per_day?: number | null;
+    mentor_personality?: string | null;
+    profile_photo_url?: string | null;
+  }) => {
+    if (!user) return;
+    const targetYearNum = Number(targetYear);
+    const studyHoursNum = Number(studyHours);
+    const payload = {
+      profile: {
+        id: user.id,
+        name: patch.name ?? name ?? profile?.name ?? "Aspirant",
+        target_year: patch.target_year ?? (Number.isFinite(targetYearNum) && targetYearNum > 0 ? targetYearNum : (profile?.target_year ?? 2026)),
+        optional_subject: patch.optional_subject ?? (optionalSubject || null),
+        study_hours_per_day:
+          patch.study_hours_per_day ??
+          (Number.isFinite(studyHoursNum) && studyHoursNum > 0 ? studyHoursNum : (profile?.study_hours_per_day ?? 4)),
+        language: profile?.language || "English",
+        profile_photo_url: patch.profile_photo_url ?? (photoUrl || null),
+        mentor_personality: patch.mentor_personality ?? (mentorPersonality || "friendly"),
+        current_streak: profile?.current_streak || 0,
+        total_xp: profile?.total_xp || 0,
+        level: profile?.level || 1,
+        last_login_date: profile?.last_login_date || null,
+      },
+    };
+
+    await fetch(`${backendBase()}/functions/v1/profiles/upsert`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  };
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
@@ -55,6 +98,7 @@ const ProfileSettings = () => {
       // Update profile with new photo
       if (!isLocalMode) {
         await supabase.from("profiles").update({ profile_photo_url: url }).eq("id", user.id);
+        await syncProfileToBackend({ profile_photo_url: url });
       }
       refreshProfile();
       toast({ title: "Photo updated!" });
@@ -84,6 +128,7 @@ const ProfileSettings = () => {
 
       const { error } = await supabase.from("profiles").update(updates).eq("id", user.id);
       if (error) throw error;
+      await syncProfileToBackend(updates);
       refreshProfile();
       toast({ title: "Profile saved!", description: "Your changes have been saved." });
     } catch (err: any) {
