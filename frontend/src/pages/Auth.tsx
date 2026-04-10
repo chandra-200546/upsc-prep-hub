@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/use-local-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,15 +24,23 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { user, isReady, profile } = useAuth();
   const auth = useAuth();
 
+  const safeRedirectPath = (value: string | null) => {
+    const redirect = String(value || "").trim();
+    if (!redirect) return "/dashboard";
+    if (!redirect.startsWith("/") || redirect.startsWith("//")) return "/dashboard";
+    return redirect;
+  };
+
   useEffect(() => {
     if (isReady && user && profile) {
-      navigate("/dashboard");
+      navigate(safeRedirectPath(searchParams.get("redirect")));
     }
-  }, [isReady, user, profile, navigate]);
+  }, [isReady, user, profile, navigate, searchParams]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +51,7 @@ const Auth = () => {
         const result = await auth.signIn(email, password);
         if (result.error) throw new Error(result.error);
         toast({ title: "Welcome back!", description: "Successfully logged in" });
-        navigate("/dashboard");
+        navigate(safeRedirectPath(searchParams.get("redirect")));
       } else {
         if (!NAME_RE.test(name.trim())) {
           throw new Error("Name must contain only letters and valid separators.");

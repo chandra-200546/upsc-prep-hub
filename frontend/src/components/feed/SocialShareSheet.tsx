@@ -71,8 +71,16 @@ export function SocialShareSheet({ open, onOpenChange, title, url, onTrackShare,
 
   const payloadText = useMemo(() => `${title}\n${url}`, [title, url]);
 
-  const openWindow = (href: string) => {
-    window.open(href, "_blank", "noopener,noreferrer");
+  const openWindow = async (href: string) => {
+    const win = window.open(href, "_blank", "noopener,noreferrer");
+    if (win) return;
+    const copied = await tryClipboardCopy(href);
+    toast({
+      title: copied ? "Popup blocked" : "Share link ready",
+      description: copied
+        ? "Browser blocked popup. Link copied, paste it in your app."
+        : "Browser blocked popup. Copy the link manually from prompt.",
+    });
   };
 
   const withTrack = async (platform: SharePlatform, action: () => Promise<void> | void) => {
