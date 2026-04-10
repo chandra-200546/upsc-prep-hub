@@ -1896,6 +1896,7 @@ functionsRouter.get("/doubts", async (c) => {
     created_at: string;
     updated_at: string;
     author_name: string | null;
+    author_photo_url: string | null;
     author_verified: number;
     liked_by_viewer: number;
     saved_by_viewer: number;
@@ -1921,6 +1922,7 @@ functionsRouter.get("/doubts", async (c) => {
       created_at: string;
       updated_at: string;
       author_name: string | null;
+      author_photo_url: string | null;
       author_verified: number;
       liked_by_viewer: number;
       saved_by_viewer: number;
@@ -1936,6 +1938,7 @@ functionsRouter.get("/doubts", async (c) => {
         p.status, p.is_flagged, p.moderation_status, p.report_count,
         p.created_at::text, p.updated_at::text,
         COALESCE(pr.name, 'Aspirant') AS author_name,
+        pr.profile_photo_url AS author_photo_url,
         COALESCE(ua.is_verified, 0) AS author_verified,
         CASE WHEN $${idx}::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_likes l WHERE l.post_id = p.id AND l.user_id = $${idx}::uuid) THEN 1 ELSE 0 END AS liked_by_viewer,
         CASE WHEN $${idx}::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_saves s WHERE s.post_id = p.id AND s.user_id = $${idx}::uuid) THEN 1 ELSE 0 END AS saved_by_viewer
@@ -1958,6 +1961,7 @@ functionsRouter.get("/doubts", async (c) => {
         p.status, p.is_flagged, p.moderation_status, p.report_count,
         p.created_at::text, p.updated_at::text,
         COALESCE(pr.name, 'Aspirant') AS author_name,
+        pr.profile_photo_url AS author_photo_url,
         0 AS author_verified,
         0 AS liked_by_viewer, 0 AS saved_by_viewer
       FROM doubt_posts p
@@ -1998,7 +2002,7 @@ functionsRouter.get("/doubts", async (c) => {
     reportCount: Number(r.report_count || 0),
     createdAt: r.created_at,
     updatedAt: r.updated_at,
-    author: { id: r.user_id, name: r.author_name || "Aspirant", isVerified: Number(r.author_verified || 0) > 0 },
+    author: { id: r.user_id, name: r.author_name || "Aspirant", photoUrl: r.author_photo_url || null, isVerified: Number(r.author_verified || 0) > 0 },
   }));
 
   return c.json({
@@ -2127,6 +2131,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
     created_at: string;
     updated_at: string;
     author_name: string | null;
+    author_photo_url: string | null;
     author_verified: number;
   }> = [];
   try {
@@ -2153,6 +2158,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
       created_at: string;
       updated_at: string;
       author_name: string | null;
+      author_photo_url: string | null;
       author_verified: number;
     }>(
       `
@@ -2168,6 +2174,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
         CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM doubt_post_saves s WHERE s.post_id = p.id AND s.user_id = $2::uuid) THEN 1 ELSE 0 END AS saved_by_viewer,
         p.created_at::text, p.updated_at::text,
         COALESCE(pr.name, 'Aspirant') AS author_name,
+        pr.profile_photo_url AS author_photo_url,
         COALESCE(ua.is_verified, 0) AS author_verified
       FROM doubt_posts p
       LEFT JOIN profiles pr ON pr.id = p.user_id
@@ -2197,6 +2204,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
         0 AS saved_by_viewer,
         p.created_at::text, p.updated_at::text,
         COALESCE(pr.name, 'Aspirant') AS author_name,
+        pr.profile_photo_url AS author_photo_url,
         0 AS author_verified
       FROM doubt_posts p
       LEFT JOIN profiles pr ON pr.id = p.user_id
@@ -2223,6 +2231,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
     created_at: string;
     updated_at: string;
     author_name: string | null;
+    author_photo_url: string | null;
     author_verified: number;
     viewer_voted: number;
   }> = [];
@@ -2241,6 +2250,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
       created_at: string;
       updated_at: string;
       author_name: string | null;
+      author_photo_url: string | null;
       author_verified: number;
       viewer_voted: number;
     }>(
@@ -2249,6 +2259,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
         a.id::text, a.post_id::text, a.user_id::text, a.content, a.helpful_count, a.is_ai_generated, a.is_best_answer,
         a.is_flagged, a.moderation_status, a.report_count, a.created_at::text, a.updated_at::text,
         COALESCE(pr.name, 'Aspirant') AS author_name,
+        pr.profile_photo_url AS author_photo_url,
         COALESCE(ua.is_verified, 0) AS author_verified,
         CASE
           WHEN $2::uuid IS NULL THEN 0
@@ -2280,6 +2291,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
         0 AS report_count,
         a.created_at::text, a.updated_at::text,
         COALESCE(pr.name, 'Aspirant') AS author_name,
+        pr.profile_photo_url AS author_photo_url,
         0 AS author_verified,
         0 AS viewer_voted
       FROM doubt_answers a
@@ -2314,7 +2326,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
       reportCount: Number(post.report_count || 0),
       createdAt: post.created_at,
       updatedAt: post.updated_at,
-      author: { id: post.user_id, name: post.author_name || "Aspirant", isVerified: Number(post.author_verified || 0) > 0 },
+      author: { id: post.user_id, name: post.author_name || "Aspirant", photoUrl: post.author_photo_url || null, isVerified: Number(post.author_verified || 0) > 0 },
     },
     answers: answers.map((a) => ({
       id: a.id,
@@ -2330,7 +2342,7 @@ functionsRouter.get("/doubts/:postId", async (c) => {
       createdAt: a.created_at,
       updatedAt: a.updated_at,
       hasVoted: Number(a.viewer_voted || 0) > 0,
-      author: { id: a.user_id, name: a.author_name || "Aspirant", isVerified: Number(a.author_verified || 0) > 0 },
+      author: { id: a.user_id, name: a.author_name || "Aspirant", photoUrl: a.author_photo_url || null, isVerified: Number(a.author_verified || 0) > 0 },
     })),
   });
 });
@@ -2506,6 +2518,7 @@ functionsRouter.get("/doubts/saved/list", async (c) => {
     updated_at: string;
     saved_at: string;
     author_name: string | null;
+    author_photo_url: string | null;
     author_verified: number;
   }>(
     `
@@ -2519,6 +2532,7 @@ functionsRouter.get("/doubts/saved/list", async (c) => {
       p.status, p.is_flagged, p.moderation_status, p.report_count,
       p.created_at::text, p.updated_at::text, s.created_at::text AS saved_at,
       COALESCE(pr.name, 'Aspirant') AS author_name,
+      pr.profile_photo_url AS author_photo_url,
       COALESCE(ua.is_verified, 0) AS author_verified
     FROM doubt_post_saves s
     JOIN doubt_posts p ON p.id = s.post_id
@@ -2554,7 +2568,7 @@ functionsRouter.get("/doubts/saved/list", async (c) => {
       createdAt: r.created_at,
       updatedAt: r.updated_at,
       savedAt: r.saved_at,
-      author: { id: r.user_id, name: r.author_name || "Aspirant", isVerified: Number(r.author_verified || 0) > 0 },
+      author: { id: r.user_id, name: r.author_name || "Aspirant", photoUrl: r.author_photo_url || null, isVerified: Number(r.author_verified || 0) > 0 },
     })),
   });
 });
@@ -3075,6 +3089,7 @@ functionsRouter.get("/notes-feed", async (c) => {
     created_at: string;
     updated_at: string;
     author_name: string | null;
+    author_photo_url: string | null;
     author_verified: number;
   }>(
     `
@@ -3084,6 +3099,7 @@ functionsRouter.get("/notes-feed", async (c) => {
       (SELECT COUNT(*) FROM notes_feed_shares sh WHERE sh.note_id = p.id) AS shares_count,
       p.report_count, p.is_flagged, p.moderation_status,
       p.created_at::text, p.updated_at::text, COALESCE(pr.name, 'Aspirant') AS author_name,
+      pr.profile_photo_url AS author_photo_url,
       COALESCE(ua.is_verified, 0) AS author_verified
     FROM notes_feed_posts p
     LEFT JOIN profiles pr ON pr.id = p.user_id
@@ -3120,7 +3136,7 @@ functionsRouter.get("/notes-feed", async (c) => {
       moderationStatus: r.moderation_status,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
-      author: { id: r.user_id, name: r.author_name || "Aspirant", isVerified: Number(r.author_verified || 0) > 0 },
+      author: { id: r.user_id, name: r.author_name || "Aspirant", photoUrl: r.author_photo_url || null, isVerified: Number(r.author_verified || 0) > 0 },
       trendingScore: Number(r.saves_count || 0) * 3 + Number(r.likes_count || 0) * 2,
     })),
     page,
@@ -3196,6 +3212,7 @@ functionsRouter.get("/notes-feed/:noteId", async (c) => {
     created_at: string;
     updated_at: string;
     author_name: string | null;
+    author_photo_url: string | null;
     author_verified: number;
     liked_by_viewer: number;
     saved_by_viewer: number;
@@ -3208,6 +3225,7 @@ functionsRouter.get("/notes-feed/:noteId", async (c) => {
       p.report_count, p.is_flagged, p.moderation_status,
       p.created_at::text, p.updated_at::text,
       COALESCE(pr.name, 'Aspirant') AS author_name,
+      pr.profile_photo_url AS author_photo_url,
       COALESCE(ua.is_verified, 0) AS author_verified,
       CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM notes_feed_likes l WHERE l.note_id = p.id AND l.user_id = $2::uuid) THEN 1 ELSE 0 END AS liked_by_viewer,
       CASE WHEN $2::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM notes_feed_saves s WHERE s.note_id = p.id AND s.user_id = $2::uuid) THEN 1 ELSE 0 END AS saved_by_viewer
@@ -3241,7 +3259,7 @@ functionsRouter.get("/notes-feed/:noteId", async (c) => {
       moderationStatus: note.moderation_status,
       createdAt: note.created_at,
       updatedAt: note.updated_at,
-      author: { id: note.user_id, name: note.author_name || "Aspirant", isVerified: Number(note.author_verified || 0) > 0 },
+      author: { id: note.user_id, name: note.author_name || "Aspirant", photoUrl: note.author_photo_url || null, isVerified: Number(note.author_verified || 0) > 0 },
       likedByViewer: Number(note.liked_by_viewer || 0) > 0,
       savedByViewer: Number(note.saved_by_viewer || 0) > 0,
     },
@@ -3501,6 +3519,7 @@ functionsRouter.get("/notes-feed/saved/list", async (c) => {
     shares_count: number;
     created_at: string;
     author_name: string | null;
+    author_photo_url: string | null;
     author_verified: number;
     saved_at: string;
   }>(
@@ -3510,7 +3529,7 @@ functionsRouter.get("/notes-feed/saved/list", async (c) => {
       p.likes_count, p.saves_count, COALESCE(p.views_count, 0) AS views_count,
       (SELECT COUNT(*) FROM notes_feed_shares sh WHERE sh.note_id = p.id) AS shares_count,
       p.created_at::text,
-      COALESCE(pr.name, 'Aspirant') AS author_name, COALESCE(ua.is_verified, 0) AS author_verified, s.created_at::text AS saved_at
+      COALESCE(pr.name, 'Aspirant') AS author_name, pr.profile_photo_url AS author_photo_url, COALESCE(ua.is_verified, 0) AS author_verified, s.created_at::text AS saved_at
     FROM notes_feed_saves s
     JOIN notes_feed_posts p ON p.id = s.note_id
     LEFT JOIN profiles pr ON pr.id = p.user_id
@@ -3537,7 +3556,7 @@ functionsRouter.get("/notes-feed/saved/list", async (c) => {
       sharesCount: Number(r.shares_count || 0),
       createdAt: r.created_at,
       savedAt: r.saved_at,
-      author: { id: r.user_id, name: r.author_name || "Aspirant", isVerified: Number(r.author_verified || 0) > 0 },
+      author: { id: r.user_id, name: r.author_name || "Aspirant", photoUrl: r.author_photo_url || null, isVerified: Number(r.author_verified || 0) > 0 },
       trendingScore: Number(r.saves_count || 0) * 3 + Number(r.likes_count || 0) * 2,
     })),
   });

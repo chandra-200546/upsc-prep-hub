@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,7 +66,7 @@ type NotesPost = {
   createdAt: string;
   updatedAt: string;
   trendingScore?: number;
-  author: { id: string; name: string; isVerified?: boolean };
+  author: { id: string; name: string; photoUrl?: string | null; isVerified?: boolean };
   likedByViewer?: boolean;
   savedByViewer?: boolean;
 };
@@ -720,6 +720,7 @@ const NotesFeed = () => {
               >
                 <div className="flex items-start gap-3">
                   <Avatar className="h-10 w-10 shrink-0">
+                    <AvatarImage src={item.author.photoUrl || ""} alt={item.author.name} />
                     <AvatarFallback>{initials(item.author.name)}</AvatarFallback>
                   </Avatar>
 

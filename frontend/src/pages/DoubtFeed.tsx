@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -69,7 +69,7 @@ type FeedPost = {
   status: string;
   createdAt: string;
   updatedAt: string;
-  author: { id: string; name: string; isVerified?: boolean };
+  author: { id: string; name: string; photoUrl?: string | null; isVerified?: boolean };
 };
 
 type FeedAnswer = {
@@ -82,7 +82,7 @@ type FeedAnswer = {
   isBestAnswer: boolean;
   hasVoted: boolean;
   createdAt: string;
-  author: { id: string; name: string; isVerified?: boolean };
+  author: { id: string; name: string; photoUrl?: string | null; isVerified?: boolean };
 };
 
 type PostDetail = {
@@ -882,6 +882,7 @@ const DoubtFeed = () => {
               >
                 <div className="flex items-start gap-3">
                   <Avatar className="h-10 w-10 shrink-0">
+                    <AvatarImage src={post.author.photoUrl || ""} alt={post.author.name} />
                     <AvatarFallback>{initials(post.author.name)}</AvatarFallback>
                   </Avatar>
 
@@ -988,6 +989,10 @@ const DoubtFeed = () => {
                         {!loadingThis && answers.map((ans) => (
                           <div key={ans.id} className={`rounded-lg border p-3 ${ans.isBestAnswer ? "border-green-500/40 bg-green-500/5" : ""}`}>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5">
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={ans.author.photoUrl || ""} alt={ans.author.name} />
+                                <AvatarFallback>{initials(ans.author.name)}</AvatarFallback>
+                              </Avatar>
                               <span className="inline-flex items-center gap-1 font-semibold text-foreground">
                                 {ans.author.name}
                                 {ans.author.isVerified ? <VerifiedBadge /> : null}
