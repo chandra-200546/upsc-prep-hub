@@ -290,6 +290,12 @@ const normalizeSharePlatform = (value: unknown) => {
   return validSharePlatforms.has(platform) ? platform : "other";
 };
 
+const parseDurationMinutes = (value: unknown, fallback = 60) => {
+  const raw = Number(value);
+  if (!Number.isFinite(raw)) return fallback;
+  return Math.max(15, Math.min(180, Math.round(raw)));
+};
+
 const createDoubtNotification = async (params: {
   userId: string;
   type:
@@ -801,7 +807,7 @@ functionsRouter.post("/weekly-tests/admin/create", async (c) => {
   const title = String(body?.title ?? "").trim();
   const description = String(body?.description ?? "").trim();
   const weekLabel = String(body?.weekLabel ?? "").trim();
-  const durationMinutes = Math.max(15, Math.min(180, Number(body?.durationMinutes ?? 60)));
+  const durationMinutes = parseDurationMinutes(body?.durationMinutes, 60);
   const startAt = String(body?.startAt ?? "").trim() || null;
   const endAt = String(body?.endAt ?? "").trim() || null;
   const isPublished = Boolean(body?.isPublished ?? false);
@@ -836,6 +842,11 @@ functionsRouter.post("/weekly-tests/admin/question", async (c) => {
   if (!["A", "B", "C", "D"].includes(correctAnswer)) {
     return c.json({ message: "correctAnswer must be one of A/B/C/D" }, 400);
   }
+  const testExists = await queryNeon<{ id: string }>(
+    `SELECT id::text FROM weekly_tests WHERE id = $1::uuid LIMIT 1`,
+    [testId],
+  );
+  if (!testExists[0]?.id) return c.json({ message: "Selected test not found" }, 404);
 
   const id = randomUUID();
   await queryNeon(
@@ -856,6 +867,11 @@ functionsRouter.post("/weekly-tests/admin/publish", async (c) => {
   const testId = String(body?.testId ?? "").trim();
   const isPublished = Boolean(body?.isPublished);
   if (!testId) return c.json({ message: "testId is required" }, 400);
+  const testExists = await queryNeon<{ id: string }>(
+    `SELECT id::text FROM weekly_tests WHERE id = $1::uuid LIMIT 1`,
+    [testId],
+  );
+  if (!testExists[0]?.id) return c.json({ message: "Selected test not found" }, 404);
   await queryNeon(`UPDATE weekly_tests SET is_published = $1 WHERE id = $2::uuid`, [isPublished, testId]);
   return c.json({ ok: true });
 });
@@ -896,7 +912,7 @@ functionsRouter.post("/admin/panel/weekly-tests", async (c) => {
   const title = String(body?.title ?? "").trim();
   const description = String(body?.description ?? "").trim();
   const weekLabel = String(body?.weekLabel ?? "").trim();
-  const durationMinutes = Math.max(15, Math.min(180, Number(body?.durationMinutes ?? 60)));
+  const durationMinutes = parseDurationMinutes(body?.durationMinutes, 60);
   const startAt = String(body?.startAt ?? "").trim() || null;
   const endAt = String(body?.endAt ?? "").trim() || null;
   const isPublished = Boolean(body?.isPublished ?? false);
@@ -932,6 +948,11 @@ functionsRouter.post("/admin/panel/weekly-tests/question", async (c) => {
   if (!["A", "B", "C", "D"].includes(correctAnswer)) {
     return c.json({ message: "correctAnswer must be one of A/B/C/D" }, 400);
   }
+  const testExists = await queryNeon<{ id: string }>(
+    `SELECT id::text FROM weekly_tests WHERE id = $1::uuid LIMIT 1`,
+    [testId],
+  );
+  if (!testExists[0]?.id) return c.json({ message: "Selected test not found" }, 404);
 
   const id = randomUUID();
   await queryNeon(
@@ -953,6 +974,11 @@ functionsRouter.post("/admin/panel/weekly-tests/publish", async (c) => {
   const testId = String(body?.testId ?? "").trim();
   const isPublished = Boolean(body?.isPublished);
   if (!testId) return c.json({ message: "testId is required" }, 400);
+  const testExists = await queryNeon<{ id: string }>(
+    `SELECT id::text FROM weekly_tests WHERE id = $1::uuid LIMIT 1`,
+    [testId],
+  );
+  if (!testExists[0]?.id) return c.json({ message: "Selected test not found" }, 404);
   await queryNeon(`UPDATE weekly_tests SET is_published = $1 WHERE id = $2::uuid`, [isPublished, testId]);
   return c.json({ ok: true });
 });
@@ -4458,3 +4484,5 @@ functionsRouter.post("/admin-stats", async (c) => {
   await persistLog("admin-stats", body, response);
   return c.json(response);
 });
+
+

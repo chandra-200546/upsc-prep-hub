@@ -120,6 +120,12 @@ const formatAnnouncementWindow = (weekLabel?: string | null, startsAt?: string |
   return start || end || "-";
 };
 
+const normalizeDuration = (value: string) => {
+  const raw = Number(String(value || "").trim());
+  if (!Number.isFinite(raw)) return null;
+  return Math.max(15, Math.min(180, Math.round(raw)));
+};
+
 const AdminPanel = () => {
   const { toast } = useToast();
   const [accessChecked, setAccessChecked] = useState(false);
@@ -178,7 +184,11 @@ const AdminPanel = () => {
 
   const loadWeeklyTests = async () => {
     const data = await adminApi("/admin/panel/weekly-tests");
-    setWeeklyTests(Array.isArray(data?.tests) ? data.tests : []);
+    const tests = Array.isArray(data?.tests) ? data.tests : [];
+    setWeeklyTests(tests);
+    if (!newQ.testId && tests[0]?.id) {
+      setNewQ((prev) => ({ ...prev, testId: tests[0].id }));
+    }
   };
 
   const loadAnnouncements = async () => {
@@ -187,19 +197,32 @@ const AdminPanel = () => {
   };
 
   const createWeeklyTest = async () => {
+    const title = newTest.title.trim();
+    const duration = normalizeDuration(newTest.durationMinutes);
+    if (title.length < 3) {
+      toast({ title: "Invalid title", description: "Please enter a valid test title.", variant: "destructive" });
+      return;
+    }
+    if (duration === null) {
+      toast({ title: "Invalid duration", description: "Duration must be a number between 15 and 180.", variant: "destructive" });
+      return;
+    }
     setWeeklyBusy(true);
     try {
-      await adminApi("/admin/panel/weekly-tests", {
+      const payload = await adminApi("/admin/panel/weekly-tests", {
         method: "POST",
         body: JSON.stringify({
-          title: newTest.title,
-          description: newTest.description,
-          weekLabel: newTest.weekLabel,
-          durationMinutes: Number(newTest.durationMinutes || 60),
+          title,
+          description: newTest.description.trim(),
+          weekLabel: newTest.weekLabel.trim(),
+          durationMinutes: duration,
           isPublished: false,
         }),
       });
       setNewTest({ title: "", description: "", weekLabel: "", durationMinutes: "60" });
+      if (String(payload?.id || "")) {
+        setNewQ((prev) => ({ ...prev, testId: String(payload.id) }));
+      }
       await loadWeeklyTests();
       await loadData();
       toast({ title: "Weekly test created" });
@@ -211,11 +234,36 @@ const AdminPanel = () => {
   };
 
   const addWeeklyQuestion = async () => {
+    if (!newQ.testId) {
+      toast({ title: "Select test", description: "Please select a test before adding question.", variant: "destructive" });
+      return;
+    }
+    if (!newQ.questionText.trim()) {
+      toast({ title: "Missing question", description: "Please enter question text.", variant: "destructive" });
+      return;
+    }
+    if (!newQ.optionA.trim() || !newQ.optionB.trim() || !newQ.optionC.trim() || !newQ.optionD.trim()) {
+      toast({ title: "Missing options", description: "Please fill all four options.", variant: "destructive" });
+      return;
+    }
+    if (!["A", "B", "C", "D"].includes(newQ.correctAnswer.trim().toUpperCase())) {
+      toast({ title: "Invalid correct option", description: "Correct answer must be A, B, C, or D.", variant: "destructive" });
+      return;
+    }
     setWeeklyBusy(true);
     try {
       await adminApi("/admin/panel/weekly-tests/question", {
         method: "POST",
-        body: JSON.stringify(newQ),
+        body: JSON.stringify({
+          ...newQ,
+          questionText: newQ.questionText.trim(),
+          optionA: newQ.optionA.trim(),
+          optionB: newQ.optionB.trim(),
+          optionC: newQ.optionC.trim(),
+          optionD: newQ.optionD.trim(),
+          correctAnswer: newQ.correctAnswer.trim().toUpperCase(),
+          explanation: newQ.explanation.trim(),
+        }),
       });
       setNewQ((prev) => ({
         ...prev,
@@ -255,14 +303,28 @@ const AdminPanel = () => {
   };
 
   const createAnnouncement = async () => {
+    const title = newAnnouncement.title.trim();
+    const message = newAnnouncement.message.trim();
+    if (!title || !message) {
+      toast({ title: "Missing details", description: "Announcement title and message are required.", variant: "destructive" });
+      return;
+    }
+    if (newAnnouncement.startsAt && newAnnouncement.endsAt) {
+      const start = new Date(newAnnouncement.startsAt).getTime();
+      const end = new Date(newAnnouncement.endsAt).getTime();
+      if (Number.isFinite(start) && Number.isFinite(end) && end < start) {
+        toast({ title: "Invalid dates", description: "End time must be after start time.", variant: "destructive" });
+        return;
+      }
+    }
     setWeeklyBusy(true);
     try {
       await adminApi("/admin/panel/weekly-tests/announcement", {
         method: "POST",
         body: JSON.stringify({
-          title: newAnnouncement.title,
-          message: newAnnouncement.message,
-          weekLabel: newAnnouncement.weekLabel,
+          title,
+          message,
+          weekLabel: newAnnouncement.weekLabel.trim(),
           startsAt: newAnnouncement.startsAt || null,
           endsAt: newAnnouncement.endsAt || null,
           isActive: true,
@@ -564,7 +626,10 @@ const AdminPanel = () => {
                     value={newTest.durationMinutes}
                     onChange={(e) => setNewTest((p) => ({ ...p, durationMinutes: e.target.value }))}
                   />
-                  <Button onClick={() => void createWeeklyTest()} disabled={weeklyBusy}>
+                  <Button
+                    onClick={() => void createWeeklyTest()}
+                    disabled={weeklyBusy || !newTest.title.trim() || normalizeDuration(newTest.durationMinutes) === null}
+                  >
                     {weeklyBusy ? "Saving..." : "Create Test"}
                   </Button>
                 </div>
@@ -606,7 +671,18 @@ const AdminPanel = () => {
                     value={newQ.correctAnswer}
                     onChange={(e) => setNewQ((p) => ({ ...p, correctAnswer: e.target.value.toUpperCase() }))}
                   />
-                  <Button onClick={() => void addWeeklyQuestion()} disabled={weeklyBusy}>
+                  <Button
+                    onClick={() => void addWeeklyQuestion()}
+                    disabled={
+                      weeklyBusy ||
+                      !newQ.testId ||
+                      !newQ.questionText.trim() ||
+                      !newQ.optionA.trim() ||
+                      !newQ.optionB.trim() ||
+                      !newQ.optionC.trim() ||
+                      !newQ.optionD.trim()
+                    }
+                  >
                     {weeklyBusy ? "Saving..." : "Add Question"}
                   </Button>
                 </div>
@@ -644,7 +720,7 @@ const AdminPanel = () => {
                       value={newAnnouncement.weekLabel}
                       onChange={(e) => setNewAnnouncement((p) => ({ ...p, weekLabel: e.target.value }))}
                     />
-                    <Button onClick={() => void createAnnouncement()} disabled={weeklyBusy}>
+                    <Button onClick={() => void createAnnouncement()} disabled={weeklyBusy || !newAnnouncement.title.trim() || !newAnnouncement.message.trim()}>
                       {weeklyBusy ? "Saving..." : "Publish Announcement"}
                     </Button>
                   </div>
