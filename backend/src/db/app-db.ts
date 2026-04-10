@@ -48,11 +48,27 @@ const isConfiguredAdminEmail = (email: string) => {
 
 const syncConfiguredAdminFlags = async (userId: string, email: string) => {
   if (!userId || !email) return;
-  if (!isConfiguredAdminEmail(email)) return;
-  await queryNeon(
-    `UPDATE user_accounts SET is_admin = 1, is_verified = 1 WHERE id = $1`,
-    [userId],
-  );
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!normalizedEmail) return;
+
+  if (isConfiguredAdminEmail(normalizedEmail)) {
+    await queryNeon(
+      `UPDATE user_accounts SET is_admin = 1, is_verified = 1 WHERE id = $1`,
+      [userId],
+    );
+    return;
+  }
+
+  // Fallback mode: when no explicit admin email is configured, first registered account is admin.
+  if (!String(config.weeklyTestAdminEmail || "").trim()) {
+    const first = await queryNeon<{ id: string }>(`SELECT id::text AS id FROM user_accounts ORDER BY created_at ASC LIMIT 1`);
+    if (String(first[0]?.id || "") === String(userId)) {
+      await queryNeon(
+        `UPDATE user_accounts SET is_admin = 1, is_verified = 1 WHERE id = $1`,
+        [userId],
+      );
+    }
+  }
 };
 
 export const signUpUser = async (email: string, password: string, name: string) => {

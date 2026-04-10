@@ -611,6 +611,12 @@ export const ensureNeonSchema = async () => {
         `,
       )
       .run(config.weeklyTestAdminEmail);
+  } else {
+    sqlite.exec(`
+      UPDATE user_accounts
+      SET is_admin = 1, is_verified = 1
+      WHERE id = (SELECT id FROM user_accounts ORDER BY created_at ASC LIMIT 1)
+    `);
   }
 
   return true;

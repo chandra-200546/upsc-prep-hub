@@ -712,6 +712,7 @@ functionsRouter.post("/weekly-tests/admin/login", async (c) => {
     if (!existing[0]) {
       return c.json({ message: "Admin email must belong to an existing account." }, 400);
     }
+    await queryNeon(`UPDATE user_accounts SET is_admin = 1, is_verified = 1 WHERE id = $1::uuid`, [existing[0].id]);
   } else {
     const firstUser = await queryNeon<{ email: string }>(
       `SELECT email FROM user_accounts ORDER BY created_at ASC LIMIT 1`,
@@ -725,6 +726,7 @@ functionsRouter.post("/weekly-tests/admin/login", async (c) => {
     } catch {
       return c.json({ message: "Invalid admin credentials" }, 401);
     }
+    await queryNeon(`UPDATE user_accounts SET is_admin = 1, is_verified = 1 WHERE LOWER(email) = LOWER($1)`, [email]);
   }
 
   const token = `wta_${randomUUID().replace(/-/g, "")}`;
