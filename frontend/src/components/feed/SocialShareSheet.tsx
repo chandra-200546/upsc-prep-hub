@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/components/ui/use-toast";
-import { Copy, Mail, MessageCircle, Send, Share2 } from "lucide-react";
+import { Copy, Link2, Share2 } from "lucide-react";
 
 export type SharePlatform =
   | "copy_link"
@@ -44,6 +44,12 @@ const tryClipboardCopy = async (text: string) => {
   if (!ok) throw new Error("Clipboard unavailable");
 };
 
+const BrandDot = ({ text, bgClass }: { text: string; bgClass: string }) => (
+  <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold text-white ${bgClass}`}>
+    {text}
+  </span>
+);
+
 export function SocialShareSheet({ open, onOpenChange, title, url, onTrackShare, shareCount = 0 }: Props) {
   const isMobile = useIsMobile();
   const [busy, setBusy] = useState<string>("");
@@ -71,10 +77,10 @@ export function SocialShareSheet({ open, onOpenChange, title, url, onTrackShare,
   };
 
   const shareOptions = (
-    <div className="grid grid-cols-2 gap-2 pb-2">
+    <div className="grid grid-cols-2 gap-2 pb-2 sm:grid-cols-3">
       <Button
         variant="outline"
-        className="justify-start gap-2"
+        className="justify-start gap-2 rounded-xl"
         disabled={busy === "copy_link"}
         onClick={() =>
           withTrack("copy_link", async () => {
@@ -83,55 +89,92 @@ export function SocialShareSheet({ open, onOpenChange, title, url, onTrackShare,
           })
         }
       >
-        <Copy className="h-4 w-4" />
+        <BrandDot text="⎘" bgClass="bg-slate-700" />
         Copy Link
       </Button>
 
       <Button
         variant="outline"
-        className="justify-start gap-2"
+        className="justify-start gap-2 rounded-xl"
         disabled={busy === "native"}
         onClick={() =>
           withTrack("native", async () => {
             const nav = navigator as Navigator & { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> };
             if (!nav.share) {
-              throw new Error("Native share is not supported on this device.");
+              await tryClipboardCopy(url);
+              toast({ title: "Link copied", description: "Native share is not supported on this device." });
+              return;
             }
             await nav.share({ title: "UPSC Share", text: title, url });
             toast({ title: "Shared successfully" });
           })
         }
       >
-        <Share2 className="h-4 w-4" />
+        <BrandDot text="↗" bgClass="bg-violet-600" />
         Native Share
       </Button>
 
-      <Button variant="outline" className="justify-start gap-2" onClick={() => withTrack("whatsapp", () => openWindow(`https://wa.me/?text=${encodeURIComponent(payloadText)}`))}>
-        <MessageCircle className="h-4 w-4" />
+      <Button variant="outline" className="justify-start gap-2 rounded-xl" onClick={() => withTrack("whatsapp", () => openWindow(`https://wa.me/?text=${encodeURIComponent(payloadText)}`))}>
+        <BrandDot text="W" bgClass="bg-emerald-500" />
         WhatsApp
       </Button>
 
-      <Button variant="outline" className="justify-start gap-2" onClick={() => withTrack("x", () => openWindow(`https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`))}>
-        <Share2 className="h-4 w-4" />
+      <Button variant="outline" className="justify-start gap-2 rounded-xl" onClick={() => withTrack("x", () => openWindow(`https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`))}>
+        <BrandDot text="X" bgClass="bg-black" />
         X / Twitter
       </Button>
 
-      <Button variant="outline" className="justify-start gap-2" onClick={() => withTrack("telegram", () => openWindow(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`))}>
-        <Send className="h-4 w-4" />
+      <Button variant="outline" className="justify-start gap-2 rounded-xl" onClick={() => withTrack("telegram", () => openWindow(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`))}>
+        <BrandDot text="Tg" bgClass="bg-sky-500" />
         Telegram
       </Button>
 
       <Button
         variant="outline"
-        className="justify-start gap-2"
+        className="justify-start gap-2 rounded-xl"
         onClick={() =>
           withTrack("email", () => {
             window.location.href = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(payloadText)}`;
           })
         }
       >
-        <Mail className="h-4 w-4" />
+        <BrandDot text="@" bgClass="bg-indigo-600" />
         Email
+      </Button>
+
+      <Button
+        variant="outline"
+        className="justify-start gap-2 rounded-xl"
+        onClick={() => withTrack("facebook", () => openWindow(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`))}
+      >
+        <BrandDot text="f" bgClass="bg-blue-600" />
+        Facebook
+      </Button>
+
+      <Button
+        variant="outline"
+        className="justify-start gap-2 rounded-xl"
+        onClick={() =>
+          withTrack("linkedin", () =>
+            openWindow(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`),
+          )
+        }
+      >
+        <BrandDot text="in" bgClass="bg-blue-700" />
+        LinkedIn
+      </Button>
+
+      <Button
+        variant="outline"
+        className="justify-start gap-2 rounded-xl"
+        onClick={() =>
+          withTrack("reddit", () =>
+            openWindow(`https://www.reddit.com/submit?url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`),
+          )
+        }
+      >
+        <BrandDot text="r/" bgClass="bg-orange-500" />
+        Reddit
       </Button>
     </div>
   );
@@ -140,14 +183,20 @@ export function SocialShareSheet({ open, onOpenChange, title, url, onTrackShare,
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent className="px-4">
-          <DrawerHeader>
-            <DrawerTitle>Share Post</DrawerTitle>
-            <DrawerDescription>Shares: {shareCount}</DrawerDescription>
-          </DrawerHeader>
-          {shareOptions}
-        </DrawerContent>
-      </Drawer>
-    );
+        <DrawerHeader>
+          <DrawerTitle>Share Post</DrawerTitle>
+          <DrawerDescription className="flex items-center gap-2">
+            <Share2 className="h-4 w-4" /> Shares: {shareCount}
+          </DrawerDescription>
+        </DrawerHeader>
+        <div className="mb-2 rounded-xl border bg-muted/30 p-2 text-xs text-muted-foreground">
+          <div className="mb-1 flex items-center gap-2"><Link2 className="h-3.5 w-3.5" /> Post Link</div>
+          <div className="truncate font-mono">{url}</div>
+        </div>
+        {shareOptions}
+      </DrawerContent>
+    </Drawer>
+  );
   }
 
   return (
@@ -155,11 +204,16 @@ export function SocialShareSheet({ open, onOpenChange, title, url, onTrackShare,
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Share Post</DialogTitle>
-          <DialogDescription>Shares: {shareCount}</DialogDescription>
+          <DialogDescription className="flex items-center gap-2">
+            <Share2 className="h-4 w-4" /> Shares: {shareCount}
+          </DialogDescription>
         </DialogHeader>
+        <div className="rounded-xl border bg-muted/30 p-2 text-xs text-muted-foreground">
+          <div className="mb-1 flex items-center gap-2"><Copy className="h-3.5 w-3.5" /> Shareable Link</div>
+          <div className="truncate font-mono">{url}</div>
+        </div>
         {shareOptions}
       </DialogContent>
     </Dialog>
   );
 }
-

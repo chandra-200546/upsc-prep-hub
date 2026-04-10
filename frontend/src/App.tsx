@@ -71,7 +71,9 @@ const App = () => (
             <Route path="/subscription" element={<Subscription />} />
             <Route path="/weekly-test-series" element={<WeeklyTestSeries />} />
             <Route path="/doubt-feed" element={<DoubtFeed />} />
+            <Route path="/doubt-feed/:postId" element={<DoubtFeed />} />
             <Route path="/notes-feed" element={<NotesFeed />} />
+            <Route path="/notes-feed/:noteId" element={<NotesFeed />} />
             <Route path="/admin-panel" element={<AdminPanel />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

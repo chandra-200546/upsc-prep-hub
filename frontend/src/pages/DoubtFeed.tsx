@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -129,6 +129,7 @@ const toTags = (text: string) =>
     .slice(0, 8);
 
 const DoubtFeed = () => {
+  const { postId: routePostId } = useParams<{ postId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const [currentUserId, setCurrentUserId] = useState("");
   const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -584,7 +585,7 @@ const DoubtFeed = () => {
     }
   };
 
-  const postShareUrl = (postId: string) => `${window.location.origin}/doubt-feed?postId=${encodeURIComponent(postId)}`;
+  const postShareUrl = (postId: string) => `${window.location.origin}/doubt-feed/${encodeURIComponent(postId)}`;
 
   const openShareDialog = (post: FeedPost) => {
     setShareTarget(post);
@@ -626,7 +627,7 @@ const DoubtFeed = () => {
   };
 
   useEffect(() => {
-    const deepPostId = String(searchParams.get("postId") || "").trim();
+    const deepPostId = String(routePostId || searchParams.get("postId") || "").trim();
     if (!deepPostId) return;
     const openDeepLinkedPost = async () => {
       let post = posts.find((p) => p.id === deepPostId);
@@ -650,13 +651,15 @@ const DoubtFeed = () => {
         const el = document.getElementById(`doubt-post-${deepPostId}`);
         el?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 120);
-      const next = new URLSearchParams(searchParams);
-      next.delete("postId");
-      setSearchParams(next, { replace: true });
+      if (!routePostId && searchParams.get("postId")) {
+        const next = new URLSearchParams(searchParams);
+        next.delete("postId");
+        setSearchParams(next, { replace: true });
+      }
     };
     void openDeepLinkedPost();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [posts]);
+  }, [posts, routePostId]);
 
   useEffect(() => {
     if (!posts.length) return;

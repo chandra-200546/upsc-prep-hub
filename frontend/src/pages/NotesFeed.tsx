@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -110,6 +110,7 @@ const toTags = (text: string) =>
     .slice(0, 8);
 
 const NotesFeed = () => {
+  const { noteId: routeNoteId } = useParams<{ noteId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const [currentUserId, setCurrentUserId] = useState("");
   const [items, setItems] = useState<NotesPost[]>([]);
@@ -441,7 +442,7 @@ const NotesFeed = () => {
     }
   };
 
-  const noteShareUrl = (noteId: string) => `${window.location.origin}/notes-feed?noteId=${encodeURIComponent(noteId)}`;
+  const noteShareUrl = (noteId: string) => `${window.location.origin}/notes-feed/${encodeURIComponent(noteId)}`;
 
   const openShareDialog = (item: NotesPost) => {
     setShareTarget(item);
@@ -480,7 +481,7 @@ const NotesFeed = () => {
   };
 
   useEffect(() => {
-    const deepNoteId = String(searchParams.get("noteId") || "").trim();
+    const deepNoteId = String(routeNoteId || searchParams.get("noteId") || "").trim();
     if (!deepNoteId) return;
     const openDeepLinkedNote = async () => {
       let note = items.find((i) => i.id === deepNoteId);
@@ -504,13 +505,15 @@ const NotesFeed = () => {
         const el = document.getElementById(`note-post-${deepNoteId}`);
         el?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 120);
-      const next = new URLSearchParams(searchParams);
-      next.delete("noteId");
-      setSearchParams(next, { replace: true });
+      if (!routeNoteId && searchParams.get("noteId")) {
+        const next = new URLSearchParams(searchParams);
+        next.delete("noteId");
+        setSearchParams(next, { replace: true });
+      }
     };
     void openDeepLinkedNote();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items]);
+  }, [items, routeNoteId]);
 
   useEffect(() => {
     if (!items.length) return;
