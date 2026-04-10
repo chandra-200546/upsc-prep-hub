@@ -2356,11 +2356,16 @@ functionsRouter.post("/doubts/:postId/view", async (c) => {
     `UPDATE doubt_posts SET views_count = COALESCE(views_count, 0) + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`,
     [postId],
   );
-  const row = await queryNeon<{ count: number }>(
-    `SELECT COALESCE(views_count, 0)::int AS count FROM doubt_posts WHERE id = $1::uuid LIMIT 1`,
+  const row = await queryNeon<{ count: number; user_id: string }>(
+    `SELECT COALESCE(views_count, 0)::int AS count, user_id::text AS user_id FROM doubt_posts WHERE id = $1::uuid LIMIT 1`,
     [postId],
   );
-  return c.json({ ok: true, viewsCount: Number(row[0]?.count || 0) });
+  const viewsCount = Number(row[0]?.count || 0);
+  const ownerId = String(row[0]?.user_id || "");
+  if (ownerId && viewsCount >= 100000) {
+    await queryNeon(`UPDATE user_accounts SET is_verified = 1 WHERE id = $1::uuid`, [ownerId]);
+  }
+  return c.json({ ok: true, viewsCount });
 });
 
 functionsRouter.post("/doubts/:postId/like", async (c) => {
@@ -3469,11 +3474,16 @@ functionsRouter.post("/notes-feed/:noteId/view", async (c) => {
     `UPDATE notes_feed_posts SET views_count = COALESCE(views_count, 0) + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid`,
     [noteId],
   );
-  const row = await queryNeon<{ count: number }>(
-    `SELECT COALESCE(views_count, 0)::int AS count FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`,
+  const row = await queryNeon<{ count: number; user_id: string }>(
+    `SELECT COALESCE(views_count, 0)::int AS count, user_id::text AS user_id FROM notes_feed_posts WHERE id = $1::uuid LIMIT 1`,
     [noteId],
   );
-  return c.json({ ok: true, viewsCount: Number(row[0]?.count || 0) });
+  const viewsCount = Number(row[0]?.count || 0);
+  const ownerId = String(row[0]?.user_id || "");
+  if (ownerId && viewsCount >= 100000) {
+    await queryNeon(`UPDATE user_accounts SET is_verified = 1 WHERE id = $1::uuid`, [ownerId]);
+  }
+  return c.json({ ok: true, viewsCount });
 });
 
 functionsRouter.get("/notes-feed/saved/list", async (c) => {
