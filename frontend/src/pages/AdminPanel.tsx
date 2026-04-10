@@ -84,6 +84,7 @@ type WeeklyTestItem = {
   description?: string | null;
   week_label?: string | null;
   duration_minutes: number;
+  target_questions?: number;
   start_at?: string | null;
   end_at?: string | null;
   is_published?: boolean;
@@ -139,7 +140,7 @@ const AdminPanel = () => {
   const [sort, setSort] = useState<"newest" | "oldest" | "xp_desc">("newest");
   const [weeklyTests, setWeeklyTests] = useState<WeeklyTestItem[]>([]);
   const [weeklyBusy, setWeeklyBusy] = useState(false);
-  const [newTest, setNewTest] = useState({ title: "", description: "", weekLabel: "", durationMinutes: "60" });
+  const [newTest, setNewTest] = useState({ title: "", description: "", weekLabel: "", durationMinutes: "60", targetQuestions: "10" });
   const [newQ, setNewQ] = useState({
     testId: "",
     questionText: "",
@@ -199,6 +200,7 @@ const AdminPanel = () => {
   const createWeeklyTest = async () => {
     const title = newTest.title.trim();
     const duration = normalizeDuration(newTest.durationMinutes);
+    const targetQuestions = Math.max(1, Math.min(500, Number(newTest.targetQuestions || 10) || 10));
     if (title.length < 3) {
       toast({ title: "Invalid title", description: "Please enter a valid test title.", variant: "destructive" });
       return;
@@ -216,10 +218,11 @@ const AdminPanel = () => {
           description: newTest.description.trim(),
           weekLabel: newTest.weekLabel.trim(),
           durationMinutes: duration,
+          targetQuestions,
           isPublished: false,
         }),
       });
-      setNewTest({ title: "", description: "", weekLabel: "", durationMinutes: "60" });
+      setNewTest({ title: "", description: "", weekLabel: "", durationMinutes: "60", targetQuestions: "10" });
       if (String(payload?.id || "")) {
         setNewQ((prev) => ({ ...prev, testId: String(payload.id) }));
       }
@@ -234,6 +237,17 @@ const AdminPanel = () => {
   };
 
   const addWeeklyQuestion = async () => {
+    const selectedTest = weeklyTests.find((t) => t.id === newQ.testId);
+    const maxQuestions = Number(selectedTest?.target_questions || 10);
+    const currentQuestions = Number(selectedTest?.questions_count || 0);
+    if (selectedTest && currentQuestions >= maxQuestions) {
+      toast({
+        title: "Question limit reached",
+        description: `This test already has ${currentQuestions}/${maxQuestions} questions.`,
+        variant: "destructive",
+      });
+      return;
+    }
     if (!newQ.testId) {
       toast({ title: "Select test", description: "Please select a test before adding question.", variant: "destructive" });
       return;
@@ -610,7 +624,7 @@ const AdminPanel = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <Card className="p-4 overflow-auto lg:col-span-2">
                 <h2 className="font-semibold mb-3">Weekly Test Series Management</h2>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
                   <Input
                     placeholder="Test title"
                     value={newTest.title}
@@ -626,9 +640,20 @@ const AdminPanel = () => {
                     value={newTest.durationMinutes}
                     onChange={(e) => setNewTest((p) => ({ ...p, durationMinutes: e.target.value }))}
                   />
+                  <Input
+                    placeholder="Total questions"
+                    value={newTest.targetQuestions}
+                    onChange={(e) => setNewTest((p) => ({ ...p, targetQuestions: e.target.value }))}
+                  />
                   <Button
                     onClick={() => void createWeeklyTest()}
-                    disabled={weeklyBusy || !newTest.title.trim() || normalizeDuration(newTest.durationMinutes) === null}
+                    disabled={
+                      weeklyBusy ||
+                      !newTest.title.trim() ||
+                      normalizeDuration(newTest.durationMinutes) === null ||
+                      !Number.isFinite(Number(newTest.targetQuestions || "")) ||
+                      Number(newTest.targetQuestions || 0) < 1
+                    }
                   >
                     {weeklyBusy ? "Saving..." : "Create Test"}
                   </Button>
@@ -646,7 +671,7 @@ const AdminPanel = () => {
                     <div key={t.id} className="rounded border p-2 text-sm flex items-center justify-between gap-3">
                       <div>
                         <p className="font-medium">{t.title}</p>
-                        <p className="text-muted-foreground">{t.week_label || "-"} • {t.questions_count}Q</p>
+                        <p className="text-muted-foreground">{t.week_label || "-"} • {t.questions_count}/{Number(t.target_questions || 10)}Q</p>
                       </div>
                       <Button size="sm" variant="outline" onClick={() => void toggleWeeklyPublish(t.id, !t.is_published)} disabled={weeklyBusy}>
                         {t.is_published ? "Unpublish" : "Publish"}
@@ -680,7 +705,12 @@ const AdminPanel = () => {
                       !newQ.optionA.trim() ||
                       !newQ.optionB.trim() ||
                       !newQ.optionC.trim() ||
-                      !newQ.optionD.trim()
+                      !newQ.optionD.trim() ||
+                      Boolean(
+                        weeklyTests.find((t) => t.id === newQ.testId) &&
+                        Number(weeklyTests.find((t) => t.id === newQ.testId)?.questions_count || 0) >=
+                          Number(weeklyTests.find((t) => t.id === newQ.testId)?.target_questions || 10),
+                      )
                     }
                   >
                     {weeklyBusy ? "Saving..." : "Add Question"}

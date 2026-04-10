@@ -231,6 +231,7 @@ export const ensureNeonSchema = async () => {
       description TEXT,
       week_label TEXT,
       duration_minutes INTEGER NOT NULL DEFAULT 60,
+      target_questions INTEGER NOT NULL DEFAULT 10,
       start_at TEXT,
       end_at TEXT,
       is_published INTEGER NOT NULL DEFAULT 0,
@@ -600,6 +601,7 @@ export const ensureNeonSchema = async () => {
   try { sqlite.exec(`ALTER TABLE doubt_answers ADD COLUMN is_ai_generated INTEGER NOT NULL DEFAULT 0;`); } catch {}
   try { sqlite.exec(`ALTER TABLE user_accounts ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;`); } catch {}
   try { sqlite.exec(`ALTER TABLE user_accounts ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0;`); } catch {}
+  try { sqlite.exec(`ALTER TABLE weekly_tests ADD COLUMN target_questions INTEGER NOT NULL DEFAULT 10;`); } catch {}
 
   if (config.weeklyTestAdminEmail) {
     sqlite

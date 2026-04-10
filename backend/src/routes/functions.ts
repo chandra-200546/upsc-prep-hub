@@ -750,13 +750,14 @@ functionsRouter.get("/weekly-tests/list", async (c) => {
     description: string | null;
     week_label: string | null;
     duration_minutes: number;
+    target_questions: number;
     start_at: string | null;
     end_at: string | null;
     is_published: boolean;
     questions_count: number;
   }>(
     `
-    SELECT t.id::text, t.title, t.description, t.week_label, t.duration_minutes, t.start_at::text, t.end_at::text, t.is_published,
+    SELECT t.id::text, t.title, t.description, t.week_label, t.duration_minutes, COALESCE(t.target_questions, 10) AS target_questions, t.start_at::text, t.end_at::text, t.is_published,
            COUNT(q.id)::int AS questions_count
     FROM weekly_tests t
     LEFT JOIN weekly_test_questions q ON q.test_id = t.id
@@ -783,13 +784,14 @@ functionsRouter.get("/weekly-tests/admin/tests", async (c) => {
     description: string | null;
     week_label: string | null;
     duration_minutes: number;
+    target_questions: number;
     start_at: string | null;
     end_at: string | null;
     is_published: boolean;
     questions_count: number;
   }>(
     `
-    SELECT t.id::text, t.title, t.description, t.week_label, t.duration_minutes, t.start_at::text, t.end_at::text, t.is_published,
+    SELECT t.id::text, t.title, t.description, t.week_label, t.duration_minutes, COALESCE(t.target_questions, 10) AS target_questions, t.start_at::text, t.end_at::text, t.is_published,
            COUNT(q.id)::int AS questions_count
     FROM weekly_tests t
     LEFT JOIN weekly_test_questions q ON q.test_id = t.id
@@ -808,6 +810,7 @@ functionsRouter.post("/weekly-tests/admin/create", async (c) => {
   const description = String(body?.description ?? "").trim();
   const weekLabel = String(body?.weekLabel ?? "").trim();
   const durationMinutes = parseDurationMinutes(body?.durationMinutes, 60);
+  const targetQuestions = Math.max(1, Math.min(500, Number(body?.targetQuestions ?? 10) || 10));
   const startAt = String(body?.startAt ?? "").trim() || null;
   const endAt = String(body?.endAt ?? "").trim() || null;
   const isPublished = Boolean(body?.isPublished ?? false);
@@ -816,10 +819,10 @@ functionsRouter.post("/weekly-tests/admin/create", async (c) => {
   const id = randomUUID();
   await queryNeon(
     `
-    INSERT INTO weekly_tests (id, title, description, week_label, duration_minutes, start_at, end_at, is_published)
-    VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz, $8)
+    INSERT INTO weekly_tests (id, title, description, week_label, duration_minutes, target_questions, start_at, end_at, is_published)
+    VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9)
     `,
-    [id, title, description || null, weekLabel || null, durationMinutes, startAt, endAt, isPublished],
+    [id, title, description || null, weekLabel || null, durationMinutes, targetQuestions, startAt, endAt, isPublished],
   );
   return c.json({ ok: true, id });
 });
@@ -842,11 +845,14 @@ functionsRouter.post("/weekly-tests/admin/question", async (c) => {
   if (!["A", "B", "C", "D"].includes(correctAnswer)) {
     return c.json({ message: "correctAnswer must be one of A/B/C/D" }, 400);
   }
-  const testExists = await queryNeon<{ id: string }>(
-    `SELECT id::text FROM weekly_tests WHERE id = $1::uuid LIMIT 1`,
+  const testExists = await queryNeon<{ id: string; target_questions: number; questions_count: number }>(
+    `SELECT id::text, COALESCE(target_questions, 10)::int AS target_questions, (SELECT COUNT(*)::int FROM weekly_test_questions q WHERE q.test_id = weekly_tests.id) AS questions_count FROM weekly_tests WHERE id = $1::uuid LIMIT 1`,
     [testId],
   );
   if (!testExists[0]?.id) return c.json({ message: "Selected test not found" }, 404);
+  if (Number(testExists[0].questions_count || 0) >= Number(testExists[0].target_questions || 10)) {
+    return c.json({ message: `Question limit reached (${testExists[0].questions_count}/${testExists[0].target_questions}).` }, 400);
+  }
 
   const id = randomUUID();
   await queryNeon(
@@ -867,11 +873,15 @@ functionsRouter.post("/weekly-tests/admin/publish", async (c) => {
   const testId = String(body?.testId ?? "").trim();
   const isPublished = Boolean(body?.isPublished);
   if (!testId) return c.json({ message: "testId is required" }, 400);
-  const testExists = await queryNeon<{ id: string }>(
-    `SELECT id::text FROM weekly_tests WHERE id = $1::uuid LIMIT 1`,
+  const testExists = await queryNeon<{ id: string; target_questions: number; questions_count: number }>(
+    `SELECT id::text, COALESCE(target_questions, 10)::int AS target_questions, (SELECT COUNT(*)::int FROM weekly_test_questions q WHERE q.test_id = weekly_tests.id) AS questions_count FROM weekly_tests WHERE id = $1::uuid LIMIT 1`,
     [testId],
   );
   if (!testExists[0]?.id) return c.json({ message: "Selected test not found" }, 404);
+  if (isPublished && Number(testExists[0].questions_count || 0) < Number(testExists[0].target_questions || 10)) {
+    const remaining = Number(testExists[0].target_questions || 10) - Number(testExists[0].questions_count || 0);
+    return c.json({ message: `Add ${remaining} more question(s) before publishing.` }, 400);
+  }
   await queryNeon(`UPDATE weekly_tests SET is_published = $1 WHERE id = $2::uuid`, [isPublished, testId]);
   return c.json({ ok: true });
 });
@@ -886,13 +896,14 @@ functionsRouter.get("/admin/panel/weekly-tests", async (c) => {
     description: string | null;
     week_label: string | null;
     duration_minutes: number;
+    target_questions: number;
     start_at: string | null;
     end_at: string | null;
     is_published: boolean;
     questions_count: number;
   }>(
     `
-    SELECT t.id::text, t.title, t.description, t.week_label, t.duration_minutes, t.start_at::text, t.end_at::text, t.is_published,
+    SELECT t.id::text, t.title, t.description, t.week_label, t.duration_minutes, COALESCE(t.target_questions, 10) AS target_questions, t.start_at::text, t.end_at::text, t.is_published,
            COUNT(q.id)::int AS questions_count
     FROM weekly_tests t
     LEFT JOIN weekly_test_questions q ON q.test_id = t.id
@@ -913,6 +924,7 @@ functionsRouter.post("/admin/panel/weekly-tests", async (c) => {
   const description = String(body?.description ?? "").trim();
   const weekLabel = String(body?.weekLabel ?? "").trim();
   const durationMinutes = parseDurationMinutes(body?.durationMinutes, 60);
+  const targetQuestions = Math.max(1, Math.min(500, Number(body?.targetQuestions ?? 10) || 10));
   const startAt = String(body?.startAt ?? "").trim() || null;
   const endAt = String(body?.endAt ?? "").trim() || null;
   const isPublished = Boolean(body?.isPublished ?? false);
@@ -921,10 +933,10 @@ functionsRouter.post("/admin/panel/weekly-tests", async (c) => {
   const id = randomUUID();
   await queryNeon(
     `
-    INSERT INTO weekly_tests (id, title, description, week_label, duration_minutes, start_at, end_at, is_published)
-    VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz, $8)
+    INSERT INTO weekly_tests (id, title, description, week_label, duration_minutes, target_questions, start_at, end_at, is_published)
+    VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9)
     `,
-    [id, title, description || null, weekLabel || null, durationMinutes, startAt, endAt, isPublished],
+    [id, title, description || null, weekLabel || null, durationMinutes, targetQuestions, startAt, endAt, isPublished],
   );
   return c.json({ ok: true, id });
 });
@@ -948,11 +960,14 @@ functionsRouter.post("/admin/panel/weekly-tests/question", async (c) => {
   if (!["A", "B", "C", "D"].includes(correctAnswer)) {
     return c.json({ message: "correctAnswer must be one of A/B/C/D" }, 400);
   }
-  const testExists = await queryNeon<{ id: string }>(
-    `SELECT id::text FROM weekly_tests WHERE id = $1::uuid LIMIT 1`,
+  const testExists = await queryNeon<{ id: string; target_questions: number; questions_count: number }>(
+    `SELECT id::text, COALESCE(target_questions, 10)::int AS target_questions, (SELECT COUNT(*)::int FROM weekly_test_questions q WHERE q.test_id = weekly_tests.id) AS questions_count FROM weekly_tests WHERE id = $1::uuid LIMIT 1`,
     [testId],
   );
   if (!testExists[0]?.id) return c.json({ message: "Selected test not found" }, 404);
+  if (Number(testExists[0].questions_count || 0) >= Number(testExists[0].target_questions || 10)) {
+    return c.json({ message: `Question limit reached (${testExists[0].questions_count}/${testExists[0].target_questions}).` }, 400);
+  }
 
   const id = randomUUID();
   await queryNeon(
@@ -974,11 +989,15 @@ functionsRouter.post("/admin/panel/weekly-tests/publish", async (c) => {
   const testId = String(body?.testId ?? "").trim();
   const isPublished = Boolean(body?.isPublished);
   if (!testId) return c.json({ message: "testId is required" }, 400);
-  const testExists = await queryNeon<{ id: string }>(
-    `SELECT id::text FROM weekly_tests WHERE id = $1::uuid LIMIT 1`,
+  const testExists = await queryNeon<{ id: string; target_questions: number; questions_count: number }>(
+    `SELECT id::text, COALESCE(target_questions, 10)::int AS target_questions, (SELECT COUNT(*)::int FROM weekly_test_questions q WHERE q.test_id = weekly_tests.id) AS questions_count FROM weekly_tests WHERE id = $1::uuid LIMIT 1`,
     [testId],
   );
   if (!testExists[0]?.id) return c.json({ message: "Selected test not found" }, 404);
+  if (isPublished && Number(testExists[0].questions_count || 0) < Number(testExists[0].target_questions || 10)) {
+    const remaining = Number(testExists[0].target_questions || 10) - Number(testExists[0].questions_count || 0);
+    return c.json({ message: `Add ${remaining} more question(s) before publishing.` }, 400);
+  }
   await queryNeon(`UPDATE weekly_tests SET is_published = $1 WHERE id = $2::uuid`, [isPublished, testId]);
   return c.json({ ok: true });
 });
