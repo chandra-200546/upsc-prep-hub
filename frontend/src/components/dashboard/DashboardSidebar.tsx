@@ -59,7 +59,7 @@ const allFeatures = [
 export function DashboardSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { profile, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [showFeedback, setShowFeedback] = useState(false);
@@ -92,7 +92,7 @@ export function DashboardSidebar() {
       }
     };
     void checkAdminAccess();
-  }, []);
+  }, [user]);
 
   return (
     <>

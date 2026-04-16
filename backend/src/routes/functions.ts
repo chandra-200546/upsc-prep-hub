@@ -92,6 +92,13 @@ const requireWeeklyAdmin = async (c: any) => {
 const isPlatformAdminEmail = async (email: string) => {
   const normalized = String(email || "").trim().toLowerCase();
   if (!normalized) return false;
+  const account = await queryNeon<{ is_admin: number; is_verified: number }>(
+    `SELECT COALESCE(is_admin, 0) AS is_admin, COALESCE(is_verified, 0) AS is_verified FROM user_accounts WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+    [normalized],
+  );
+  if (Number(account[0]?.is_admin || 0) > 0 || Number(account[0]?.is_verified || 0) > 0) {
+    return true;
+  }
   if (config.weeklyTestAdminEmail) {
     return normalized === config.weeklyTestAdminEmail.toLowerCase();
   }
@@ -1235,7 +1242,7 @@ functionsRouter.get("/admin/panel/users", async (c) => {
   const sort: "newest" | "oldest" | "xp_desc" =
     sortRaw === "oldest" || sortRaw === "xp_desc" ? (sortRaw as "oldest" | "xp_desc") : "newest";
 
-  const where: string[] = [];
+  const where: string[] = [`COALESCE(p.moderation_status, 'clean') <> 'hidden'`];
   const params: unknown[] = [];
   let idx = 1;
   if (search) {
@@ -2083,7 +2090,7 @@ functionsRouter.get("/doubts/trending-tags", async (c) => {
       COALESCE(p.views_count, 0)::int AS views_count,
       (SELECT COUNT(*)::int FROM doubt_post_shares sh WHERE sh.post_id = p.id) AS shares_count
     FROM doubt_posts p
-    WHERE p.moderation_status <> 'hidden'
+    WHERE COALESCE(p.moderation_status, 'clean') <> 'hidden'
     ORDER BY p.created_at DESC
     LIMIT 1000
     `,
@@ -3100,7 +3107,7 @@ functionsRouter.get("/notes-feed", async (c) => {
   const limit = Math.max(1, Math.min(50, Number(c.req.query("limit") || 20)));
   const offset = (page - 1) * limit;
 
-  const where: string[] = [`p.moderation_status <> 'hidden'`];
+  const where: string[] = [`COALESCE(p.moderation_status, 'clean') <> 'hidden'`];
   const params: unknown[] = [];
   let idx = 1;
 
@@ -3218,7 +3225,7 @@ functionsRouter.get("/notes-feed/trending-tags", async (c) => {
       COALESCE(p.views_count, 0)::int AS views_count,
       (SELECT COUNT(*)::int FROM notes_feed_shares sh WHERE sh.note_id = p.id) AS shares_count
     FROM notes_feed_posts p
-    WHERE p.moderation_status <> 'hidden'
+    WHERE COALESCE(p.moderation_status, 'clean') <> 'hidden'
     ORDER BY p.created_at DESC
     LIMIT 1000
     `,
@@ -3542,7 +3549,7 @@ functionsRouter.get("/notes-feed/saved/list", async (c) => {
   const sort: "latest" | "trending" | "most_saved" =
     sortRaw === "trending" || sortRaw === "most_saved" ? (sortRaw as "trending" | "most_saved") : "latest";
 
-  const where = [`s.user_id = $1::uuid`, `p.moderation_status <> 'hidden'`];
+  const where = [`s.user_id = $1::uuid`, `COALESCE(p.moderation_status, 'clean') <> 'hidden'`];
   const params: unknown[] = [user.id];
   let idx = 2;
   if (search) {

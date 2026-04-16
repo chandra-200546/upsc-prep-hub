@@ -212,6 +212,8 @@ export const resolveSession = async (token?: string | null) => {
   const row = result[0];
   if (!row) return null;
 
+  // Keep admin and verified flags in sync even for long-lived sessions.
+  await syncConfiguredAdminFlags(row.user_id, row.email);
   await queryNeon(`UPDATE auth_sessions SET expires_at = datetime('now','+3650 days') WHERE token = $1`, [token]);
 
   return {
